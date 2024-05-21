@@ -10,10 +10,10 @@ import {
     Image,
 } from 'react-native';
 import { Button } from 'react-native-paper';
-import {LinearGradient} from 'expo-linear-gradient';
+import { LinearGradient } from 'expo-linear-gradient';
 
 function MealScanScreen(props) {
-    const {navigation} = props;
+    const { navigation } = props;
     const { tag } = props.route.params;
     const { location } = props.route.params;
     const [isLoading, setLoading] = useState(true);
@@ -21,7 +21,7 @@ function MealScanScreen(props) {
     const [isMealValid, setIsMealValid] = useState(false);
     const [refresh, setRefresh] = useState(false);
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [curMealCount, setMealCount] = useState(null);
+    const [curMealCount, setMealCount] = useState(0); // Initialize meal count to zero
     const [supported, setSupported] = React.useState(null);
     const [enabled, setEnabled] = React.useState(null);
     const [currentTag, setCurrentTag] = useState(null);
@@ -34,7 +34,6 @@ function MealScanScreen(props) {
     const [isAddingMeal, setIsAddingMeal] = useState(false);
     const [isRemovingMeal, setIsRemovingMeal] = useState(false);
 
-    
     // Store the result of getCurrMeal in a variable
     const fetchMealDetails = useCallback((tagin, mealType) => {
       setLoading(true); // Set loading state to true
@@ -70,14 +69,14 @@ function MealScanScreen(props) {
         fetchMealDetails(tag, getCurrMeal());
     }, [fetchMealDetails]);
     
-    const Button = ({ onPress, text, colors }) => {
+    const GradientButton = ({ onPress, text, colors }) => {
         return (
-                <TouchableOpacity onPress={onPress} style={styles.buttonContainer}>
+            <TouchableOpacity onPress={onPress} style={styles.buttonContainer}>
                 <LinearGradient colors={colors} style={styles.gradient}>
-                <Text style={styles.buttonText}>{text}</Text>
+                    <Text style={styles.buttonText}>{text}</Text>
                 </LinearGradient>
-                </TouchableOpacity>
-                );
+            </TouchableOpacity>
+        );
     };
     const ButtonSlim = ({ onPress, text, colors }) => {
         return (
@@ -89,23 +88,23 @@ function MealScanScreen(props) {
                 );
     };
     const getCurrMeal = () => {
-        if ((currentDate.getTime() <= new Date(2024, 4, 26, 23, 30)) && (currentDate.getTime() >= new Date(2024, 1, 26, 13, 30))) {
+        if ((currentDate.getTime() <= new Date(2024, 4, 24, 23, 30)) && (currentDate.getTime() >= new Date(2024, 1, 26, 13, 30))) {
             return "friDinner";
-        } else  if ((currentDate.getTime() <= new Date(2023, 4, 27, 11, 30)) && (currentDate.getTime() >= new Date(2023, 4, 27, 6, 30))) {
+        } else  if ((currentDate.getTime() <= new Date(2024, 4, 25, 11, 30)) && (currentDate.getTime() >= new Date(2024, 4, 25, 6, 30))) {
             return "satBreakfast";
-        }else if ((currentDate.getTime() <= new Date(2023, 4, 27, 16, 30)) && (currentDate.getTime() >= new Date(2023, 4, 27, 11, 30))) {
+        }else if ((currentDate.getTime() <= new Date(2024, 4, 25, 16, 30)) && (currentDate.getTime() >= new Date(2024, 4, 25, 11, 30))) {
             return "satLunch";
-        } else if ((currentDate.getTime() <= new Date(2023, 4, 27, 23, 30)) && (currentDate.getTime() >= new Date(2023, 4, 27, 16, 30))) {
+        } else if ((currentDate.getTime() <= new Date(2024, 4, 25, 23, 30)) && (currentDate.getTime() >= new Date(2024, 4, 25, 16, 30))) {
             return "satDinner";
-        } else if ((currentDate.getTime() <= new Date(2023, 4, 28, 11, 30)) && (currentDate.getTime() >= new Date(2023, 4, 28, 6, 30))) {
+        } else if ((currentDate.getTime() <= new Date(2024, 4, 26, 11, 30)) && (currentDate.getTime() >= new Date(2024, 4, 26, 6, 30))) {
             return "sunBreakfast";
-        } else if ((currentDate.getTime() <= new Date(2023, 4, 28, 16, 30)) && (currentDate.getTime() >= new Date(2023, 4, 28, 11, 30))) {
+        } else if ((currentDate.getTime() <= new Date(2024, 4, 26, 16, 30)) && (currentDate.getTime() >= new Date(2024, 4, 26, 11, 30))) {
             return "sunLunch";
-        } else if ((currentDate.getTime() <= new Date(2023, 4, 28, 23, 59)) && (currentDate.getTime() >= new Date(2023, 4, 28, 16, 30))) {
+        } else if ((currentDate.getTime() <= new Date(2024, 4, 26, 23, 59)) && (currentDate.getTime() >= new Date(2024, 4, 26, 16, 30))) {
             return "sunDinner";
-        } else if ((currentDate.getTime() <= new Date(2023, 4, 29, 10, 10)) && (currentDate.getTime() >= new Date(2023, 4, 29, 6, 30))) {
+        } else if ((currentDate.getTime() <= new Date(2024, 4, 27, 10, 10)) && (currentDate.getTime() >= new Date(2024, 4, 27, 6, 30))) {
             return "monBreakfast";
-        } else if ((currentDate.getTime() <= new Date(2023, 4, 29, 14, 30)) && (currentDate.getTime() >= new Date(2023, 4, 29, 10, 10))) {
+        } else if ((currentDate.getTime() <= new Date(2024, 4, 27, 14, 30)) && (currentDate.getTime() >= new Date(2024, 4, 27, 6, 10))) {
             return "monLunch"
         } else {
             alert("Time is not good")
@@ -146,17 +145,18 @@ function MealScanScreen(props) {
             setIsMealValid(false);
             setLastReadZero(false);
         }
-    }
+    }     
     const refreshMealCountDisplay = (updateJson) => {
         var mealC;
             mealC = JSON.stringify(updateJson.count);
             setMealCount(updateJson.count);
-    }
+    } 
+
 
     const getLocation = () => {
         const locationValue = Array.isArray(location) ? location : [location];
         const formattedLocation = locationValue.map((value) => {
-            if (value >= 1 && value < 4) {
+            if (value >= 1 && value < 7) {
                 return `custom lane ${value}`;
             } else {
                 return 'fast lane';
@@ -199,7 +199,8 @@ function MealScanScreen(props) {
             .finally(() => {
                 setIsAddingMeal(false); // Enable the button again
                 setRefreshing(true); // Trigger screen refresh
-            });        }
+            });        
+        }
     };
     const removeMemberActivity = (meal) => {
         const formattedLocation = getLocation();
@@ -251,9 +252,10 @@ function MealScanScreen(props) {
             return (
                     <View>
                     <View tyle={styles.section}>
-                    <Button
-                      text={currentMeal + " " +curMealCount}
-                      colors={isMealValid ? ['#4CAF50', '#8BC34A'] : ['#A42536', '#FF0000']}
+                    <GradientButton
+                        onPress={() => {}}
+                        text={`${currentMeal} ${curMealCount}`} // Display current meal and meal count
+                        colors={isMealValid ? ['#4CAF50', '#8BC34A'] : ['#A42536', '#FF0000']}
                     />
                     </View>
                     <LinearGradient colors={['#2193b0', '#6dd5ed']} style ={styles.gradientContainer}>
@@ -267,7 +269,7 @@ function MealScanScreen(props) {
                                 <View style = {styles.section}>
                                 <Text style = {styles.sectionLabel}>SP DISCIPLE?</Text>
                                 <Text style = {styles.sectionText}>{item.isSPDisciple}</Text>
-                               {item.isSPDisciple === 'N' && (
+                               {item.isSPDisciple === 'Y' && (
                               <View style={styles.circleContainer}>
                                 <Image source={{ uri: 'https://storage.googleapis.com/sadhu-sanga/1/2023/05/Add_a_little_bit_of_body_text__5_-removebg-preview.png' }} style={styles.circleImage} />
                               </View>
@@ -278,6 +280,11 @@ function MealScanScreen(props) {
                                 <View style = {styles.section}>
                                 <Text style = {styles.sectionLabel}>REGISTRATION TYPE</Text>
                                 <Text style = {styles.sectionText}>{item.registrationType}</Text>
+                                {item.registrationType.includes('daypass') && (
+      <View style={styles.circleContainer}>
+        <Image source={{ uri: 'https://shipcityfitness.com/wp-content/uploads/2021/01/Day-pass.png' }} style={styles.circleImage} />
+      </View>
+    )}
                                 </View>
                     </View>
                     <View style= {styles.row}>

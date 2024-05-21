@@ -1,20 +1,22 @@
 import React from 'react';
 import { View, TouchableOpacity, Text, Image, StyleSheet, Linking, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import {Picker} from '@react-native-community/picker';
+
 
 const HomeScreen = () => {
   const navigation = useNavigation();
 
   const navigateToBarcodeScannerForTag = () => {
-    navigation.navigate('BarcodeScanner', { screen: 'RegisterTag' });
+    navigation.navigate('BarcodeScanner', {location : selectedLane, screen: 'RegisterTag' });
   };
 
   const navigateToBarcodeScannerForMeal = () => {
-    navigation.navigate('BarcodeScanner', { screen: 'MealScan' });
+    navigation.navigate('BarcodeScanner', {location : selectedLane, screen: 'MealScan' });
   };
     
   const navigateToActivityStats = () => {
-      navigation.navigate('ActivityStats', { screen: 'ActivityStats' });
+      navigation.navigate('ActivityStats', {location : selectedLane, screen: 'ActivityStats' });
     };
 
   const handleLogoPress = () => {
@@ -23,19 +25,41 @@ const HomeScreen = () => {
     Linking.openURL(logoUrl);
   };
 
+  const [selectedLane, setSelectedLane] = React.useState(null);
+  const isCheckMealDisabled = selectedLane === null;
+
+  const handleLaneSelect = (lane) => {
+    setSelectedLane(lane);
+  };
+
+
   return (
+    
     <View style={styles.container}>
+            <Picker
+              selectedValue={selectedLane}
+              onValueChange={handleLaneSelect}
+              style={{margin: 100, height: 50, width: '80%' }}>
+              <Picker.Item label="Select Lane" value={null} />
+              <Picker.Item label="Custom Lane 1" value="1" />
+              <Picker.Item label="Custom Lane 2" value="2" />
+              <Picker.Item label="Custom Lane 3" value="3" />
+              <Picker.Item label="Custom Lane 4" value="4" />
+              <Picker.Item label="Custom Lane 5" value="5" />
+              <Picker.Item label="Custom Lane 6" value="6" />
+              <Picker.Item label="Fast Lane" value="7" />
+      </Picker>
       <TouchableOpacity onPress={handleLogoPress} style={styles.logoContainer}>
         <Image source={{ uri: 'https://storage.googleapis.com/sadhu-sanga/1/2024/01/WhatsApp-Image-2024-01-04-at-11.58.13-AM.jpeg' }} style={styles.logo} />
       </TouchableOpacity>
       <TouchableOpacity style={styles.button} onPress={navigateToBarcodeScannerForTag}>
         <Text style={styles.buttonText}>Register Tag</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.button} onPress={navigateToBarcodeScannerForMeal}>
+      <TouchableOpacity style={styles.button} onPress={navigateToBarcodeScannerForMeal} disabled={isCheckMealDisabled}>
         <Text style={styles.buttonText}>Meal Scan</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.button} onPress={navigateToActivityStats}>
-      <Text style={styles.buttonText}>ActivtyStats</Text>
+        <Text style={styles.buttonText}>Activity Stats</Text>
       </TouchableOpacity>
     </View>
   );

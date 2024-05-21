@@ -19,12 +19,12 @@ function RegisterTagScreen({ route }) {
       .then((json) => {
         setMemberActivityDetails(json.memberActivityDetails);
         setError(false);
-        Alert.alert(
+        /*Alert.alert(
           'Success',
           JSON.stringify(json),
           [{ text: 'OK', onPress: () => console.log('OK Pressed') }],
           { cancelable: false }
-        );
+        );*/
       })
       .catch((error) => {
         if (error.response && error.response.status === 404) {
@@ -74,7 +74,7 @@ function RegisterTagScreen({ route }) {
       "tagId": tag.id,
       "memberId": inputValue
     };
-    if (inputValue !== 0 && inputValue.length !== 5) {
+    if (inputValue !== '0' && inputValue.length !== 4 && inputValue.length !== 5) {
       alert('Member ID is possibly incorrect');
       return;
     }
@@ -89,12 +89,18 @@ function RegisterTagScreen({ route }) {
       .then(response => response.json())
       .then(tagdata => {
         console.log(tagdata);
-        alert(JSON.stringify(tagdata));
+        //alert(JSON.stringify(tagdata));
         // Fetch the updated meal details
-        fetchMealDetails(tag);
+        if (tagdata.errorMessage) {
+          alert(tagdata.errorMessage); // Alert the error message if it exists
+        } else {
+          // If no error message, fetch the updated meal details
+          fetchMealDetails(tag);
+        }      
       })
       .catch(error => {
         console.error(error);
+        alert(error);
         setErrorMessage('Error registering tag. Please try again.'); // Set the error message state
       })
       .finally(() => setLoading(false));
