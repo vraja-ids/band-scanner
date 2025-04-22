@@ -39,7 +39,7 @@ function MealScanScreen(props) {
       setLoading(true); // Set loading state to true
       const currentMeal = getCurrMeal();
       //alert(tagin.id);
-      fetch('https://test-dot-network-dot-sadhu-sanga.appspot.com/getMemberActivity?tagId=' + tagin.id + '&activity=' + currentMeal)
+      fetch('https://network.sadhusangaretreat.com/getMemberActivity?tagId=' + tagin.id + '&activity=' + currentMeal)
         .then((response) => response.json())
         .then((json) => {
           setData(json);
@@ -102,7 +102,7 @@ function MealScanScreen(props) {
             return "sunLunch";
         } else if ((currentDate.getTime() <= new Date(2024, 4, 26, 23, 59)) && (currentDate.getTime() >= new Date(2024, 4, 26, 16, 30))) {
             return "sunDinner";
-        } else if ((currentDate.getTime() <= new Date(2024, 4, 27, 10, 10)) && (currentDate.getTime() >= new Date(2024, 4, 27, 6, 30))) {
+        } else if ((currentDate.getTime() <= new Date(2024, 4, 27, 9, 10)) && (currentDate.getTime() >= new Date(2024, 4, 27, 6, 30))) {
             return "monBreakfast";
         } else if ((currentDate.getTime() <= new Date(2024, 4, 27, 14, 30)) && (currentDate.getTime() >= new Date(2024, 4, 27, 6, 10))) {
             return "monLunch"
@@ -156,9 +156,13 @@ function MealScanScreen(props) {
     const getLocation = () => {
         const locationValue = Array.isArray(location) ? location : [location];
         const formattedLocation = locationValue.map((value) => {
-            if (value >= 1 && value < 7) {
+            if (value >= 1 && value < 9) {
                 return `custom lane ${value}`;
-            } else {
+            } else if (value == 9) {
+                return `Vegan lane`;
+            } else if (value == 10) {
+                return `VIP lane`;
+            }else {
                 return 'fast lane';
             }
         }).join(', ');
@@ -179,7 +183,7 @@ function MealScanScreen(props) {
                 "activity" : meal,
             }
             setRefresh(false);
-            fetch('https://test-dot-network-dot-sadhu-sanga.appspot.com/updateMemberActivity', {
+            fetch('https://network.sadhusangaretreat.com/updateMemberActivity', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -213,7 +217,7 @@ function MealScanScreen(props) {
                 "remove" : true
             }
             setRefresh(false);
-            fetch('https://test-dot-network-dot-sadhu-sanga.appspot.com/updateMemberActivity', {
+            fetch('https://network.sadhusangaretreat.com/updateMemberActivity', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

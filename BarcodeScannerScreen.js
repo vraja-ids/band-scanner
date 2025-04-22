@@ -60,6 +60,7 @@ export default function BarcodeScannerScreen() {
           style={styles.camera}
           type={Camera.Constants.Type.back}
           autoFocus={Camera.Constants.AutoFocus.on}
+          useCamera2Api
           onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
         />
       </View>

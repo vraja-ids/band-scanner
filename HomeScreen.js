@@ -47,7 +47,11 @@ const HomeScreen = () => {
               <Picker.Item label="Custom Lane 4" value="4" />
               <Picker.Item label="Custom Lane 5" value="5" />
               <Picker.Item label="Custom Lane 6" value="6" />
-              <Picker.Item label="Fast Lane" value="7" />
+              <Picker.Item label="Custom Lane 7" value="7" />
+              <Picker.Item label="Custom Lane 8" value="8" />
+              <Picker.Item label="Vegan Lane" value="9" />
+              <Picker.Item label="VIP Lane" value="10" />
+              <Picker.Item label="Fast Lane" value="11" />
       </Picker>
       <TouchableOpacity onPress={handleLogoPress} style={styles.logoContainer}>
         <Image source={{ uri: 'https://storage.googleapis.com/sadhu-sanga/1/2024/01/WhatsApp-Image-2024-01-04-at-11.58.13-AM.jpeg' }} style={styles.logo} />

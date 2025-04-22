@@ -14,7 +14,7 @@ function RegisterTagScreen({ route }) {
 
   const fetchMealDetails = (tag) => {
     setLoading(true);
-    fetch('https://test-dot-network-dot-sadhu-sanga.appspot.com/getMemberActivity?tagId=' + tag.id + '&activity=regCheck')
+    fetch('https://network.sadhusangaretreat.com/getMemberActivity?tagId=' + tag.id + '&activity=regCheck')
       .then((response) => response.json())
       .then((json) => {
         setMemberActivityDetails(json.memberActivityDetails);
@@ -79,7 +79,7 @@ function RegisterTagScreen({ route }) {
       return;
     }
     setLoading(true);
-    fetch('https://test-dot-network-dot-sadhu-sanga.appspot.com/registerTag', {
+    fetch('https://network.sadhusangaretreat.com/registerTag', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json'

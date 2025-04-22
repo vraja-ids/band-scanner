@@ -47,7 +47,7 @@ const ActivityStatsScreen = () => {
 
   const fetchData = async () => {
     try {
-      const url = `https://test-dot-network-dot-sadhu-sanga.appspot.com/getActivityStats?adminId=1234&activity=${selectedActivity}`;
+      const url = `https://network.sadhusangaretreat.com/getActivityStats?adminId=1234&activity=${selectedActivity}`;
       const response = await fetch(url);
       const data = await response.json();
       setActivityStats(data.activities);
