@@ -2,38 +2,47 @@
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "eject": "expo eject"
   },
   "dependencies": {
-    "@react-native-async-storage/async-storage": "^1.23.1",
+    "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/picker": "^1.8.1",
-    "@react-native-picker/picker": "^2.7.5",
+    "@react-native-picker/picker": "2.9.0",
     "@react-navigation/native": "^6.1.17",
     "@react-navigation/stack": "^6.3.29",
-    "expo": "^51.0.0",
-    "expo-barcode-scanner": "~13.0.1",
-    "expo-camera": "~15.0.9",
-    "expo-dev-client": "~4.0.14",
-    "expo-linear-gradient": "~13.0.2",
-    "expo-status-bar": "~1.12.1",
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
-    "react-native": "0.74.1",
+    "expo": "^52.0.46",
+    "expo-camera": "~16.0.18",
+    "expo-dev-client": "~5.0.20",
+    "expo-linear-gradient": "~14.0.2",
+    "expo-status-bar": "~2.0.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-native": "0.76.9",
     "react-native-async-storage": "^0.0.1",
-    "react-native-gesture-handler": "~2.16.1",
+    "react-native-gesture-handler": "~2.20.2",
     "react-native-linear-gradient": "^2.8.3",
     "react-native-paper": "^5.12.3",
-    "react-native-safe-area-context": "4.10.1",
+    "react-native-permissions": "^5.4.0",
+    "react-native-qrcode-scanner": "^1.5.5",
+    "react-native-safe-area-context": "4.12.0",
     "react-native-safe-area-view": "^1.1.1",
-    "react-native-vision-camera": "^4.0.5",
     "react-native-web": "~0.19.10",
     "react-navigation-stack": "^2.10.4"
   },
+  "reactNativePermissionsIOS": [
+    "Camera",
+    "Contacts",
+    "LocationWhenInUse",
+    "BluetoothPeripheral"
+  ],
   "devDependencies": {
-    "@babel/core": "^7.24.0"
+    "@babel/core": "^7.24.0",
+    "@react-native-community/cli": "^18.0.0"
   },
-  "private": true
+  "private": true,
+  "name": "BarCodeApp-Main",
+  "version": "1.0.0"
 }

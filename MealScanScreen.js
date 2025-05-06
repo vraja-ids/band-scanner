@@ -88,23 +88,23 @@ function MealScanScreen(props) {
                 );
     };
     const getCurrMeal = () => {
-        if ((currentDate.getTime() <= new Date(2024, 4, 24, 23, 30)) && (currentDate.getTime() >= new Date(2024, 1, 26, 13, 30))) {
+        if ((currentDate.getTime() <= new Date(2025, 4, 23, 23, 30)) && (currentDate.getTime() >= new Date(2025, 4, 2, 13, 30))) {
             return "friDinner";
-        } else  if ((currentDate.getTime() <= new Date(2024, 4, 25, 11, 30)) && (currentDate.getTime() >= new Date(2024, 4, 25, 6, 30))) {
+        } else  if ((currentDate.getTime() <= new Date(2025, 4, 24, 11, 30)) && (currentDate.getTime() >= new Date(2025, 4, 24, 6, 30))) {
             return "satBreakfast";
-        }else if ((currentDate.getTime() <= new Date(2024, 4, 25, 16, 30)) && (currentDate.getTime() >= new Date(2024, 4, 25, 11, 30))) {
+        }else if ((currentDate.getTime() <= new Date(2025, 4, 24, 16, 30)) && (currentDate.getTime() >= new Date(2025, 4, 24, 11, 30))) {
             return "satLunch";
-        } else if ((currentDate.getTime() <= new Date(2024, 4, 25, 23, 30)) && (currentDate.getTime() >= new Date(2024, 4, 25, 16, 30))) {
+        } else if ((currentDate.getTime() <= new Date(2025, 4, 24, 23, 30)) && (currentDate.getTime() >= new Date(2025, 4, 24, 16, 30))) {
             return "satDinner";
-        } else if ((currentDate.getTime() <= new Date(2024, 4, 26, 11, 30)) && (currentDate.getTime() >= new Date(2024, 4, 26, 6, 30))) {
+        } else if ((currentDate.getTime() <= new Date(2025, 4, 25, 11, 30)) && (currentDate.getTime() >= new Date(2025, 4, 25, 6, 30))) {
             return "sunBreakfast";
-        } else if ((currentDate.getTime() <= new Date(2024, 4, 26, 16, 30)) && (currentDate.getTime() >= new Date(2024, 4, 26, 11, 30))) {
+        } else if ((currentDate.getTime() <= new Date(2025, 4, 25, 16, 30)) && (currentDate.getTime() >= new Date(2025, 4, 25, 11, 30))) {
             return "sunLunch";
-        } else if ((currentDate.getTime() <= new Date(2024, 4, 26, 23, 59)) && (currentDate.getTime() >= new Date(2024, 4, 26, 16, 30))) {
+        } else if ((currentDate.getTime() <= new Date(2025, 4, 25, 23, 59)) && (currentDate.getTime() >= new Date(2025, 4, 25, 16, 30))) {
             return "sunDinner";
-        } else if ((currentDate.getTime() <= new Date(2024, 4, 27, 9, 10)) && (currentDate.getTime() >= new Date(2024, 4, 27, 6, 30))) {
+        } else if ((currentDate.getTime() <= new Date(2025, 4, 26, 9, 10)) && (currentDate.getTime() >= new Date(2025, 4, 26, 6, 30))) {
             return "monBreakfast";
-        } else if ((currentDate.getTime() <= new Date(2024, 4, 27, 14, 30)) && (currentDate.getTime() >= new Date(2024, 4, 27, 6, 10))) {
+        } else if ((currentDate.getTime() <= new Date(2025, 4, 26, 14, 30)) && (currentDate.getTime() >= new Date(2025, 4, 26, 6, 10))) {
             return "monLunch"
         } else {
             alert("Time is not good")
