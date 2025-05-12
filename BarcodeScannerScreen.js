@@ -99,6 +99,11 @@ export default function BarcodeScannerScreen({ navigation, route }) {
           }}
           onBarcodeScanned={isScanningEnabled ? handleBarCodeScanned : undefined}
         />
+        {route?.params?.message && (
+          <View style={styles.messageContainer}>
+            <Text style={styles.messageText}>{route.params.message}</Text>
+          </View>
+        )}
       </View>
       
       <View style={styles.buttonsRow}>
@@ -140,11 +145,26 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '70%',
     overflow: 'hidden',
+    position: 'relative',
   },
   camera: {
     flex: 1,
     width: '100%',
     height: '100%',
+  },
+  messageContainer: {
+    position: 'absolute',
+    top: 20,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    padding: 10,
+    alignItems: 'center',
+  },
+  messageText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   buttonsRow: {
     flexDirection: 'row',

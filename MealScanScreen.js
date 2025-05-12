@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
+import { api } from './services/api';
 
 function MealScanScreen(props) {
     const { navigation } = props;
@@ -38,30 +39,27 @@ function MealScanScreen(props) {
     const fetchMealDetails = useCallback((tagin, mealType) => {
       setLoading(true); // Set loading state to true
       const currentMeal = getCurrMeal();
-      //alert(tagin.id);
-      fetch('https://network.sadhusangaretreat.com/getMemberActivity?tagId=' + tagin.id + '&activity=' + currentMeal)
-        .then((response) => response.json())
+      api.get('getMemberActivity', {
+        tagId: tagin.id,
+        activity: currentMeal
+      })
         .then((json) => {
           setData(json);
           console.log(data);
-          setError(false); // Set the error state to true
-          //alert(JSON.stringify(json));
-          UpdateCurrMeal(currentMeal, json); // Pass the latest data to the function
+          setError(false);
+          UpdateCurrMeal(currentMeal, json);
         })
         .catch((error) => {
           if (error.response && error.response.status === 404) {
-            // Handle the error when memberActivityDetails is undefined
             alert('No member tracking details found for this tag');
           } else {
             console.error(error);
-            //alert('Error fetching meal details');
-            setError(true); // Set the error state to true
+            setError(true);
           }
-          // handle the error, e.g. set an error state
         })
         .finally(() => {
           setLoading(false);
-          setRefreshing(true); // Update the refreshing state to trigger re-render
+          setRefreshing(true);
         });
     }, [setData, getCurrMeal, UpdateCurrMeal]);
     
@@ -170,76 +168,58 @@ function MealScanScreen(props) {
     }
 
     const addMemberActivity = (meal, data) => {
-        //alert(curMealCount);
-        //alert(data.memberActivityDetails.tagId);
-        if (data && data.memberActivityDetails) { // Add a conditional check for data and data.memberActivityDetails
-            //alert(data.memberActivityDetails.tagId);
-            
+        if (data && data.memberActivityDetails) {
             const formattedLocation = getLocation();
             const mealdata = {
                 "tagId": data.memberActivityDetails.tagId,
-                "apiVersion"  : "2.9",
-                "location" : formattedLocation,
-                "activity" : meal,
+                "apiVersion": "2.9",
+                "location": formattedLocation,
+                "activity": meal,
             }
             setRefresh(false);
-            fetch('https://network.sadhusangaretreat.com/updateMemberActivity', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(mealdata)
-            })
-            .then(response => response.json())
-            .then(mealdata => {
-                console.log(mealdata);
-                refreshMealCountDisplay(mealdata);
-                setRefreshing(true); // Trigger screen refresh
-            })
-            .catch(error => {
-                console.error(error);
-                alert('ERROR', 'fail to read tag', [{text: 'OK'}]);
-            })
-            .finally(() => {
-                setIsAddingMeal(false); // Enable the button again
-                setRefreshing(true); // Trigger screen refresh
-            });        
+            api.post('updateMemberActivity', mealdata)
+                .then(mealdata => {
+                    console.log(mealdata);
+                    refreshMealCountDisplay(mealdata);
+                    setRefreshing(true);
+                })
+                .catch(error => {
+                    console.error(error);
+                    alert('ERROR', 'fail to read tag', [{text: 'OK'}]);
+                })
+                .finally(() => {
+                    setIsAddingMeal(false);
+                    setRefreshing(true);
+                });
         }
     };
     const removeMemberActivity = (meal) => {
         const formattedLocation = getLocation();
-        if (data && data.memberActivityDetails) { // Add a conditional check for data and data.memberActivityDetails
+        if (data && data.memberActivityDetails) {
             const mealdata = {
                 "tagId": data.memberActivityDetails.tagId,
-                "apiVersion"  : "2.9",
-                "location" : formattedLocation,
-                "activity" : meal,
-                "remove" : true
+                "apiVersion": "2.9",
+                "location": formattedLocation,
+                "activity": meal,
+                "remove": true
             }
             setRefresh(false);
-            fetch('https://network.sadhusangaretreat.com/updateMemberActivity', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(mealdata)
-            })
-            .then(response => response.json())
-            .then(mealdata => {
-                console.log(mealdata);
-                refreshMealCountDisplay(mealdata);
-                //alert(JSON.stringify(mealdata));
-                setRefreshing(true)
-            })
-            .catch(error => {
-                console.error(error);
-                alert('ERROR', 'fail to read tag', [{text: 'OK'}]);
-            })
-            .finally(() => {
-                setIsRemovingMeal(false); // Enable the button again
-                setRefreshing(true); // Trigger screen refresh
-            });        }
-        };
+            api.post('updateMemberActivity', mealdata)
+                .then(mealdata => {
+                    console.log(mealdata);
+                    refreshMealCountDisplay(mealdata);
+                    setRefreshing(true)
+                })
+                .catch(error => {
+                    console.error(error);
+                    alert('ERROR', 'fail to read tag', [{text: 'OK'}]);
+                })
+                .finally(() => {
+                    setIsRemovingMeal(false);
+                    setRefreshing(true);
+                });
+        }
+    };
 
 
     if (myError) {

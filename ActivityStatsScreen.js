@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import {Picker} from '@react-native-community/picker';
+import { api } from './services/api';
 
 const styles = StyleSheet.create({
   container: {
@@ -36,20 +37,21 @@ const ActivityStatsScreen = () => {
   const [activityStats, setActivityStats] = useState([]);
   const [selectedActivity, setSelectedActivity] = useState('friDinner');
 
-    useEffect(() => {
-      fetchData();
-      const interval = setInterval(fetchData, 10000); // Fetch data every 10 seconds
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 10000); // Fetch data every 10 seconds
 
-      return () => {
-        clearInterval(interval); // Clear the interval when the component unmounts
-      };
-    }, [selectedActivity]);
+    return () => {
+      clearInterval(interval); // Clear the interval when the component unmounts
+    };
+  }, [selectedActivity]);
 
   const fetchData = async () => {
     try {
-      const url = `https://network.sadhusangaretreat.com/getActivityStats?adminId=1234&activity=${selectedActivity}`;
-      const response = await fetch(url);
-      const data = await response.json();
+      const data = await api.get('getActivityStats', {
+        adminId: '1234',
+        activity: selectedActivity
+      });
       setActivityStats(data.activities);
     } catch (error) {
       console.error('Error fetching data:', error);

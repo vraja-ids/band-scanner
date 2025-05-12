@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, StatusBar, TextInput, TouchableOpacity, Text, ScrollView, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { api } from './services/api';
 
 function RegisterTagScreen({ route }) {
   const { tag } = route.params;
@@ -14,17 +15,13 @@ function RegisterTagScreen({ route }) {
 
   const fetchMealDetails = (tag) => {
     setLoading(true);
-    fetch('https://network.sadhusangaretreat.com/getMemberActivity?tagId=' + tag.id + '&activity=regCheck')
-      .then((response) => response.json())
+    api.get('getMemberActivity', {
+      tagId: tag.id,
+      activity: 'regCheck'
+    })
       .then((json) => {
         setMemberActivityDetails(json.memberActivityDetails);
         setError(false);
-        /*Alert.alert(
-          'Success',
-          JSON.stringify(json),
-          [{ text: 'OK', onPress: () => console.log('OK Pressed') }],
-          { cancelable: false }
-        );*/
       })
       .catch((error) => {
         if (error.response && error.response.status === 404) {
@@ -66,7 +63,6 @@ function RegisterTagScreen({ route }) {
 
   const handleSubmit = () => {
     if (isLoading) {
-      // If the button is already disabled and loading is in progress, return
       return;
     }
     const tagdata = {
@@ -79,29 +75,19 @@ function RegisterTagScreen({ route }) {
       return;
     }
     setLoading(true);
-    fetch('https://network.sadhusangaretreat.com/registerTag', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(tagdata)
-    })
-      .then(response => response.json())
+    api.put('registerTag', tagdata)
       .then(tagdata => {
         console.log(tagdata);
-        //alert(JSON.stringify(tagdata));
-        // Fetch the updated meal details
         if (tagdata.errorMessage) {
-          alert(tagdata.errorMessage); // Alert the error message if it exists
+          alert(tagdata.errorMessage);
         } else {
-          // If no error message, fetch the updated meal details
           fetchMealDetails(tag);
-        }      
+        }
       })
       .catch(error => {
         console.error(error);
         alert(error);
-        setErrorMessage('Error registering tag. Please try again.'); // Set the error message state
+        setErrorMessage('Error registering tag. Please try again.');
       })
       .finally(() => setLoading(false));
   };
