@@ -5,10 +5,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from './services/api';
 import ServiceTypes from './models/ServiceTypes';
 import { FontAwesome6, Ionicons } from '@expo/vector-icons';
+import MemberDetails from './models/MemberDetails';
 
 const GiftApprovalScreen = ({ route }) => {
-  const { tagId, memberDetails} = route.params;
+  const { tag } = route.params;
+  const tagId = tag.id;
   const [isLoading, setIsLoading] = useState(false);
+  const [isButtonLoading, setIsButtonLoading] = useState(false);
   const [permissions, setPermissions] = useState({
     canScanOthersQr: false,
     canApproveTshirt: false,
@@ -17,13 +20,38 @@ const GiftApprovalScreen = ({ route }) => {
     canFulfillJacket: false
   });
   const [scannerMemberId, setScannerMemberId] = useState(null);
-  const navigation = useNavigation();
+  const [memberDetails, setMemberDetails] = useState(null);
   const [isGiftDetailsExpanded, setIsGiftDetailsExpanded] = useState(false);
+  const navigation = useNavigation();
 
   useEffect(() => {
     loadPermissions();
     loadScannerMemberId();
+    fetchMemberDetails(tagId);
   }, []);
+
+  const fetchMemberDetails = async (tagId, withRefresh = false) => {
+    if (!withRefresh) {
+      setIsLoading(true);
+    }
+    try {
+      const scannerMemberId = await AsyncStorage.getItem('memberId');
+      const memberDetails = await api.get('getMemberActivity', {
+        tagId: tagId,
+        category: 'gifttracking',
+        scannerMemberId: scannerMemberId
+      });
+      setMemberDetails(new MemberDetails(memberDetails.memberActivityDetails));
+      console.log(memberDetails);
+    } catch (error) {
+      console.error('Error fetching member details:', error);
+      navigation.navigate('Home');
+      Alert.alert('Error', 'Failed to fetch member details');
+    } finally {
+      setIsLoading(false);
+      setIsButtonLoading(false);
+    }
+  };
 
   const loadScannerMemberId = async () => {
     try {
@@ -41,7 +69,7 @@ const GiftApprovalScreen = ({ route }) => {
       const canApproveJacket = JSON.parse(await AsyncStorage.getItem('canApproveGiftJacket'));
       const canFulfillTshirt = JSON.parse(await AsyncStorage.getItem('canFulfillGiftTshirt'));
       const canFulfillJacket = JSON.parse(await AsyncStorage.getItem('canFulfillGiftJacket'));
-      
+
       setPermissions({
         canScanOthersQr,
         canApproveTshirt,
@@ -58,13 +86,13 @@ const GiftApprovalScreen = ({ route }) => {
     console.log(memberDetails);
     const isApproval = action === 'approve' || action === 'disapprove';
     const isFulfillment = action === 'fulfill' || action === 'unfulfill';
-    
+
     // Check if trying to fulfill without approval
     if (isFulfillment && !memberDetails?.giftStatus.includes(`${giftType}Approved`)) {
       Alert.alert('Error', `${giftType} must be approved before fulfillment`);
       return;
     }
-    
+
     // Check if trying to disapprove when fulfilled
     if (action === 'disapprove' && memberDetails?.giftStatus.includes(`${giftType}Fulfilled`)) {
       Alert.alert('Error', 'Cannot disapprove a fulfilled gift');
@@ -80,8 +108,9 @@ const GiftApprovalScreen = ({ route }) => {
           text: 'Confirm',
           onPress: async () => {
             try {
+              setIsButtonLoading(true);
               const activityData = {
-                apiVersion: "3.10",
+                apiVersion: "2.0",
                 memberId: memberDetails?.memberId,
                 tagId: tagId,
                 category: "gifttracking",
@@ -93,11 +122,11 @@ const GiftApprovalScreen = ({ route }) => {
               };
 
               const response = await api.post('updateMemberActivity', activityData);
-              
-              if (response?.isSuccess) {
-                fetchMemberDetails(); // Refresh the data
+
+              if (response?.success) {
+                fetchMemberDetails(tagId, true); // Refresh the data
               } else {
-                Alert.alert('Error', 'Failed to update gift status');
+                Alert.alert('Error', 'Failed to fetch gift status');
               }
             } catch (error) {
               console.error('Error updating gift status:', error);
@@ -145,97 +174,113 @@ const GiftApprovalScreen = ({ route }) => {
 
   return (
     <ScrollView style={styles.scrollContainer}>
-    <View style={styles.container}>
-      {memberDetails && (
-        <Text style={styles.memberName}>For: {memberDetails.getDisplayName()}</Text>
-      )}
-      <Text style={styles.title}>Gift Status</Text>
-      
-      <View style={styles.giftContainer}>
-        <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 10}}>
-          <Text style={styles.giftTitle}>T-Shirt</Text>
-          <Ionicons name="shirt-outline" size={22} color="brown" style={{marginLeft: 8}} />
-        </View>
-        <Text style={styles.status}>Status: {getGiftStatus('tshirt')}</Text>
-        {permissions.canApproveTshirt && (
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => handleGiftAction(
-              getGiftStatus('tshirt') === 'Approved' ? 'disapprove' : 'approve',
-              'tshirt'
-            )}
-          >
-            <Text style={styles.buttonText}>
-              {getGiftStatus('tshirt') === 'Approved' ? 'Disapprove T-Shirt' : 'Approve T-Shirt'}
-            </Text>
-          </TouchableOpacity>
+      <View style={styles.container}>
+        {memberDetails && (
+          <Text style={styles.memberName}>For: {memberDetails.getDisplayName()}</Text>
         )}
-        {permissions.canFulfillTshirt && (
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => handleGiftAction(
-              getGiftStatus('tshirt') === 'Fulfilled' ? 'unfulfill' : 'fulfill',
-              'tshirt'
-            )}
-          >
-            <Text style={styles.buttonText}>
-              {getGiftStatus('tshirt') === 'Fulfilled' ? 'Un-fulfill T-Shirt' : 'Fulfill T-Shirt'}
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
+        <Text style={styles.title}>Gift Status</Text>
 
-      <View style={styles.giftContainer}>
-        <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 10}}>
-          <Text style={styles.giftTitle}>Jacket</Text>
-          <FontAwesome6 name="mandalorian" size={22} color="brown" style={{marginLeft: 8}} />
+        <View style={styles.giftContainer}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+            <Text style={styles.giftTitle}>T-Shirt</Text>
+            <Ionicons name="shirt-outline" size={22} color="brown" style={{ marginLeft: 8 }} />
+          </View>
+          <Text style={styles.status}>Status: {getGiftStatus('tshirt')}</Text>
+          {permissions.canApproveTshirt && (
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => handleGiftAction(
+                getGiftStatus('tshirt') === 'Approved' ? 'disapprove' : 'approve',
+                'tshirt'
+              )}
+            >
+              {isButtonLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>
+                  {getGiftStatus('tshirt') === 'Approved' ? 'Disapprove T-Shirt' : 'Approve T-Shirt'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
+          {permissions.canFulfillTshirt && (
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => handleGiftAction(
+                getGiftStatus('tshirt') === 'Fulfilled' ? 'unfulfill' : 'fulfill',
+                'tshirt'
+              )}
+            >
+              {isButtonLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>
+                  {getGiftStatus('tshirt') === 'Fulfilled' ? 'Un-fulfill T-Shirt' : 'Fulfill T-Shirt'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
-        <Text style={styles.status}>Status: {getGiftStatus('jacket')}</Text>
-        {permissions.canApproveJacket && (
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => handleGiftAction(
-              getGiftStatus('jacket') === 'Approved' ? 'disapprove' : 'approve',
-              'jacket'
-            )}
-          >
-            <Text style={styles.buttonText}>
-              {getGiftStatus('jacket') === 'Approved' ? 'Disapprove Jacket' : 'Approve Jacket'}
-            </Text>
-          </TouchableOpacity>
-        )}
-        {permissions.canFulfillJacket && (
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => handleGiftAction(
-              getGiftStatus('jacket') === 'Fulfilled' ? 'unfulfill' : 'fulfill',
-              'jacket'
-            )}
-          >
-            <Text style={styles.buttonText}>
-              {getGiftStatus('jacket') === 'Fulfilled' ? 'Un-fulfill Jacket' : 'Fulfill Jacket'}
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
-      <TouchableOpacity 
+
+        <View style={styles.giftContainer}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+            <Text style={styles.giftTitle}>Jacket</Text>
+            <FontAwesome6 name="mandalorian" size={22} color="brown" style={{ marginLeft: 8 }} />
+          </View>
+          <Text style={styles.status}>Status: {getGiftStatus('jacket')}</Text>
+          {permissions.canApproveJacket && (
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => handleGiftAction(
+                getGiftStatus('jacket') === 'Approved' ? 'disapprove' : 'approve',
+                'jacket'
+              )}
+            >
+              {isButtonLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>
+                  {getGiftStatus('jacket') === 'Approved' ? 'Disapprove Jacket' : 'Approve Jacket'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
+          {permissions.canFulfillJacket && (
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => handleGiftAction(
+                getGiftStatus('jacket') === 'Fulfilled' ? 'unfulfill' : 'fulfill',
+                'jacket'
+              )}
+            >
+              {isButtonLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>
+                  {getGiftStatus('jacket') === 'Fulfilled' ? 'Un-fulfill Jacket' : 'Fulfill Jacket'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+        <TouchableOpacity
           style={styles.giftDetailsHeader}
           onPress={() => setIsGiftDetailsExpanded(!isGiftDetailsExpanded)}
         >
           <Text style={styles.giftDetailsTitle}>Gift Details</Text>
-          <Ionicons 
-            name={isGiftDetailsExpanded ? "chevron-up" : "chevron-down"} 
-            size={24} 
-            color="#5dbea3" 
+          <Ionicons
+            name={isGiftDetailsExpanded ? "chevron-up" : "chevron-down"}
+            size={24}
+            color="#5dbea3"
           />
         </TouchableOpacity>
-        
+
         {isGiftDetailsExpanded && (
           <View style={styles.giftDetailsContainer}>
             {renderGiftDetails()}
           </View>
         )}
-    </View>
+      </View>
     </ScrollView>
   );
 };
@@ -331,9 +376,14 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   noDetailsText: {
-    textAlign: 'center',
+    textAlign: 'center',        // centers the text horizontally
     color: '#666',
     fontStyle: 'italic',
+    paddingHorizontal: 10,      // horizontal padding inside the box
+    paddingVertical: 8,         // vertical padding
+    fontSize: 14,
+    flexWrap: 'wrap',           // allows wrapping
+    width: '100%',              // ensure it respects parent width
   },
 });
 

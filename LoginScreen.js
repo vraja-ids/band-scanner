@@ -11,8 +11,7 @@ const checkPermissionInArray = (permissions, permission) => {
 
 const LoginScreen = () => {
   const [hasPermission, setHasPermission] = useState(null);
-  const [scanned, setScanned] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const navigation = useNavigation();
   const route = useRoute();
 
@@ -34,18 +33,15 @@ const LoginScreen = () => {
       const memberId = await AsyncStorage.getItem('memberId');
       if (memberId) {
         await handleLoginScanner(null, memberId);
-      } else {
-        console.log('No memberId found');
-        setIsLoading(false);
       }
     } catch (error) {
       console.error('Error checking login:', error);
-      setIsLoading(false);
     }
   };
 
   const handleLoginScanner = async (tagId, memberId) => {
     try {
+      setIsLoading(true);
       const loginData = await api.get('loginScanner', {
         tagId: tagId,
         memberId: memberId,
@@ -77,6 +73,7 @@ const LoginScreen = () => {
       }
     } catch (error) {
       console.error('Error in loginScanner:', error);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -89,7 +86,6 @@ const LoginScreen = () => {
   }, []);
 
   const handleBarCodeScanned = async ({ data }) => {
-    setScanned(true);
     setIsLoading(true);
     try {
       const json = await api.get('loginScanner', {
@@ -101,14 +97,12 @@ const LoginScreen = () => {
         await handleLoginScanner(data, null); // Pass tagId when scanning
       } else {
         alert('Invalid QR code or member not found');
-        setIsLoading(false);
-        setScanned(false);
       }
     } catch (error) {
       console.error('Error scanning QR code:', error);
       alert('Error scanning QR code');
+    } finally {
       setIsLoading(false);
-      setScanned(false);
     }
   };
 
@@ -117,14 +111,6 @@ const LoginScreen = () => {
       screen: 'Login'
     });
   };
-
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#5dbea3" />
-      </View>
-    );
-  }
 
   if (hasPermission === null) {
     return <View style={styles.container}><Text>Requesting camera permission...</Text></View>;
@@ -136,7 +122,7 @@ const LoginScreen = () => {
   return (
     <View style={styles.container}>
       <Image 
-        source={{ uri: 'https://storage.googleapis.com/sadhu-sanga/1/2024/01/WhatsApp-Image-2024-01-04-at-11.58.13-AM.jpeg' }}
+        source={require('./assets/Logo.jpg')}
         style={styles.logo}
         resizeMode="contain"
       />
@@ -166,6 +152,7 @@ const styles = StyleSheet.create({
     width: '80%',
     height: 200,
     marginBottom: 40,
+    resizeMode: 'contain',
   },
   button: {
     backgroundColor: '#5dbea3',

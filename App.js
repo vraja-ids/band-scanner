@@ -14,29 +14,10 @@ import ServiceApprovalScreen from './ServiceApprovalScreen';
 const Stack = createStackNavigator();
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(null);
-
-  useEffect(() => {
-    checkLoginStatus();
-  }, []);
-
-  const checkLoginStatus = async () => {
-    try {
-      const memberId = await AsyncStorage.getItem('memberId');
-      setIsLoggedIn(!!memberId);
-    } catch (error) {
-      console.error('Error checking login status:', error);
-      setIsLoggedIn(false);
-    }
-  };
-
-  if (isLoggedIn === null) {
-    return null; // Or a loading screen
-  }
 
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName={isLoggedIn ? "Home" : "Login"}>
+      <Stack.Navigator initialRouteName={"Login"}>
         <Stack.Screen 
           name="Login" 
           component={LoginScreen} 

@@ -4,7 +4,6 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import {Picker} from '@react-native-community/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from './services/api';
-import MemberDetails from './models/MemberDetails';
 import { Ionicons } from '@expo/vector-icons';
 
 const HomeScreen = () => {
@@ -12,14 +11,12 @@ const HomeScreen = () => {
   const [selectedLane, setSelectedLane] = useState(null);
   const [showGiftButton, setShowGiftButton] = useState(false);
   const [userName, setUserName] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [canScanOthersQr, setCanScanOthersQr] = useState(false);
   const route = useRoute();
 
   useEffect(() => {
     checkGiftPermissions();
     loadUserName();
-    fetchServiceSelectionList();
   }, []);
 
     // Add effect to handle scan result
@@ -30,32 +27,6 @@ const HomeScreen = () => {
         navigation.setParams({ tag: undefined });
       }
     }, [route?.params?.tag]);
-
-  const fetchServiceSelectionList = async () => {
-    try {
-      const memberId = await AsyncStorage.getItem('memberId');
-      if (memberId) {
-        const response = await api.get('getServiceSelectionList', {
-          memberId: JSON.parse(memberId)
-        });
-        
-        if (response && response.Services) {
-          // Store each service's display fields
-          for (const service of response.Services) {
-            for (const option of service.serviceOptions) {
-              const key = `service_${option.serviceId}`;
-              await AsyncStorage.setItem(key, JSON.stringify({
-                serviceName: service.serviceName,
-                displayFields: option.displayFields
-              }));
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching service selection list:', error);
-    }
-  };
 
   const loadUserName = async () => {
     try {
@@ -75,7 +46,7 @@ const HomeScreen = () => {
       const canFulfillTshirt = JSON.parse(await AsyncStorage.getItem('canFulfillGiftTshirt'));
       const canFulfillJacket = JSON.parse(await AsyncStorage.getItem('canFulfillGiftJacket'));
       setCanScanOthersQr(canScanOthersQr);
-      setShowGiftButton(canScanOthersQr || canApproveTshirt || canApproveJacket || canFulfillTshirt || canFulfillJacket);
+      setShowGiftButton(canApproveTshirt || canApproveJacket || canFulfillTshirt || canFulfillJacket);
     } catch (error) {
       console.error('Error checking gift permissions:', error);
     }
@@ -118,51 +89,24 @@ const HomeScreen = () => {
 
   const navigateToGiftScanner = () => {
     navigation.navigate('BarcodeScanner', {
-      screen: 'Home',
+      screen: 'GiftApproval',
+      message: 'Scan their QR for approving'
+    });
+  };
+
+  const navigateToServiceApproval = () => {
+    navigation.navigate('BarcodeScanner', {
+      screen: 'ServiceApproval',
       message: 'Scan their QR for approving'
     });
   };
 
   const handleLogoPress = () => {
-    const logoUrl = 'https://storage.googleapis.com/sadhu-sanga/1/2024/01/WhatsApp-Image-2024-01-04-at-11.58.13-AM.jpeg';
-    Linking.openURL(logoUrl);
+    // You can add any action here if needed
   };
 
   const handleLaneSelect = (lane) => {
     setSelectedLane(lane);
-  };
-
-  const handleGiftScan = async (tagId) => {
-    setIsLoading(true);
-    try {
-      const scannerMemberId = await AsyncStorage.getItem('memberId');
-      const memberDetails = await api.get('getMemberActivity', { 
-        tagId: tagId,
-        category: 'gifttracking',
-        scannerMemberId: scannerMemberId
-      });
-      
-      const memberDetailsObj = new MemberDetails(memberDetails.memberActivityDetails);
-      console.log(memberDetails);
-      console.log(memberDetailsObj);
-      // Check if servicesOffered is null or empty
-      if (!memberDetailsObj.servicesOffered && canScanOthersQr) {
-        navigation.navigate('ServiceApproval', { 
-          tagId: tagId,
-          memberDetails: memberDetailsObj
-        });
-      } else {
-        navigation.navigate('GiftApproval', { 
-          tagId: tagId,
-          memberDetails: memberDetailsObj
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching member details:', error);
-      Alert.alert('Error', 'Failed to fetch member details');
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const isCheckMealDisabled = selectedLane === null;
@@ -197,7 +141,7 @@ const HomeScreen = () => {
           <Picker.Item label="Fast Lane" value="11" />
         </Picker>
         <TouchableOpacity onPress={handleLogoPress} style={styles.logoContainer}>
-          <Image source={{ uri: 'https://storage.googleapis.com/sadhu-sanga/1/2024/01/WhatsApp-Image-2024-01-04-at-11.58.13-AM.jpeg' }} style={styles.logo} />
+          <Image source={require('./assets/Logo.jpg')} style={styles.logo} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.button} onPress={navigateToBarcodeScannerForTag}>
           <Text style={styles.buttonText}>Register Tag</Text>
@@ -210,11 +154,12 @@ const HomeScreen = () => {
         </TouchableOpacity>
         {showGiftButton && (
           <TouchableOpacity style={styles.button} onPress={navigateToGiftScanner}>
-            {isLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Approve Gifts</Text>
-            )}
+            <Text style={styles.buttonText}>Approve Gifts</Text>
+          </TouchableOpacity>
+        )}
+        {canScanOthersQr && (
+          <TouchableOpacity style={styles.button} onPress={navigateToServiceApproval}>
+            <Text style={styles.buttonText}>Acknowledge Services</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -248,7 +193,7 @@ const styles = StyleSheet.create({
   },
   logo: {
     width: '100%',
-    aspectRatio: 4/3,
+    height: 200,
     resizeMode: 'contain',
   },
   button: {
