@@ -60,8 +60,8 @@ export default function BarcodeScannerScreen({ navigation, route }) {
     setFacing(current => (current === 'back' ? 'front' : 'back'));
   };
 
-  const goToHomeScreen = () => {
-    navigation?.navigate('Home');
+  const goToPreviousScreen = () => {
+    navigation.goBack();
   };
 
   // Render different content based on permission status
@@ -125,9 +125,9 @@ export default function BarcodeScannerScreen({ navigation, route }) {
       {navigation && (
         <TouchableOpacity 
           style={[styles.button, styles.homeButton]}
-          onPress={goToHomeScreen}
+          onPress={goToPreviousScreen}
         >
-          <Text style={styles.buttonText}>Go to Home</Text>
+          <Text style={styles.buttonText}>Go Back</Text>
         </TouchableOpacity>
       )}
     </SafeAreaView>

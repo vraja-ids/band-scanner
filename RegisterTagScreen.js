@@ -137,12 +137,6 @@ function RegisterTagScreen({ route }) {
         >
           <Text style={styles.goToScannerText}>Register Next Member</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.goToHomeButton}
-          onPress={goToHomeScreen}
-        >
-          <Text style={styles.goToHomeText}>Go to Home Screen</Text>
-        </TouchableOpacity>
       </ScrollView>
     </View>
   );

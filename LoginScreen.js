@@ -112,6 +112,12 @@ const LoginScreen = () => {
     });
   };
 
+  const navigateToBarcodeScannerForTag = () => {
+    navigation.navigate('BarcodeScanner', {
+      screen: 'RegisterTag'
+    });
+  };
+
   if (hasPermission === null) {
     return <View style={styles.container}><Text>Requesting camera permission...</Text></View>;
   }
@@ -137,6 +143,12 @@ const LoginScreen = () => {
           <Text style={styles.buttonText}>Scan your own Band to Login</Text>
         )}
       </TouchableOpacity>
+      <TouchableOpacity 
+        style={[styles.button, styles.registerButton]}
+        onPress={navigateToBarcodeScannerForTag}
+      >
+        <Text style={styles.buttonText}>Register Tag</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -161,6 +173,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     width: '80%',
     alignItems: 'center',
+    marginBottom: 15,
+  },
+  registerButton: {
+    backgroundColor: '#3ABEF9',
   },
   buttonText: {
     color: 'white',
