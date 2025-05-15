@@ -85,10 +85,9 @@ const GiftApprovalScreen = ({ route }) => {
   const handleGiftAction = async (action, giftType) => {
     console.log(memberDetails);
     const isApproval = action === 'approve' || action === 'disapprove';
-    const isFulfillment = action === 'fulfill' || action === 'unfulfill';
 
     // Check if trying to fulfill without approval
-    if (isFulfillment && !memberDetails?.giftStatus.includes(`${giftType}Approved`)) {
+    if (action === 'fulfill' && !memberDetails?.giftStatus.includes(`${giftType}Approved`)) {
       Alert.alert('Error', `${giftType} must be approved before fulfillment`);
       return;
     }
@@ -190,7 +189,7 @@ const GiftApprovalScreen = ({ route }) => {
             <TouchableOpacity
               style={styles.button}
               onPress={() => handleGiftAction(
-                getGiftStatus('tshirt') === 'Approved' ? 'disapprove' : 'approve',
+                getGiftStatus('tshirt') === 'Approved' || getGiftStatus('tshirt') === 'Fulfilled' ? 'disapprove' : 'approve',
                 'tshirt'
               )}
             >
@@ -198,7 +197,7 @@ const GiftApprovalScreen = ({ route }) => {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.buttonText}>
-                  {getGiftStatus('tshirt') === 'Approved' ? 'Disapprove T-Shirt' : 'Approve T-Shirt'}
+                  {getGiftStatus('tshirt') === 'Approved' || getGiftStatus('tshirt') === 'Fulfilled' ? 'Disapprove T-Shirt' : 'Approve T-Shirt'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -232,7 +231,7 @@ const GiftApprovalScreen = ({ route }) => {
             <TouchableOpacity
               style={styles.button}
               onPress={() => handleGiftAction(
-                getGiftStatus('jacket') === 'Approved' ? 'disapprove' : 'approve',
+                getGiftStatus('jacket') === 'Approved' || getGiftStatus('jacket') === 'Fulfilled' ? 'disapprove' : 'approve',
                 'jacket'
               )}
             >
@@ -240,7 +239,7 @@ const GiftApprovalScreen = ({ route }) => {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.buttonText}>
-                  {getGiftStatus('jacket') === 'Approved' ? 'Disapprove Jacket' : 'Approve Jacket'}
+                  {getGiftStatus('jacket') === 'Approved' || getGiftStatus('jacket') === 'Fulfilled' ? 'Disapprove Jacket' : 'Approve Jacket'}
                 </Text>
               )}
             </TouchableOpacity>
