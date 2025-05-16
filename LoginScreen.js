@@ -60,6 +60,7 @@ const LoginScreen = () => {
         await AsyncStorage.setItem('canApproveGiftJacket', JSON.stringify(checkPermissionInArray(permissions, 'canApproveGiftJacket')));
         await AsyncStorage.setItem('canFulfillGiftTshirt', JSON.stringify(checkPermissionInArray(permissions, 'canFulfillGiftTshirt')));
         await AsyncStorage.setItem('canFulfillGiftJacket', JSON.stringify(checkPermissionInArray(permissions, 'canFulfillGiftJacket')));
+        await AsyncStorage.setItem('canApproveMultipleGifts', JSON.stringify(checkPermissionInArray(permissions, 'canApproveMultipleGifts')));
         
         // Store user's name
         await AsyncStorage.setItem('legalName', response.legalName);

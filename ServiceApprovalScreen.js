@@ -5,6 +5,59 @@ import { api } from './services/api';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
+const ServiceGroup = ({ serviceName, serviceOptions, selectedService, onSelect }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <View style={styles.serviceGroup}>
+      <TouchableOpacity 
+        style={styles.serviceGroupHeader}
+        onPress={() => setIsExpanded(!isExpanded)}
+      >
+        <Text style={styles.serviceGroupTitle}>{serviceName}</Text>
+        <Ionicons
+          name={isExpanded ? "chevron-up" : "chevron-down"}
+          size={24}
+          color="#5dbea3"
+        />
+      </TouchableOpacity>
+      
+      {isExpanded && (
+        <View style={styles.serviceOptionsContainer}>
+          {serviceOptions.map((option) => (
+            <TouchableOpacity
+              key={option.serviceId}
+              style={[
+                styles.serviceOption,
+                selectedService?.serviceId === option.serviceId && styles.selectedService
+              ]}
+              onPress={() => onSelect(option)}
+            >
+              <View style={styles.radioContainer}>
+                <View style={[
+                  styles.radio,
+                  selectedService?.serviceId === option.serviceId && styles.radioSelected
+                ]}>
+                  {selectedService?.serviceId === option.serviceId && (
+                    <View style={styles.radioInner} />
+                  )}
+                </View>
+              </View>
+              <View style={styles.serviceTextContainer}>
+                {option.displayFields?.map((field, index) => (
+                  <Text key={index} style={styles.serviceDetail}>
+                    {field.key}: {field.value}
+                  </Text>
+                ))}
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+};
+
 const ServiceApprovalScreen = ({ route }) => {
   const { tag } = route.params;
   const tagId = tag?.id;
@@ -27,40 +80,40 @@ const ServiceApprovalScreen = ({ route }) => {
       validateService: true
     });
 
-      if (response && response.services) {
-        const allServices = [];
-        const signedUp = [];
+    if (response && response.services) {
+      const allServices = [];
+      const signedUp = [];
+      
+      // Process each service
+      for (const service of response.services) {
+        const serviceData = {
+          serviceName: service.serviceName,
+          serviceOptions: service.serviceOptions.map(option => ({
+            serviceId: option.serviceId,
+            displayFields: option.displayFields,
+            isSignedUp: option.isSignedUp
+          }))
+        };
         
-        // Process each service
-        for (const service of response.services) {
-          for (const option of service.serviceOptions) {
-            const serviceData = {
+        allServices.push(serviceData);
+        
+        // Add signed up services to the signedUp array
+        service.serviceOptions.forEach(option => {
+          if (option.isSignedUp) {
+            signedUp.push({
               serviceId: option.serviceId,
               serviceName: service.serviceName,
               displayFields: option.displayFields,
-              isSignedUp: option.isSignedUp
-            };
-            
-            allServices.push(serviceData);
-            
-            if (option.isSignedUp) {
-              signedUp.push(serviceData);
-            }
+              isSignedUp: true
+            });
           }
-        }
-        
-        setServices(allServices);
-        setSignedUpServices(signedUp);
+        });
       }
-      setIsLoading(false);
-      console.log(services);
-      console.log(signedUpServices);
-    // } catch (error) {
-    //   console.error('Error fetching service selection list:', error);
-    //   navigation.navigate('Home');
-    //   Alert.alert('Error', 'Failed to fetch service details');
-    //   setIsLoading(false);
-    // }
+      
+      setServices(allServices);
+      setSignedUpServices(signedUp);
+    }
+    setIsLoading(false);
   };
 
   const handleAcknowledgeService = async () => {
@@ -73,6 +126,7 @@ const ServiceApprovalScreen = ({ route }) => {
         tagId: tagId,
         memberId: '',
         apiVersion: "2.0",
+        quantity: 1,
         location: selectedService.serviceName,
         activityId: selectedService.serviceId,
         category: 'gifttracking',
@@ -119,36 +173,6 @@ const ServiceApprovalScreen = ({ route }) => {
     );
   };
 
-  const renderServiceOption = (service) => (
-    <TouchableOpacity
-      key={service.serviceId}
-      style={[
-        styles.serviceOption,
-        selectedService?.serviceId === service.serviceId && styles.selectedService
-      ]}
-      onPress={() => setSelectedService(service)}
-    >
-      <View style={styles.radioContainer}>
-        <View style={[
-          styles.radio,
-          selectedService?.serviceId === service.serviceId && styles.radioSelected
-        ]}>
-          {selectedService?.serviceId === service.serviceId && (
-            <View style={styles.radioInner} />
-          )}
-        </View>
-      </View>
-      <View style={styles.serviceTextContainer}>
-        <Text style={styles.serviceName}>{service.serviceName}</Text>
-        {service.displayFields?.map((field, index) => (
-          <Text key={index} style={styles.serviceDetail}>
-            {field.key}: {field.value}
-          </Text>
-        ))}
-      </View>
-    </TouchableOpacity>
-  );
-
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -164,7 +188,15 @@ const ServiceApprovalScreen = ({ route }) => {
         
         <View style={styles.servicesContainer}>
           <ScrollView style={styles.servicesScrollView}>
-            {services.map(renderServiceOption)}
+            {services.map((service) => (
+              <ServiceGroup
+                key={service.serviceName}
+                serviceName={service.serviceName}
+                serviceOptions={service.serviceOptions}
+                selectedService={selectedService}
+                onSelect={setSelectedService}
+              />
+            ))}
           </ScrollView>
         </View>
 
@@ -223,9 +255,32 @@ const styles = StyleSheet.create({
   servicesScrollView: {
     flex: 1,
   },
+  serviceGroup: {
+    marginBottom: 10,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  serviceGroupHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    backgroundColor: '#f5f5f5',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  serviceGroupTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  serviceOptionsContainer: {
+    padding: 10,
+  },
   serviceOption: {
     flexDirection: 'row',
-    padding: 15,
+    padding: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
     alignItems: 'center',

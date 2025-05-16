@@ -11,7 +11,7 @@ class MemberDetails {
     this.mealOption = data.mealOption || '';
     this.servicesOffered = data.servicesOffered || '';
     this.giftDetails = this.parseGiftDetails(data.giftDetails);
-    this.giftStatus = data.giftStatus || [];
+    this.giftStatus = this.parseGiftStatus(data.giftStatus);
   }
 
   parseGiftDetails(giftDetails) {
@@ -28,8 +28,36 @@ class MemberDetails {
     });
   }
 
+  parseGiftStatus(giftStatus) {
+    if (!giftStatus) return {
+      tshirtApproved: 0,
+      tshirtFulfilled: 0,
+      jacketApproved: 0,
+      jacketFulfilled: 0,
+      registrationpaymentFulfilled: false
+    };
+    return giftStatus;
+  }
+
   getDisplayName() {
     return this.spiritualName || this.legalName;
+  }
+
+  getGiftStatus(giftType) {
+    if (!this.giftStatus) return 'Not-Approved';
+    const approved = this.giftStatus[`${giftType}Approved`] || 0;
+    const fulfilled = this.giftStatus[`${giftType}Fulfilled`] || 0;
+    
+    if (fulfilled > 0) return 'Fulfilled';
+    if (approved > 0) return 'Approved';
+    return 'Not-Approved';
+  }
+
+  getGiftCounts(giftType) {
+    return {
+      approved: this.giftStatus[`${giftType}Approved`] || 0,
+      fulfilled: this.giftStatus[`${giftType}Fulfilled`] || 0
+    };
   }
 }
 
