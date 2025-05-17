@@ -31,7 +31,10 @@ const ServiceGroup = ({ serviceName, serviceOptions, selectedService, onSelect }
                 styles.serviceOption,
                 selectedService?.serviceId === option.serviceId && styles.selectedService
               ]}
-              onPress={() => onSelect(option)}
+              onPress={() => onSelect({
+                ...option,
+                serviceName: serviceName
+              })}
             >
               <View style={styles.radioContainer}>
                 <View style={[
