@@ -88,6 +88,7 @@ const HomeScreen = () => {
   };
 
   const navigateToGiftScanner = () => {
+    console.log('Navigating to gift scanner');
     navigation.navigate('BarcodeScanner', {
       screen: 'GiftApproval',
       message: 'Scan their QR for approving'
@@ -110,6 +111,13 @@ const HomeScreen = () => {
   };
 
   const isCheckMealDisabled = selectedLane === null;
+
+  const handleGiftScan = (tagId) => {
+    console.log('Handling gift scan with tagId:', tagId);
+    navigation.navigate('GiftApproval', {
+      tag: { id: tagId }
+    });
+  };
 
   return (
     <ScrollView style={styles.scrollContainer}>

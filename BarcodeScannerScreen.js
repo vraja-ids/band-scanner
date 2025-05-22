@@ -29,9 +29,12 @@ export default function BarcodeScannerScreen({ navigation, route }) {
   const handleBarCodeScanned = ({ type, data }) => {
     if (isScanningEnabled) {
       setIsScanningEnabled(false);
+      console.log('Barcode scanned:', { type, data });
+      console.log('Route params:', route?.params);
       
       // If the screen was opened from another screen with params, navigate back with data
       if (route?.params?.screen) {
+        console.log('Navigating to:', route.params.screen);
         navigation.replace(route.params.screen, { 
           location: route.params.location, 
           tag: { id: data } 

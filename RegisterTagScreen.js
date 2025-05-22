@@ -12,48 +12,12 @@ function RegisterTagScreen({ route }) {
   const [memberActivityDetails, setMemberActivityDetails] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const navigation = useNavigation();
-  const [scannerMemberId, setScannerMemberId] = useState(null);
   const [memberDetails, setMemberDetails] = useState(null);
 
 
   useEffect(() => {
-      loadPermissions();
-      loadScannerMemberId();
-      fetchMemberDetails(tagId);
   }, []);
 
-  const fetchMemberDetails = async (tagId, withRefresh = false) => {
-      if (!withRefresh) {
-        setIsLoading(true);
-      }
-      try {
-        const scannerMemberId = await AsyncStorage.getItem('memberId');
-        const memberDetails = await api.get('getMemberActivity', {
-          tagId: tagId,
-          category: 'gifttracking',
-          scannerMemberId: scannerMemberId
-        });
-        setMemberDetails(new MemberDetails(memberDetails.memberActivityDetails));
-        console.log(memberDetails);
-      } catch (error) {
-        console.error('Error fetching member details:', error);
-        navigation.navigate('Home');
-        Alert.alert('Error', 'Failed to fetch member details');
-      } finally {
-        setIsLoading(false);
-        setIsButtonLoading(false);
-      }
-    };
-
-  const loadScannerMemberId = async () => {
-        try {
-          const memberId = await AsyncStorage.getItem('memberId');
-          setScannerMemberId(memberId);
-        } catch (error) {
-          console.error('Error loading scanner member ID:', error);
-        }
-   };
-    
   const fetchMealDetails = (tag) => {
     setLoading(true);
     api.get('getMemberActivity', {
@@ -110,8 +74,7 @@ function RegisterTagScreen({ route }) {
     const tagdata = {
       "apiVersion": "3.10",
       "tagId": tag.id,
-      "memberId": inputValue,
-      "scannerMemberId": scannerMemberId
+      "memberId": inputValue
     };
     if (inputValue !== '0' && inputValue.length !== 4 && inputValue.length !== 5) {
       alert('Member ID is possibly incorrect');

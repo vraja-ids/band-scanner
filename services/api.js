@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const BASE_URL = 'http://350.network.sadhu-sanga.appspot.com';
+const BASE_URL = 'http://351.network.sadhu-sanga.appspot.com';
 
 const logApiCall = (method, endpoint, request, response) => {
   console.log('----------------------------------------');

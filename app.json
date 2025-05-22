@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "BarCodeApp",
-    "slug": "BarCodeApp",
+    "slug": "band-scanner",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -20,7 +20,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.sadhusanga.ScannerApp",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
       }
     },
     "android": {
@@ -34,7 +37,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "7cd0e64e-d2a4-4b3d-9a57-86e4170ceb29"
+        "projectId": "4403da0a-bab0-40b3-bdcf-7db525915f4f"
       }
     }
   }
