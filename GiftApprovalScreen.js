@@ -240,13 +240,14 @@ const GiftApprovalScreen = ({ route }) => {
       if (response?.success) {
         fetchMemberDetails(tagId, true);
       } else {
+        setIsButtonLoading(false);
         Alert.alert('Error', 'Failed to update gift status');
       }
     } catch (error) {
+      setIsButtonLoading(false);
       console.error('Error updating gift status:', error);
       Alert.alert('Error', 'Failed to update gift status');
     } finally {
-      setIsButtonLoading(false);
       setShowQuantitySelector(false);
     }
   };
