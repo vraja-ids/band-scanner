@@ -32,7 +32,7 @@ export default function BarcodeScannerScreen({ navigation, route }) {
       
       // If the screen was opened from another screen with params, navigate back with data
       if (route?.params?.screen) {
-        navigation.navigate(route.params.screen, { 
+        navigation.replace(route.params.screen, { 
           location: route.params.location, 
           tag: { id: data } 
         });
@@ -60,8 +60,8 @@ export default function BarcodeScannerScreen({ navigation, route }) {
     setFacing(current => (current === 'back' ? 'front' : 'back'));
   };
 
-  const goToHomeScreen = () => {
-    navigation?.navigate('Home');
+  const goToPreviousScreen = () => {
+    navigation.goBack();
   };
 
   // Render different content based on permission status
@@ -99,6 +99,11 @@ export default function BarcodeScannerScreen({ navigation, route }) {
           }}
           onBarcodeScanned={isScanningEnabled ? handleBarCodeScanned : undefined}
         />
+        {route?.params?.message && (
+          <View style={styles.messageContainer}>
+            <Text style={styles.messageText}>{route.params.message}</Text>
+          </View>
+        )}
       </View>
       
       <View style={styles.buttonsRow}>
@@ -120,9 +125,9 @@ export default function BarcodeScannerScreen({ navigation, route }) {
       {navigation && (
         <TouchableOpacity 
           style={[styles.button, styles.homeButton]}
-          onPress={goToHomeScreen}
+          onPress={goToPreviousScreen}
         >
-          <Text style={styles.buttonText}>Go to Home</Text>
+          <Text style={styles.buttonText}>Go Back</Text>
         </TouchableOpacity>
       )}
     </SafeAreaView>
@@ -140,11 +145,26 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '70%',
     overflow: 'hidden',
+    position: 'relative',
   },
   camera: {
     flex: 1,
     width: '100%',
     height: '100%',
+  },
+  messageContainer: {
+    position: 'absolute',
+    top: 20,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    padding: 10,
+    alignItems: 'center',
+  },
+  messageText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   buttonsRow: {
     flexDirection: 'row',

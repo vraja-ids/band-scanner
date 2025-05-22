@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, StatusBar, TextInput, TouchableOpacity, Text, ScrollView, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { api } from './services/api';
 
 function RegisterTagScreen({ route }) {
   const { tag } = route.params;
@@ -11,20 +12,58 @@ function RegisterTagScreen({ route }) {
   const [memberActivityDetails, setMemberActivityDetails] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const navigation = useNavigation();
+  const [scannerMemberId, setScannerMemberId] = useState(null);
+  const [memberDetails, setMemberDetails] = useState(null);
 
+
+  useEffect(() => {
+      loadPermissions();
+      loadScannerMemberId();
+      fetchMemberDetails(tagId);
+  }, []);
+
+  const fetchMemberDetails = async (tagId, withRefresh = false) => {
+      if (!withRefresh) {
+        setIsLoading(true);
+      }
+      try {
+        const scannerMemberId = await AsyncStorage.getItem('memberId');
+        const memberDetails = await api.get('getMemberActivity', {
+          tagId: tagId,
+          category: 'gifttracking',
+          scannerMemberId: scannerMemberId
+        });
+        setMemberDetails(new MemberDetails(memberDetails.memberActivityDetails));
+        console.log(memberDetails);
+      } catch (error) {
+        console.error('Error fetching member details:', error);
+        navigation.navigate('Home');
+        Alert.alert('Error', 'Failed to fetch member details');
+      } finally {
+        setIsLoading(false);
+        setIsButtonLoading(false);
+      }
+    };
+
+  const loadScannerMemberId = async () => {
+        try {
+          const memberId = await AsyncStorage.getItem('memberId');
+          setScannerMemberId(memberId);
+        } catch (error) {
+          console.error('Error loading scanner member ID:', error);
+        }
+   };
+    
   const fetchMealDetails = (tag) => {
     setLoading(true);
-    fetch('https://network.sadhusangaretreat.com/getMemberActivity?tagId=' + tag.id + '&activity=regCheck')
-      .then((response) => response.json())
+    api.get('getMemberActivity', {
+      tagId: tag.id,
+      activity: 'regCheck',
+      category: 'mealtracking'
+    })
       .then((json) => {
         setMemberActivityDetails(json.memberActivityDetails);
         setError(false);
-        /*Alert.alert(
-          'Success',
-          JSON.stringify(json),
-          [{ text: 'OK', onPress: () => console.log('OK Pressed') }],
-          { cancelable: false }
-        );*/
       })
       .catch((error) => {
         if (error.response && error.response.status === 404) {
@@ -66,42 +105,32 @@ function RegisterTagScreen({ route }) {
 
   const handleSubmit = () => {
     if (isLoading) {
-      // If the button is already disabled and loading is in progress, return
       return;
     }
     const tagdata = {
       "apiVersion": "3.10",
       "tagId": tag.id,
-      "memberId": inputValue
+      "memberId": inputValue,
+      "scannerMemberId": scannerMemberId
     };
     if (inputValue !== '0' && inputValue.length !== 4 && inputValue.length !== 5) {
       alert('Member ID is possibly incorrect');
       return;
     }
     setLoading(true);
-    fetch('https://network.sadhusangaretreat.com/registerTag', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(tagdata)
-    })
-      .then(response => response.json())
+    api.put('registerTag', tagdata)
       .then(tagdata => {
         console.log(tagdata);
-        //alert(JSON.stringify(tagdata));
-        // Fetch the updated meal details
         if (tagdata.errorMessage) {
-          alert(tagdata.errorMessage); // Alert the error message if it exists
+          alert(tagdata.errorMessage);
         } else {
-          // If no error message, fetch the updated meal details
           fetchMealDetails(tag);
-        }      
+        }
       })
       .catch(error => {
         console.error(error);
         alert(error);
-        setErrorMessage('Error registering tag. Please try again.'); // Set the error message state
+        setErrorMessage('Error registering tag. Please try again.');
       })
       .finally(() => setLoading(false));
   };
@@ -150,12 +179,6 @@ function RegisterTagScreen({ route }) {
           onPress={() => navigation.navigate('BarcodeScanner', { screen: 'RegisterTag' })}
         >
           <Text style={styles.goToScannerText}>Register Next Member</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.goToHomeButton}
-          onPress={goToHomeScreen}
-        >
-          <Text style={styles.goToHomeText}>Go to Home Screen</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>

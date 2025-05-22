@@ -10,9 +10,12 @@ import {
     Image,
 } from 'react-native';
 import { Button } from 'react-native-paper';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { api } from './services/api';
+import { Ionicons } from '@expo/vector-icons';
 
-function MealScanScreen(props) {
+function MealScanScreen(props) {    
     const { navigation } = props;
     const { tag } = props.route.params;
     const { location } = props.route.params;
@@ -33,35 +36,73 @@ function MealScanScreen(props) {
     // Add state variables to keep track of loading state
     const [isAddingMeal, setIsAddingMeal] = useState(false);
     const [isRemovingMeal, setIsRemovingMeal] = useState(false);
+    const [scannerMemberId, setScannerMemberId] = useState(null);
+    const [memberDetails, setMemberDetails] = useState(null);
 
+
+      useEffect(() => {
+          loadPermissions();
+          loadScannerMemberId();
+          fetchMemberDetails(tagId);
+      }, []);
+
+        const fetchMemberDetails = async (tagId, withRefresh = false) => {
+            if (!withRefresh) {
+              setIsLoading(true);
+            }
+            try {
+              const scannerMemberId = await AsyncStorage.getItem('memberId');
+              const memberDetails = await api.get('getMemberActivity', {
+                tagId: tagId,
+                category: 'gifttracking',
+                scannerMemberId: scannerMemberId
+              });
+              setMemberDetails(new MemberDetails(memberDetails.memberActivityDetails));
+              console.log(memberDetails);
+            } catch (error) {
+              console.error('Error fetching member details:', error);
+              navigation.navigate('Home');
+              Alert.alert('Error', 'Failed to fetch member details');
+            } finally {
+              setIsLoading(false);
+              setIsButtonLoading(false);
+            }
+          };
+      
+        const loadScannerMemberId = async () => {
+              try {
+                const memberId = await AsyncStorage.getItem('memberId');
+                setScannerMemberId(memberId);
+              } catch (error) {
+                console.error('Error loading scanner member ID:', error);
+              }
+         };
     // Store the result of getCurrMeal in a variable
     const fetchMealDetails = useCallback((tagin, mealType) => {
       setLoading(true); // Set loading state to true
       const currentMeal = getCurrMeal();
-      //alert(tagin.id);
-      fetch('https://network.sadhusangaretreat.com/getMemberActivity?tagId=' + tagin.id + '&activity=' + currentMeal)
-        .then((response) => response.json())
+      api.get('getMemberActivity', {
+        tagId: tagin.id,
+        activity: currentMeal,
+        category: 'mealtracking',
+      })
         .then((json) => {
           setData(json);
           console.log(data);
-          setError(false); // Set the error state to true
-          //alert(JSON.stringify(json));
-          UpdateCurrMeal(currentMeal, json); // Pass the latest data to the function
+          setError(false);
+          UpdateCurrMeal(currentMeal, json);
         })
         .catch((error) => {
           if (error.response && error.response.status === 404) {
-            // Handle the error when memberActivityDetails is undefined
             alert('No member tracking details found for this tag');
           } else {
             console.error(error);
-            //alert('Error fetching meal details');
-            setError(true); // Set the error state to true
+            setError(true);
           }
-          // handle the error, e.g. set an error state
         })
         .finally(() => {
           setLoading(false);
-          setRefreshing(true); // Update the refreshing state to trigger re-render
+          setRefreshing(true);
         });
     }, [setData, getCurrMeal, UpdateCurrMeal]);
     
@@ -168,78 +209,70 @@ function MealScanScreen(props) {
         }).join(', ');
         return formattedLocation;
     }
+    const navigateToBarcodeScannerForMeal = () => {
+        const formattedLocation = getLocation();
+        navigation.navigate('BarcodeScanner', {location : formattedLocation, screen: 'MealScan' });
+      };
 
     const addMemberActivity = (meal, data) => {
-        //alert(curMealCount);
-        //alert(data.memberActivityDetails.tagId);
-        if (data && data.memberActivityDetails) { // Add a conditional check for data and data.memberActivityDetails
-            //alert(data.memberActivityDetails.tagId);
-            
+        if (data && data.memberActivityDetails) {
             const formattedLocation = getLocation();
             const mealdata = {
                 "tagId": data.memberActivityDetails.tagId,
-                "apiVersion"  : "2.9",
-                "location" : formattedLocation,
-                "activity" : meal,
+                "apiVersion": "2.9",
+                "location": formattedLocation,
+                "activity": meal,
+                "category": "mealtracking",
+                "activityId": 0,
+                "scannerMemberId": scannerMemberId
             }
             setRefresh(false);
-            fetch('https://network.sadhusangaretreat.com/updateMemberActivity', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(mealdata)
-            })
-            .then(response => response.json())
-            .then(mealdata => {
-                console.log(mealdata);
-                refreshMealCountDisplay(mealdata);
-                setRefreshing(true); // Trigger screen refresh
-            })
-            .catch(error => {
-                console.error(error);
-                alert('ERROR', 'fail to read tag', [{text: 'OK'}]);
-            })
-            .finally(() => {
-                setIsAddingMeal(false); // Enable the button again
-                setRefreshing(true); // Trigger screen refresh
-            });        
+            api.post('updateMemberActivity', mealdata)
+                .then(mealdata => {
+                    console.log(mealdata);
+                    refreshMealCountDisplay(mealdata);
+                    setRefreshing(true);
+                })
+                .catch(error => {
+                    console.error(error);
+                    alert('ERROR', 'fail to read tag', [{text: 'OK'}]);
+                })
+                .finally(() => {
+                    setIsAddingMeal(false);
+                    setRefreshing(true);
+                });
         }
     };
     const removeMemberActivity = (meal) => {
         const formattedLocation = getLocation();
-        if (data && data.memberActivityDetails) { // Add a conditional check for data and data.memberActivityDetails
+        if (data && data.memberActivityDetails) {
             const mealdata = {
                 "tagId": data.memberActivityDetails.tagId,
-                "apiVersion"  : "2.9",
-                "location" : formattedLocation,
-                "activity" : meal,
-                "remove" : true
+                "apiVersion": "2.9",
+                "location": formattedLocation,
+                "activity": meal,
+                "category": "mealtracking",
+                "activityId": 0,
+                "scannerMemberId": scannerMemberId,
+                "remove": true
             }
             setRefresh(false);
-            fetch('https://network.sadhusangaretreat.com/updateMemberActivity', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(mealdata)
-            })
-            .then(response => response.json())
-            .then(mealdata => {
-                console.log(mealdata);
-                refreshMealCountDisplay(mealdata);
-                //alert(JSON.stringify(mealdata));
-                setRefreshing(true)
-            })
-            .catch(error => {
-                console.error(error);
-                alert('ERROR', 'fail to read tag', [{text: 'OK'}]);
-            })
-            .finally(() => {
-                setIsRemovingMeal(false); // Enable the button again
-                setRefreshing(true); // Trigger screen refresh
-            });        }
-        };
+            api.post('updateMemberActivity', mealdata)
+                .then(mealdata => {
+                    console.log(mealdata);
+                    refreshMealCountDisplay(mealdata);
+                    setRefreshing(true)
+                })
+                .catch(error => {
+                    console.error(error);
+                    alert('ERROR', 'fail to read tag', [{text: 'OK'}]);
+                })
+                .finally(() => {
+                    setIsRemovingMeal(false);
+                    setRefreshing(true);
+                });
+        }
+    };
 
 
     if (myError) {
@@ -255,6 +288,22 @@ function MealScanScreen(props) {
             const item = data.memberActivityDetails;
             return (
                     <View>
+    {/* Add the "Home" button at the top-right corner */}
+<View style={{ position: 'absolute', top: 10, right: 10, zIndex: 10 }}>
+<TouchableOpacity
+          style={styles.logoutButton}
+          onPress={() => {
+            navigation.navigate('Home'); // Navigate to the Home screen
+          }} 
+        >
+          <Ionicons name="home" size={24} color="#5dbea3" />
+        </TouchableOpacity>
+</View>
+
+    {/* Rest of the MealScanScreen content */}
+    <View>
+      {/* Existing content */}
+    </View>
                     <View tyle={styles.section}>
                     <GradientButton
                         onPress={() => {}}
@@ -289,7 +338,7 @@ function MealScanScreen(props) {
         <Image source={{ uri: 'https://shipcityfitness.com/wp-content/uploads/2021/01/Day-pass.png' }} style={styles.circleImage} />
       </View>
     )}
-                                </View>
+                    </View>
                     </View>
                     <View style= {styles.row}>
                     <View style={styles.section}>
@@ -307,7 +356,27 @@ function MealScanScreen(props) {
                     <ButtonSlim onPress={() => {setRefreshing(false); setIsAddingMeal(true);
                         addMemberActivity(currentMeal, data); }} text="ADD MEAL" colors={['#2EB62C', '#83D475']} disabled={isAddingMeal} />
                     </View>
+                    <View>
+                    <ButtonSlim onPress={() => {
+            navigation.navigate('Home'); // Navigate to the Home screen
+          }}  text="BACK HOME" colors={['#2EB62C', '#83D475']} disabled={isAddingMeal} />
                     </View>
+                    </View>
+                    {/* Add the "Next Scan" button */}
+<View style={styles.nextScanContainer}>
+  <TouchableOpacity 
+    onPress={() => {
+      const formattedLocation = getLocation();
+      navigation.navigate('BarcodeScanner', { location: formattedLocation, screen: 'MealScan' });
+    }} 
+    style={styles.nextScanButton}
+  >
+    <LinearGradient colors={['#3ABEF9', '#5D9CEC']} style={styles.nextScanGradient}>
+      <Text style={styles.nextScanText}>NEXT SCAN</Text>
+    </LinearGradient>
+  </TouchableOpacity>
+</View>
+                    
               </View>
             );
         }
@@ -449,6 +518,26 @@ fontSize: 15,
 fontWeight: 'bold',
 color: '#fff',
 },
+    nextScanContainer: {
+      width: '100%',
+      alignItems: 'center',
+      marginTop: 20,
+    },
+    nextScanButton: {
+      width: '80%', // Use 80% of the screen width
+      borderRadius: 20,
+    },
+    nextScanGradient: {
+      width: '100%',
+      paddingVertical: 20, // Make the button taller
+      borderRadius: 20,
+      alignItems: 'center',
+    },
+    nextScanText: {
+      fontSize: 20, // Larger font size for better visibility
+      fontWeight: 'bold',
+      color: '#fff',
+    },
 circleContainer: {
    width: 60, // Twice the radius for diameter
    height: 60, // Twice the radius for diameter
