@@ -31,11 +31,19 @@ const styles = StyleSheet.create({
   fieldValue: {
     color: '#555',
   },
+  totalText: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#4CAF50',
+    marginVertical: 20,
+    textAlign: 'center',
+  },
 });
 
 const ActivityStatsScreen = () => {
   const [activityStats, setActivityStats] = useState([]);
   const [selectedActivity, setSelectedActivity] = useState('friDinner');
+  const [total, setTotal] = useState(0); // Add state for total
 
   useEffect(() => {
     fetchData();
@@ -53,6 +61,14 @@ const ActivityStatsScreen = () => {
         activity: selectedActivity
       });
       setActivityStats(data.activities);
+
+      // Calculate the total count
+      const totalCount = data.activities.reduce((sum, activity) => {
+        return sum + activity.displayFields.reduce((fieldSum, field) => {
+          return fieldSum + (parseInt(field.value, 10) || 0); // Ensure numeric values
+        }, 0);
+      }, 0);
+      setTotal(totalCount); // Update the total state
     } catch (error) {
       console.error('Error fetching data:', error);
     }
@@ -74,6 +90,9 @@ const ActivityStatsScreen = () => {
         <Picker.Item label="Monday Breakfast" value="monBreakfast" />
         <Picker.Item label="Monday Lunch" value="monLunch" />
       </Picker>
+
+      {/* Display the total */}
+      <Text style={styles.totalText}>Total: {total}</Text>
 
       {activityStats.map((activity, index) => (
         <View key={index} style={styles.activityContainer}>

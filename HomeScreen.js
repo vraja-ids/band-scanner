@@ -107,6 +107,7 @@ const HomeScreen = () => {
   };
 
   const handleLaneSelect = (lane) => {
+    console.log('Selected Lane:', lane); // Debugging: Log the selected lane
     setSelectedLane(lane);
   };
 
@@ -136,14 +137,14 @@ const HomeScreen = () => {
           onValueChange={handleLaneSelect}
           style={{ marginBottom: 110, marginTop: 10, margin: 100, height: 50, width: '80%' }}>
           <Picker.Item label="Select Lane" value={null} />
-          <Picker.Item label="Custom Lane 1" value="1" />
-          <Picker.Item label="Custom Lane 2" value="2" />
-          <Picker.Item label="Custom Lane 3" value="3" />
-          <Picker.Item label="Custom Lane 4" value="4" />
-          <Picker.Item label="Custom Lane 5" value="5" />
-          <Picker.Item label="Custom Lane 6" value="6" />
-          <Picker.Item label="Custom Lane 7" value="7" />
-          <Picker.Item label="Custom Lane 8" value="8" />
+          <Picker.Item label="Lane 1" value="1" />
+          <Picker.Item label="Lane 2" value="2" />
+          <Picker.Item label="Lane 3" value="3" />
+          <Picker.Item label="Lane 4" value="4" />
+          <Picker.Item label="Lane 5" value="5" />
+          <Picker.Item label="Lane 6" value="6" />
+          <Picker.Item label="Elders & Kids" value="7" />
+          <Picker.Item label="Outdoor Lane" value="8" />
           <Picker.Item label="Vegan Lane" value="9" />
           <Picker.Item label="VIP Lane" value="10" />
           <Picker.Item label="Fast Lane" value="11" />

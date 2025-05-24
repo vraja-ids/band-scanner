@@ -108,21 +108,21 @@ function MealScanScreen(props) {
   const getCurrMeal = () => {
     if ((currentDate.getTime() <= new Date(2025, 4, 23, 23, 30)) && (currentDate.getTime() >= new Date(2025, 4, 2, 13, 30))) {
       return "friDinner";
-    } else if ((currentDate.getTime() <= new Date(2025, 4, 24, 11, 30)) && (currentDate.getTime() >= new Date(2025, 4, 24, 6, 30))) {
+    } else if ((currentDate.getTime() <= new Date(2025, 4, 24, 11, 30)) && (currentDate.getTime() >= new Date(2025, 4, 24, 1, 30))) {
       return "satBreakfast";
-    } else if ((currentDate.getTime() <= new Date(2025, 4, 24, 16, 30)) && (currentDate.getTime() >= new Date(2025, 4, 24, 11, 30))) {
+    } else if ((currentDate.getTime() <= new Date(2025, 4, 24, 16, 30)) && (currentDate.getTime() >= new Date(2025, 4, 24, 11, 10))) {
       return "satLunch";
-    } else if ((currentDate.getTime() <= new Date(2025, 4, 24, 23, 30)) && (currentDate.getTime() >= new Date(2025, 4, 24, 16, 30))) {
+    } else if ((currentDate.getTime() <= new Date(2025, 4, 24, 23, 30)) && (currentDate.getTime() >= new Date(2025, 4, 24, 17, 30))) {
       return "satDinner";
-    } else if ((currentDate.getTime() <= new Date(2025, 4, 25, 11, 30)) && (currentDate.getTime() >= new Date(2025, 4, 25, 6, 30))) {
+    } else if ((currentDate.getTime() <= new Date(2025, 4, 25, 11, 30)) && (currentDate.getTime() >= new Date(2025, 4, 25, 1, 30))) {
       return "sunBreakfast";
-    } else if ((currentDate.getTime() <= new Date(2025, 4, 25, 16, 30)) && (currentDate.getTime() >= new Date(2025, 4, 25, 11, 30))) {
+    } else if ((currentDate.getTime() <= new Date(2025, 4, 25, 16, 30)) && (currentDate.getTime() >= new Date(2025, 4, 25, 11, 10))) {
       return "sunLunch";
-    } else if ((currentDate.getTime() <= new Date(2025, 4, 25, 23, 59)) && (currentDate.getTime() >= new Date(2025, 4, 25, 16, 30))) {
+    } else if ((currentDate.getTime() <= new Date(2025, 4, 25, 23, 59)) && (currentDate.getTime() >= new Date(2025, 4, 25, 17, 30))) {
       return "sunDinner";
-    } else if ((currentDate.getTime() <= new Date(2025, 4, 26, 9, 10)) && (currentDate.getTime() >= new Date(2025, 4, 26, 6, 30))) {
+    } else if ((currentDate.getTime() <= new Date(2025, 4, 26, 9, 30)) && (currentDate.getTime() >= new Date(2025, 4, 26, 1, 30))) {
       return "monBreakfast";
-    } else if ((currentDate.getTime() <= new Date(2025, 4, 26, 14, 30)) && (currentDate.getTime() >= new Date(2025, 4, 26, 6, 10))) {
+    } else if ((currentDate.getTime() <= new Date(2025, 4, 26, 14, 30)) && (currentDate.getTime() >= new Date(2025, 4, 26, 9, 40))) {
       return "monLunch"
     } else {
       alert("Time is not good")
@@ -173,8 +173,10 @@ function MealScanScreen(props) {
   const getLocation = () => {
     const locationValue = Array.isArray(location) ? location : [location];
     const formattedLocation = locationValue.map((value) => {
-      if (value >= 1 && value < 9) {
-        return `custom lane ${value}`;
+      if (value >= 1 && value < 7) {
+        return `Lane ${value}`;
+      } else if (value == 8) {
+        return `Outdoor Lane`;
       } else if (value == 9) {
         return `Vegan lane`;
       } else if (value == 10) {
@@ -351,17 +353,16 @@ function MealScanScreen(props) {
         </View>
         {/* Add the "Next Scan" button */}
         <View style={styles.nextScanContainer}>
-          <TouchableOpacity
-            onPress={() => {
-              const formattedLocation = getLocation();
-              navigation.navigate('BarcodeScanner', { location: formattedLocation, screen: 'MealScan' });
-            }}
-            style={styles.nextScanButton}
-          >
-            <LinearGradient colors={['#3ABEF9', '#5D9CEC']} style={styles.nextScanGradient}>
-              <Text style={styles.nextScanText}>NEXT SCAN</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+        <TouchableOpacity
+    onPress={() => {
+      navigation.navigate('BarcodeScanner', { location, screen: 'MealScan' });
+    }}
+    style={styles.nextScanButton}
+  >
+    <LinearGradient colors={['#3ABEF9', '#5D9CEC']} style={styles.nextScanGradient}>
+      <Text style={styles.nextScanText}>NEXT SCAN</Text>
+    </LinearGradient>
+  </TouchableOpacity>
         </View>
 
       </View>
