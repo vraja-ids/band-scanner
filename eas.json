@@ -1,6 +1,6 @@
 {
   "cli": {
-    "version": ">= 7.6.2",
+    "version": ">= 5.9.1",
     "appVersionSource": "remote"
   },
   "build": {
@@ -17,11 +17,18 @@
     "production": {
       "autoIncrement": true,
       "ios": {
-        "image": "macos-sequoia-15.3-xcode-16.2"
+        "image": "macos-sequoia-15.3-xcode-16.2",
+        "resourceClass": "m-medium"
       }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "mohanishmayank@gmail.com",
+        "ascAppId": "6480351919",
+        "appleTeamId": "ST8SH8S3P4"
+      }
+    }
   }
 }
