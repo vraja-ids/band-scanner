@@ -5,33 +5,35 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "eject": "expo eject"
+    "eject": "expo eject",
+    "typecheck": "tsc --noEmit",
+    "expo:fix": "npx expo install --fix",
+    "expo:doctor": "npx expo-doctor"
   },
   "dependencies": {
-    "@expo/vector-icons": "^14.0.2",
-    "@react-native-async-storage/async-storage": "^2.1.2",
-    "@react-native-community/picker": "^1.8.1",
-    "@react-native-picker/picker": "2.9.0",
+    "@expo/vector-icons": "^15.0.2",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/netinfo": "^11.4.1",
+    "@react-native-picker/picker": "2.11.1",
     "@react-navigation/native": "^6.1.17",
-    "@react-navigation/stack": "^6.3.29",
-    "expo": "^52.0.46",
-    "expo-camera": "~16.0.18",
-    "expo-dev-client": "~5.0.20",
-    "expo-linear-gradient": "~14.0.2",
-    "expo-status-bar": "~2.0.1",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "react-native": "0.76.9",
-    "react-native-async-storage": "^0.0.1",
-    "react-native-gesture-handler": "~2.20.2",
+    "@react-navigation/native-stack": "^6.9.26",
+    "axios": "^1.12.2",
+    "expo": "~54.0.0",
+    "expo-camera": "~17.0.8",
+    "expo-dev-client": "~6.0.13",
+    "expo-font": "~14.0.8",
+    "expo-linear-gradient": "~15.0.7",
+    "expo-status-bar": "~3.0.8",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.4",
+    "react-native-gesture-handler": "~2.28.0",
     "react-native-linear-gradient": "^2.8.3",
     "react-native-paper": "^5.12.3",
     "react-native-permissions": "^5.4.0",
-    "react-native-qrcode-scanner": "^1.5.5",
-    "react-native-safe-area-context": "4.12.0",
-    "react-native-safe-area-view": "^1.1.1",
-    "react-native-web": "~0.19.10",
-    "react-navigation-stack": "^2.10.4"
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-screens": "~4.16.0",
+    "react-native-web": "^0.21.0"
   },
   "reactNativePermissionsIOS": [
     "Camera",
@@ -41,9 +43,14 @@
   ],
   "devDependencies": {
     "@babel/core": "^7.24.0",
-    "@react-native-community/cli": "^18.0.0"
+    "@react-native-community/cli": "^18.0.0",
+    "@types/react": "~19.1.10",
+    "@types/react-dom": "~19.1.7",
+    "@types/react-test-renderer": "~18.3.0",
+    "typescript": "^5.9.3"
   },
   "private": true,
   "name": "BarCodeApp-Main",
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "packageManager": "yarn@4.3.0+sha512.1606bef7c84bc7d83b8576063de2fd08f7d69f9939015bed800f9585a002390268ecc777e9feeba7e26e9556aef6beaad4806968db2182ab5dd3e955ab3b9a0b"
 }

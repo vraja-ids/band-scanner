@@ -1,0 +1,289 @@
+{
+  "generateVerificationCode": {
+    "isSuccess": true,
+    "message": "Verification code sent successfully",
+    "authToken": "mock_auth_token"
+  },
+  "validateVerificationCode": {
+    "isSuccess": true,
+    "authToken": "mock_auth_token"
+  },
+  "getProfile": {
+    "externalMemberId": "EXT-12345",
+    "emailAddress": "user@example.com",
+    "legalName": "John Doe",
+    "spiritualName": "Haridas",
+    "phoneNumber": "+1-555-0000",
+    "city": "Somewhere",
+    "state": "CA",
+    "country": "USA",
+    "authToken": "mock_auth_token"
+  },
+  "loginScanner": {
+    "scannerLoginResponse": {
+      "memberId": "1001",
+      "legalName": "John Doe",
+      "spiritualName": "Haridas",
+      "memberPermissions": [
+        "canScanOthersQr",
+        "canApproveGiftTshirt",
+        "canApproveGiftJacket",
+        "canFulfillGiftTshirt",
+        "canFulfillGiftJacket",
+        "canApproveMultipleGifts",
+        "canScanDaypassBus",
+        "canScanDaypassPrasadam",
+        "canViewActivityStats"
+      ],
+      "scansInThisEvent": [
+        "Meals",
+        "Gifts",
+        "RegistrationTag"
+      ]
+    }
+  },
+  "getMemberActivity": {
+    "memberActivityDetails": {
+      "memberId": "1001",
+      "legalName": "John Doe",
+      "spiritualName": "Haridas",
+      "registrationType": "Adult",
+      "tagId": "TAG-ABC-123",
+      "totalCount": 0,
+      "giftDetails": [
+        { "GiftTshirt": "Approved: 1", "GiftJacket": "Approved: 0" }
+      ],
+      "giftStatus": {
+        "tshirtApproved": 1,
+        "tshirtFulfilled": 0,
+        "jacketApproved": 0,
+        "jacketFulfilled": 0
+      }
+    }
+  },
+  "updateMemberActivity": {
+    "success": true,
+    "count": 1
+  },
+  "getServiceSelectionList": {
+    "services": [
+      {
+        "serviceName": "Parking",
+        "serviceOptions": [
+          {
+            "serviceId": 201,
+            "displayFields": [
+              { "key": "Slot", "value": "P-12" },
+              { "key": "Zone", "value": "A" }
+            ],
+            "isSignedUp": true
+          },
+          {
+            "serviceId": 202,
+            "displayFields": [
+              { "key": "Slot", "value": "P-44" },
+              { "key": "Zone", "value": "B" }
+            ],
+            "isSignedUp": false
+          }
+        ]
+      },
+      {
+        "serviceName": "Seva Desk",
+        "serviceOptions": [
+          {
+            "serviceId": 301,
+            "displayFields": [
+              { "key": "Shift", "value": "Morning" },
+              { "key": "Hours", "value": "2" }
+            ],
+            "isSignedUp": true
+          }
+        ]
+      }
+    ]
+  },
+  "registerTag": {
+    "success": true
+  },
+  "getActivityStats": {
+    "activities": [
+      {
+        "activityName": "Lane 1",
+        "displayFields": [
+          { "key": "Adults", "value": "10" },
+          { "key": "Kids", "value": "3" }
+        ]
+      },
+      {
+        "activityName": "Lane 2",
+        "displayFields": [
+          { "key": "Adults", "value": "7" },
+          { "key": "Kids", "value": "1" }
+        ]
+      }
+    ]
+  },
+  "getDaypassStatus": {
+    "daypassDetails": {
+      "daypassNumber": 466,
+      "purchaserName": "Anand Gaurav",
+      "daypassName": "Mayapur-Agradwip",
+      "scannerAlert": false,
+      "status": "active",
+      "statusDetails": {
+        "bus": "",
+        "prasadam": ""
+      }
+    }
+  },
+  "getDaypassStatus_redeemed_bus": {
+    "daypassDetails": {
+      "daypassNumber": 466,
+      "purchaserName": "Anand Gaurav",
+      "daypassName": "Mayapur-Agradwip",
+      "scannerAlert": false,
+      "status": "redeemed",
+      "statusDetails": {
+        "bus": "Bus 7",
+        "prasadam": ""
+      }
+    }
+  },
+  "getDaypassStatus_redeemed_both": {
+    "daypassDetails": {
+      "daypassNumber": 466,
+      "purchaserName": "Anand Gaurav",
+      "daypassName": "Mayapur-Agradwip",
+      "scannerAlert": true,
+      "status": "redeemed",
+      "statusDetails": {
+        "bus": "Bus 7",
+        "prasadam": "Prasadam Counter 1"
+      }
+    }
+  },
+  "updateDayPassStatus": {
+    "success": true,
+    "message": "Daypass status updated successfully"
+  },
+  "updateDayPassStatus_bus_redeem": {
+    "success": true,
+    "message": "Bus redemption successful"
+  },
+  "updateDayPassStatus_bus_unredeem": {
+    "success": true,
+    "message": "Bus unredeem successful"
+  },
+  "updateDayPassStatus_prasadam_redeem": {
+    "success": true,
+    "message": "Prasadam redemption successful"
+  },
+  "updateDayPassStatus_prasadam_unredeem": {
+    "success": true,
+    "message": "Prasadam unredeem successful"
+  },
+  "updateDayPassStatus_error": {
+    "success": false,
+    "message": "Daypass not found or already processed"
+  },
+  "loginScanner_daypass_event": {
+    "scannerLoginResponse": {
+      "memberId": "1002",
+      "legalName": "Jane Smith",
+      "spiritualName": "Radha",
+      "memberPermissions": [
+        "canScanDaypassBus",
+        "canScanDaypassPrasadam",
+        "canViewActivityStats"
+      ],
+      "scansInThisEvent": [
+        "Daypass"
+      ]
+    }
+  },
+  "loginScanner_meal_event": {
+    "scannerLoginResponse": {
+      "memberId": "1003",
+      "legalName": "Bob Wilson",
+      "spiritualName": "Krishna",
+      "memberPermissions": [
+        "canScanOthersQr",
+        "canViewActivityStats"
+      ],
+      "scansInThisEvent": [
+        "Meals"
+      ]
+    }
+  },
+  "loginScanner_gift_event": {
+    "scannerLoginResponse": {
+      "memberId": "1004",
+      "legalName": "Alice Brown",
+      "spiritualName": "Sita",
+      "memberPermissions": [
+        "canApproveGiftTshirt",
+        "canApproveGiftJacket",
+        "canFulfillGiftTshirt",
+        "canFulfillGiftJacket",
+        "canApproveMultipleGifts",
+        "canViewActivityStats"
+      ],
+      "scansInThisEvent": [
+        "Gifts"
+      ]
+    }
+  },
+  "getEvents": {
+    "events": [
+      {
+        "eventId": "USASadhuSanga2025",
+        "eventName": "USA Sadhu Sanga 2025"
+      },
+      {
+        "eventId": "IndiaFest2025",
+        "eventName": "India Festival 2025"
+      },
+      {
+        "eventId": "DaypassEvent2025",
+        "eventName": "Daypass Event 2025"
+      },
+      {
+        "eventId": "MealEvent2025",
+        "eventName": "Meal Service Event 2025"
+      }
+    ]
+  },
+  "generateVerificationCode_error": {
+    "isSuccess": false,
+    "message": "Invalid email address"
+  },
+  "validateVerificationCode_error": {
+    "isSuccess": false,
+    "displayMessage": "Invalid verification code"
+  },
+  "getProfile_error": {
+    "externalMemberId": "",
+    "emailAddress": "",
+    "legalName": "",
+    "spiritualName": ""
+  },
+  "loginScanner_error": {
+    "scannerLoginResponse": null
+  },
+  "getMemberActivity_error": {
+    "memberActivityDetails": null
+  },
+  "updateMemberActivity_error": {
+    "success": false,
+    "message": "Failed to update member activity"
+  },
+  "registerTag_error": {
+    "success": false,
+    "message": "Tag already registered"
+  },
+  "getActivityStats_error": {
+    "activities": []
+  }
+}
+
