@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "BarCodeApp",
+    "name": "SS Admin",
     "slug": "band-scanner",
-    "version": "2.0.2",
+    "version": "2.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "splash": {
@@ -11,7 +11,8 @@
       "backgroundColor": "#ffffff"
     },
     "updates": {
-      "fallbackToCacheTimeout": 0
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/4403da0a-bab0-40b3-bdcf-7db525915f4f"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -20,15 +21,27 @@
       "newArchEnabled": true,
       "supportsTablet": true,
       "bundleIdentifier": "com.sadhusanga.ScannerApp",
+      "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
-        }
+        },
+        "NSCameraUsageDescription": "This app needs access to camera to scan QR codes and barcodes for event management.",
+        "NSMicrophoneUsageDescription": "This app may need microphone access for camera functionality."
       }
     },
     "android": {
       "newArchEnabled": true,
+      "package": "com.sadhusanga.ScannerApp",
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_EXTERNAL_STORAGE"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
@@ -37,10 +50,19 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to scan QR codes and barcodes."
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "4403da0a-bab0-40b3-bdcf-7db525915f4f"
       }
-    }
+    },
+    "owner": "sadhusanga"
   }
 }

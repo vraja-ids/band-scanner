@@ -233,7 +233,7 @@ const HomeScreen = () => {
         return;
       }
 
-      const location = isBus ? `bus${selectedBusNumber}` : selectedPrasadamTime.toLowerCase();
+      const location = isBus ? `Bus ${selectedBusNumber}` : selectedPrasadamTime;
 
       const request: UpdateCountRequest = {
         eventId: selectedEventId,
@@ -368,44 +368,62 @@ const HomeScreen = () => {
           </View>
         )}
 
-        {/* Show bus number picker for daypass scanning */}
+        {/* Show bus number dropdown for daypass scanning */}
         {!scansInThisEvent.includes('Meals') && !scansInThisEvent.includes('Gifts') && !scansInThisEvent.includes('RegistrationTag') && 
          scansInThisEvent.includes('Daypass') && 
          (SessionManager.hasPermission('canScanDaypassBus') || SessionManager.hasPermission('canScanDaypassPrasadam')) && (
-          <View style={styles.pickerContainer}>
-            <Text style={styles.pickerLabel}>Select Bus Number:</Text>
-            <Picker 
-              selectedValue={selectedBusNumber} 
-              onValueChange={handleBusNumberChange} 
-              style={styles.picker}
+          <View style={styles.dropdownContainer}>
+            <Text style={styles.dropdownLabel}>Select Bus Number:</Text>
+            <TouchableOpacity 
+              style={styles.dropdown}
+              onPress={() => {
+                // Simple implementation - you can enhance this with a modal or custom dropdown
+                Alert.alert(
+                  'Select Bus Number',
+                  'Choose a bus number',
+                  Array.from({ length: 12 }, (_, i) => i + 1).map(num => ({
+                    text: `Bus ${num}`,
+                    onPress: async () => await handleBusNumberChange(num.toString())
+                  })).concat([{ text: 'Cancel', onPress: async () => {} }])
+                );
+              }}
             >
-              {Array.from({ length: 12 }, (_, i) => i + 1).map(num => (
-                <Picker.Item key={num} label={`Bus ${num}`} value={num.toString()} />
-              ))}
-            </Picker>
+              <Text style={styles.dropdownText}>Bus {selectedBusNumber}</Text>
+              <Ionicons name="chevron-down" size={20} color="#666" />
+            </TouchableOpacity>
           </View>
         )}
 
-        {/* Show prasadam time picker for daypass scanning */}
+        {/* Show prasadam time dropdown for daypass scanning */}
         {!scansInThisEvent.includes('Meals') && !scansInThisEvent.includes('Gifts') && !scansInThisEvent.includes('RegistrationTag') && 
          scansInThisEvent.includes('Daypass') && 
          SessionManager.hasPermission('canScanDaypassPrasadam') && (
-          <View style={styles.pickerContainer}>
-            <Text style={styles.pickerLabel}>Select Prasadam Time:</Text>
-            <Picker 
-              selectedValue={selectedPrasadamTime} 
-              onValueChange={handlePrasadamTimeChange} 
-              style={styles.picker}
+          <View style={styles.dropdownContainer}>
+            <Text style={styles.dropdownLabel}>Select Prasadam Time:</Text>
+            <TouchableOpacity 
+              style={styles.dropdown}
+              onPress={() => {
+                Alert.alert(
+                  'Select Prasadam Time',
+                  'Choose a meal time',
+                  [
+                    { text: 'Breakfast', onPress: async () => await handlePrasadamTimeChange('Breakfast') },
+                    { text: 'Lunch', onPress: async () => await handlePrasadamTimeChange('Lunch') },
+                    { text: 'Dinner', onPress: async () => await handlePrasadamTimeChange('Dinner') },
+                    { text: 'Cancel', onPress: async () => {} }
+                  ]
+                );
+              }}
             >
-              <Picker.Item label="Breakfast" value="Breakfast" />
-              <Picker.Item label="Lunch" value="Lunch" />
-              <Picker.Item label="Dinner" value="Dinner" />
-            </Picker>
+              <Text style={styles.dropdownText}>{selectedPrasadamTime}</Text>
+              <Ionicons name="chevron-down" size={20} color="#666" />
+            </TouchableOpacity>
           </View>
         )}
 
         {/* Count Update Buttons for Daypass */}
-        {scansInThisEvent.includes('Daypass') && 
+        
+        {false && scansInThisEvent.includes('Daypass') && 
          (SessionManager.hasPermission('canScanDaypassBus') || SessionManager.hasPermission('canScanDaypassPrasadam')) && (
           <View style={styles.countUpdateContainer}>
             {/* Bus Count Update */}
@@ -473,7 +491,7 @@ const HomeScreen = () => {
           {renderEventButtons()}
           
           {/* Always show activity stats if user has permission */}
-          {SessionManager.hasPermission('canViewActivityStats') && (
+          {false && SessionManager.hasPermission('canViewActivityStats') && (
             <TouchableOpacity style={styles.button} onPress={navigateToActivityStats}>
               <Ionicons name="stats-chart-outline" size={24} color="#fff" />
               <Text style={styles.buttonText}>Activity Stats</Text>
@@ -579,6 +597,33 @@ const styles = StyleSheet.create({
   picker: {
     height: 50,
     width: '100%',
+  },
+  dropdownContainer: {
+    width: '80%',
+    marginBottom: 20,
+    marginTop: 20,
+  },
+  dropdownLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  dropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  dropdownText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
   },
   buttonsContainer: {
     width: '100%',

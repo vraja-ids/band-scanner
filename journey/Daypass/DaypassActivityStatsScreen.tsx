@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, ScrollView, Platform } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { getString, Keys } from '../../storage/Session';
 import { getDaypassActivityStats } from './DaypassViewModel';
 import type { GetDaypassActivityStatsRequest } from './models/api';
@@ -18,6 +19,8 @@ const DaypassActivityStatsScreen: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [tempDate, setTempDate] = useState<Date>(new Date());
 
   const busOptions = Array.from({ length: 12 }, (_, i) => `bus${i + 1}`);
   const prasadamOptions = ['breakfast', 'lunch', 'dinner'];
@@ -39,9 +42,13 @@ const DaypassActivityStatsScreen: React.FC = () => {
         return;
       }
 
+      const activity = selectedActivity.startsWith('bus') 
+        ? `Bus ${selectedActivity.replace('bus', '')}` 
+        : selectedActivity.charAt(0).toUpperCase() + selectedActivity.slice(1);
+
       const request: GetDaypassActivityStatsRequest = {
         eventId: selectedEventId,
-        activity: selectedActivity,
+        activity: activity,
         date: selectedDate,
         scannerMemberId: internalMemberId,
       };
@@ -72,6 +79,24 @@ const DaypassActivityStatsScreen: React.FC = () => {
     (navigation as any).goBack();
   };
 
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    const currentDate = selectedDate || tempDate;
+    setShowDatePicker(Platform.OS === 'ios');
+    setTempDate(currentDate);
+    
+    if (selectedDate) {
+      const dateString = currentDate.toISOString().split('T')[0];
+      setSelectedDate(dateString);
+      logAction('Date selected', { date: dateString });
+    }
+  };
+
+  const openDatePicker = () => {
+    setTempDate(new Date(selectedDate));
+    setShowDatePicker(true);
+    logAction('Date picker opened');
+  };
+
   const getActivityDisplayName = (activity: string) => {
     if (activity.startsWith('bus')) {
       const busNumber = activity.replace('bus', '');
@@ -92,52 +117,82 @@ const DaypassActivityStatsScreen: React.FC = () => {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Activity Picker */}
-        <View style={styles.pickerContainer}>
-          <Text style={styles.pickerLabel}>Select Activity:</Text>
-          <Picker
-            selectedValue={selectedActivity}
-            onValueChange={setSelectedActivity}
-            style={styles.picker}
+        {/* Activity Dropdown */}
+        <View style={styles.dropdownContainer}>
+          <Text style={styles.dropdownLabel}>Select Activity:</Text>
+          <TouchableOpacity 
+            style={styles.dropdown}
+            onPress={() => {
+              Alert.alert(
+                'Select Activity',
+                'Choose an activity',
+                allOptions.map(option => ({
+                  text: getActivityDisplayName(option),
+                  onPress: async () => setSelectedActivity(option)
+                })).concat([{ text: 'Cancel', onPress: async () => {} }])
+              );
+            }}
           >
-            {allOptions.map((option) => (
-              <Picker.Item
-                key={option}
-                label={getActivityDisplayName(option)}
-                value={option}
-              />
-            ))}
-          </Picker>
+            <Text style={styles.dropdownText}>{getActivityDisplayName(selectedActivity)}</Text>
+            <Ionicons name="chevron-down" size={20} color="#666" />
+          </TouchableOpacity>
         </View>
 
         {/* Date Picker */}
-        <View style={styles.pickerContainer}>
-          <Text style={styles.pickerLabel}>Select Date:</Text>
-          <Picker
-            selectedValue={selectedDate}
-            onValueChange={setSelectedDate}
-            style={styles.picker}
+        <View style={styles.dropdownContainer}>
+          <Text style={styles.dropdownLabel}>Select Date:</Text>
+          <TouchableOpacity 
+            style={styles.dropdown}
+            onPress={openDatePicker}
           >
-            {/* Generate last 30 days */}
-            {Array.from({ length: 30 }, (_, i) => {
-              const date = new Date();
-              date.setDate(date.getDate() - i);
-              const dateString = date.toISOString().split('T')[0];
-              const displayDate = date.toLocaleDateString('en-US', {
+            <Text style={styles.dropdownText}>
+              {new Date(selectedDate).toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
                 year: 'numeric'
-              });
-              return (
-                <Picker.Item
-                  key={dateString}
-                  label={displayDate}
-                  value={dateString}
-                />
-              );
-            })}
-          </Picker>
+              })}
+            </Text>
+            <Ionicons name="calendar-outline" size={20} color="#666" />
+          </TouchableOpacity>
         </View>
+
+        {/* Date Picker Modal */}
+        {showDatePicker && (
+          <View style={styles.datePickerContainer}>
+            <View style={styles.datePickerModal}>
+              <Text style={styles.datePickerTitle}>Select Date</Text>
+              <DateTimePicker
+                value={tempDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={handleDateChange}
+                maximumDate={new Date()}
+                minimumDate={new Date(2020, 0, 1)}
+              />
+              {Platform.OS === 'ios' && (
+                <View style={styles.datePickerButtons}>
+                  <TouchableOpacity
+                    style={styles.datePickerButton}
+                    onPress={() => setShowDatePicker(false)}
+                  >
+                    <Text style={styles.datePickerButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.datePickerButton, styles.datePickerButtonPrimary]}
+                    onPress={() => {
+                      const dateString = tempDate.toISOString().split('T')[0];
+                      setSelectedDate(dateString);
+                      setShowDatePicker(false);
+                      logAction('Date confirmed', { date: dateString });
+                    }}
+                  >
+                    <Text style={[styles.datePickerButtonText, styles.datePickerButtonTextPrimary]}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* Stats Display */}
         <View style={styles.statsContainer}>
@@ -217,6 +272,38 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f8f8',
     borderRadius: 6,
   },
+  dropdownContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginBottom: 20,
+    padding: 15,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
+  },
+  dropdownLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 10,
+  },
+  dropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  dropdownText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
+  },
   statsContainer: {
     backgroundColor: '#fff',
     borderRadius: 8,
@@ -263,6 +350,62 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  datePickerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  datePickerModal: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    margin: 20,
+    minWidth: 300,
+    maxWidth: 400,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  datePickerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  datePickerButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    gap: 10,
+  },
+  datePickerButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: '#f8f9fa',
+    alignItems: 'center',
+  },
+  datePickerButtonPrimary: {
+    backgroundColor: '#4CAF50',
+  },
+  datePickerButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  datePickerButtonTextPrimary: {
+    color: '#fff',
   },
 });
 
