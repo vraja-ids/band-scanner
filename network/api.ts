@@ -135,7 +135,7 @@ export async function requestAsApiResponse<T>(fn: () => Promise<ResponseLike<T>>
     return success(res.data) as ApiResponse<T>;
   } catch (e: any) {
     const code = e?.response?.status?.toString?.() || 'UNKNOWN';
-    const message = e?.response?.data?.displayMessage || e?.message || e?.response?.data?.error || e?.error || 'Something went wrong';
+    const message = e?.response?.data?.displayMessage || e?.response?.data?.errorMessage || e?.message || e?.response?.data?.error || e?.error || 'Something went wrong';
     if (code === 'OFFLINE') {
       return error('OFFLINE', 'You are currently offline. Please check your internet connection and try again.') as ApiResponse<T>;
     }

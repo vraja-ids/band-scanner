@@ -126,15 +126,12 @@
   },
   "getDaypassStatus": {
     "daypassDetails": {
-      "daypassNumber": 466,
-      "purchaserName": "Anand Gaurav",
-      "daypassName": "Mayapur-Agradwip",
+      "daypassNumber": 2232,
+      "purchaserName": "Priya-carana",
+      "daypassName": "Mayapur-Initiations",
       "scannerAlert": false,
       "status": "active",
-      "statusDetails": {
-        "bus": "",
-        "prasadam": ""
-      }
+      "statusDetails": {}
     }
   },
   "getDaypassStatus_redeemed_bus": {
@@ -159,7 +156,20 @@
       "status": "redeemed",
       "statusDetails": {
         "bus": "Bus 7",
-        "prasadam": "Prasadam Counter 1"
+        "prasadam": "prasadam Lunch"
+      }
+    }
+  },
+  "getDaypassStatus_redeemed_prasadam": {
+    "daypassDetails": {
+      "daypassNumber": 789,
+      "purchaserName": "Krishna Das",
+      "daypassName": "Mayapur-Festival",
+      "scannerAlert": false,
+      "status": "redeemed",
+      "statusDetails": {
+        "bus": "",
+        "prasadam": "prasadam Breakfast"
       }
     }
   },
@@ -186,6 +196,51 @@
   "updateDayPassStatus_error": {
     "success": false,
     "message": "Daypass not found or already processed"
+  },
+  "getDaypassActivityStats": {
+    "totalCount": 25,
+    "activity": "bus1",
+    "date": "2025-01-15"
+  },
+  "getDaypassActivityStats_bus7": {
+    "totalCount": 42,
+    "activity": "bus7",
+    "date": "2025-01-15"
+  },
+  "getDaypassActivityStats_breakfast": {
+    "totalCount": 18,
+    "activity": "breakfast",
+    "date": "2025-01-15"
+  },
+  "getDaypassActivityStats_lunch": {
+    "totalCount": 35,
+    "activity": "lunch",
+    "date": "2025-01-15"
+  },
+  "getDaypassActivityStats_dinner": {
+    "totalCount": 28,
+    "activity": "dinner",
+    "date": "2025-01-15"
+  },
+  "updateCount": {
+    "success": true,
+    "totalCount": 26,
+    "message": "Count updated successfully"
+  },
+  "updateCount_bus": {
+    "success": true,
+    "totalCount": 43,
+    "message": "Bus count updated successfully"
+  },
+  "updateCount_prasadam": {
+    "success": true,
+    "totalCount": 19,
+    "message": "Prasadam count updated successfully"
+  },
+  "updateCount_error": {
+    "success": false,
+    "totalCount": 0,
+    "message": "Failed to update count"
   },
   "loginScanner_daypass_event": {
     "scannerLoginResponse": {

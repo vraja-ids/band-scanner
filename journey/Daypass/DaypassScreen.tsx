@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { SessionManager } from '../../storage/SessionManager';
 import { getString, setString, Keys } from '../../storage/Session';
@@ -11,16 +12,19 @@ export default function DaypassScreen() {
   const { logAction, logError } = useBaseScreen({ screenName: 'DaypassScreen' });
   const navigation = useNavigation();
   const route = useRoute();
+  const insets = useSafeAreaInsets();
   const { dayPassNumber } = route.params as { dayPassNumber: string };
   
   const [isLoading, setIsLoading] = useState(false);
   const [isButtonLoading, setIsButtonLoading] = useState(false);
   const [daypassData, setDaypassData] = useState<GetDaypassStatusResponse['daypassDetails'] | null>(null);
   const [selectedBusNumber, setSelectedBusNumber] = useState<string>('');
+  const [selectedPrasadamTime, setSelectedPrasadamTime] = useState<string>('Breakfast');
 
   useEffect(() => {
     loadDaypassStatus();
     loadSelectedBusNumber();
+    loadSelectedPrasadamTime();
   }, []);
 
   const loadSelectedBusNumber = async () => {
@@ -35,14 +39,29 @@ export default function DaypassScreen() {
     }
   };
 
+  const loadSelectedPrasadamTime = async () => {
+    try {
+      const prasadamTime = await getString(Keys.SELECTED_PRASADAM_TIME);
+      if (prasadamTime) {
+        logAction('Selected prasadam time loaded', { prasadamTime });
+        setSelectedPrasadamTime(prasadamTime);
+      }
+    } catch (error) {
+      logError(error, 'loadSelectedPrasadamTime');
+    }
+  };
+
   const loadDaypassStatus = async () => {
     if (!dayPassNumber) return;
     
-    logAction('Loading daypass status', { dayPassNumber });
+    logAction('Loading daypass status', { 
+      dayPassNumber,
+      allPermissions: SessionManager.getPermissions()
+    });
     setIsLoading(true);
     try {
-      const externalMemberId = await getString(Keys.EXTERNAL_MEMBER_ID);
-      if (!externalMemberId) {
+      const internalMemberId = await getString(Keys.INTERNAL_MEMBER_ID);
+      if (!internalMemberId) {
         logError('No member ID found', 'loadDaypassStatus');
         Alert.alert('Error', 'No member ID found');
         return;
@@ -58,7 +77,7 @@ export default function DaypassScreen() {
       const response = await getDaypassStatus({
         dayPassNumber,
         eventId: selectedEventId,
-        scannerMemberId: externalMemberId,
+        scannerMemberId: internalMemberId,
       });
 
       if (response.status === 'success' && response.data) {
@@ -86,22 +105,26 @@ export default function DaypassScreen() {
     logAction('Performing daypass action', { action, actionId, dayPassNumber, selectedBusNumber });
     setIsButtonLoading(true);
     try {
-      const externalMemberId = await getString(Keys.EXTERNAL_MEMBER_ID);
+      const internalMemberId = await getString(Keys.INTERNAL_MEMBER_ID);
       const selectedEventId = await getString('selectedEventId');
       
-      if (!externalMemberId || !selectedEventId) {
+      if (!internalMemberId || !selectedEventId) {
         logError('Missing member ID or event ID', 'handleAction');
         Alert.alert('Error', 'Missing member ID or event ID');
         return;
       }
+
+      const actionDetails = actionId === 'bus' 
+        ? `Bus ${selectedBusNumber}` 
+        : `${selectedPrasadamTime}`;
 
       const response = await updateDayPassStatus({
         dayPassNumber,
         eventId: selectedEventId,
         action,
         actionId,
-        actionDetails: `Bus ${selectedBusNumber}`,
-        scannerMemberId: externalMemberId,
+        actionDetails,
+        scannerMemberId: internalMemberId,
       });
 
       if (response.status === 'success' && (response.data as any)?.success) {
@@ -127,42 +150,65 @@ export default function DaypassScreen() {
     if (!daypassData) return null;
 
     const isRedeemed = actionId === 'bus' 
-      ? daypassData.statusDetails.bus !== '' 
-      : daypassData.statusDetails.prasadam !== '';
+      ? daypassData.statusDetails.bus && daypassData.statusDetails.bus !== '' 
+      : daypassData.statusDetails.prasadam && daypassData.statusDetails.prasadam !== '';
 
-    const canRedeem = SessionManager.hasPermission(`canScanDaypass${actionId.charAt(0).toUpperCase() + actionId.slice(1)}`);
-
-    if (!canRedeem) return null;
+    const permissionKey = `canScanDaypass${actionId === 'bus' ? 'Bus' : 'Prasadam'}`;
+    const canRedeem = SessionManager.hasPermission(permissionKey);
+    
+    if (!canRedeem) {
+      logAction(`Permission denied for ${actionId}`, { permissionKey });
+      return null;
+    }
 
     return (
       <View style={styles.buttonContainer}>
         <View style={styles.buttonRow}>
-          {!isRedeemed && (
-            <TouchableOpacity
-              style={[styles.button, styles.redeemButton, isButtonLoading && styles.buttonDisabled]}
-              onPress={() => handleAction('redeem', actionId)}
-              disabled={isButtonLoading}
-            >
-              {isButtonLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>Redeem {actionId}</Text>
-              )}
-            </TouchableOpacity>
-          )}
-          {isRedeemed && (
-            <TouchableOpacity
-              style={[styles.button, styles.unredeemButton, isButtonLoading && styles.buttonDisabled]}
-              onPress={() => handleAction('unredeem', actionId)}
-              disabled={isButtonLoading}
-            >
-              {isButtonLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>Unredeem {actionId}</Text>
-              )}
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={[
+              styles.button, 
+              styles.redeemButton, 
+              (!isRedeemed ? styles.buttonActive : styles.buttonInactive),
+              isButtonLoading && styles.buttonDisabled
+            ]}
+            onPress={() => {
+              if (!isRedeemed) {
+                handleAction('redeem', actionId);
+              }
+            }}
+            disabled={isButtonLoading || !!isRedeemed}
+          >
+            {isButtonLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={[styles.buttonText, isRedeemed && styles.buttonTextInactive]}>
+                Redeem {actionId}
+              </Text>
+            )}
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[
+              styles.button, 
+              styles.unredeemButton, 
+              (isRedeemed ? styles.buttonActive : styles.buttonInactive),
+              isButtonLoading && styles.buttonDisabled
+            ]}
+            onPress={() => {
+              if (isRedeemed) {
+                handleAction('unredeem', actionId);
+              }
+            }}
+            disabled={isButtonLoading || !isRedeemed}
+          >
+            {isButtonLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={[styles.buttonText, !isRedeemed && styles.buttonTextInactive]}>
+                Unredeem {actionId}
+              </Text>
+            )}
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -178,8 +224,9 @@ export default function DaypassScreen() {
   }
 
   return (
-    <ScrollView style={styles.scrollContainer}>
-      <View style={styles.container}>
+    <View style={[styles.safeArea, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <ScrollView style={styles.scrollContainer}>
+        <View style={styles.container}>
         <Text style={styles.title}>Daypass Management</Text>
         <Text style={styles.daypassNumber}>Daypass: {dayPassNumber}</Text>
         
@@ -192,10 +239,20 @@ export default function DaypassScreen() {
               <Text style={styles.detailText}>Name: {daypassData.daypassName}</Text>
               <Text style={styles.statusTitle}>Status: {daypassData.status}</Text>
               <Text style={styles.statusDetails}>
-                Bus: {daypassData.statusDetails.bus || 'Not redeemed'}
+                Bus: <Text style={[
+                  styles.statusText,
+                  daypassData.statusDetails.bus ? styles.redeemedText : styles.notRedeemedText
+                ]}>
+                  {daypassData.statusDetails.bus || 'Not redeemed'}
+                </Text>
               </Text>
               <Text style={styles.statusDetails}>
-                Prasadam: {daypassData.statusDetails.prasadam || 'Not redeemed'}
+                Prasadam: <Text style={[
+                  styles.statusText,
+                  daypassData.statusDetails.prasadam ? styles.redeemedText : styles.notRedeemedText
+                ]}>
+                  {daypassData.statusDetails.prasadam || 'Not redeemed'}
+                </Text>
               </Text>
               {daypassData.scannerAlert && (
                 <Text style={styles.alertText}>⚠️ Scanner Alert</Text>
@@ -209,18 +266,25 @@ export default function DaypassScreen() {
             </View>
           </>
         )}
-      </View>
-    </ScrollView>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   scrollContainer: {
     flex: 1,
   },
   container: {
     flex: 1,
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 24,
     backgroundColor: '#fff',
   },
   title: {
@@ -253,6 +317,15 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 5,
   },
+  statusText: {
+    fontWeight: '600',
+  },
+  redeemedText: {
+    color: '#4CAF50',
+  },
+  notRedeemedText: {
+    color: '#f44336',
+  },
   detailText: {
     fontSize: 14,
     color: '#333',
@@ -278,14 +351,17 @@ const styles = StyleSheet.create({
   },
   buttonRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginBottom: 12,
   },
   button: {
     paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     borderRadius: 8,
-    minWidth: 120,
+    flex: 1,
     alignItems: 'center',
+    marginHorizontal: 6,
   },
   buttonDisabled: {
     opacity: 0.7,
@@ -295,11 +371,20 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
+  buttonTextInactive: {
+    color: '#999',
+  },
   redeemButton: {
     backgroundColor: '#4CAF50',
   },
   unredeemButton: {
     backgroundColor: '#f44336',
+  },
+  buttonActive: {
+    opacity: 1,
+  },
+  buttonInactive: {
+    opacity: 0.5,
   },
   loadingText: {
     marginTop: 10,

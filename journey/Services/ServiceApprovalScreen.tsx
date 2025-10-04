@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { getString, Keys } from '../../storage/Session';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchServiceSelectionList, acknowledgeService } from './ServicesViewModel';
 import type { GetServiceSelectionListRequest, AcknowledgeServiceRequest } from './models/api';
@@ -101,7 +102,7 @@ const ServiceApprovalScreen = ({ route }: any) => {
 
     setIsButtonLoading(true);
     try {
-      const scannerMemberId = await AsyncStorage.getItem('memberId');
+      const scannerMemberId = await getString(Keys.INTERNAL_MEMBER_ID);
       const payload: AcknowledgeServiceRequest = {
         tagId: tagId,
         memberId: '',

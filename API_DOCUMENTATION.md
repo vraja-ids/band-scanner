@@ -237,7 +237,8 @@ Updates the redemption status of a daypass for bus or prasadam services.
   "action": "string",
   "actionId": "string",
   "actionDetails": "string",
-  "scannerMemberId": "string:,
+  "location": "string",
+  "scannerMemberId": "string"
 }
 ```
 
@@ -248,8 +249,9 @@ Updates the redemption status of a daypass for bus or prasadam services.
 | `eventId` | string | Yes | Event identifier for context |
 | `action` | string | Yes | Action to perform: "redeem" or "unredeem" |
 | `actionId` | string | Yes | Service type: "bus" or "prasadam" |
-| `actionDetails` | string | Yes | Details about the redemption (e.g., "Bus 7", "Prasadam 
-Counter 1") |
+| `actionDetails` | string | Yes | Details about the redemption (e.g., "Bus 7", "prasadam Lunch") |
+| `location` | string | Yes | Location identifier (e.g., "Bus 7" for bus, "Breakfast" for prasadam) |
+| `scannerMemberId` | string | Yes | ID of the scanner performing the action |
 
 ### Response Schema
 ```json
@@ -291,7 +293,22 @@ Counter 1") |
   "eventId": "USASadhuSanga2025",
   "action": "redeem",
   "actionId": "bus",
-  "actionDetails": "Bus 7"
+  "actionDetails": "Bus 7",
+  "location": "Bus 7",
+  "scannerMemberId": "1001"
+}
+```
+
+### Example Request (Redeem Prasadam)
+```json
+{
+  "dayPassNumber": "DP-2025-001234", 
+  "eventId": "USASadhuSanga2025",
+  "action": "redeem",
+  "actionId": "prasadam",
+  "actionDetails": "prasadam Lunch",
+  "location": "Lunch",
+  "scannerMemberId": "1001"
 }
 ```
 
@@ -302,7 +319,9 @@ Counter 1") |
   "eventId": "USASadhuSanga2025",
   "action": "unredeem",
   "actionId": "prasadam",
-  "actionDetails": "Prasadam Counter 1"
+  "actionDetails": "prasadam Breakfast",
+  "location": "Breakfast",
+  "scannerMemberId": "1001"
 }
 ```
 

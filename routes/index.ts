@@ -9,6 +9,7 @@ export const Routes = {
   RegisterTag: 'RegisterTag',
   MealScan: 'MealScan',
   ActivityStats: 'ActivityStats',
+  DaypassActivityStats: 'DaypassActivityStats',
   GiftApproval: 'GiftApproval',
   ServiceApproval: 'ServiceApproval',
   Daypass: 'Daypass',

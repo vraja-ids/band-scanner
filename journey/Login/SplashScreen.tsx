@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet, Image } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Image, Text } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Routes from '../../routes/index';
 import { Keys, getString, setString } from '../../storage/Session';
 import { SessionManager } from '../../storage/SessionManager';
@@ -7,6 +8,7 @@ import { useBaseScreen } from '../common/util/useBaseScreen';
 
 export default function SplashScreen({ navigation }: any) {
   const { logAction, logError } = useBaseScreen({ screenName: 'SplashScreen' });
+  const insets = useSafeAreaInsets();
   
   useEffect(() => {
     (async () => {
@@ -24,16 +26,40 @@ export default function SplashScreen({ navigation }: any) {
   }, [navigation]);
 
   return (
-    <View style={styles.container}>
-      <Image source={require('../../assets/icon.png')} style={styles.logo} />
-      <ActivityIndicator size="large" color="#5dbea3" />
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <View style={styles.content}>
+        <Image source={require('../../assets/icon.png')} style={styles.logo} />
+        <ActivityIndicator size="large" color="#5dbea3" />
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
-  logo: { width: 180, height: 180, marginBottom: 24, resizeMode: 'contain' }
+  container: { 
+    flex: 1, 
+    backgroundColor: '#fff' 
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+  },
+  logo: { 
+    width: 200, 
+    height: 200, 
+    marginBottom: 32, 
+    resizeMode: 'contain' 
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500'
+  }
 });
 
 

@@ -14,6 +14,7 @@ import OtpVerifyScreen from './journey/Login/OtpVerifyScreen';
 import SplashScreen from './journey/Login/SplashScreen';
 import EventSelectionScreen from './journey/Login/EventSelectionScreen';
 import DaypassScreen from './journey/Daypass/DaypassScreen';
+import DaypassActivityStatsScreen from './journey/Daypass/DaypassActivityStatsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -62,6 +63,11 @@ export default function App() {
         <Stack.Screen 
           name={Routes.ActivityStats}
           component={ActivityStatsScreen} 
+        />
+        <Stack.Screen 
+          name={Routes.DaypassActivityStats}
+          component={DaypassActivityStatsScreen}
+          options={{ headerShown: false }}
         />
         <Stack.Screen 
           name={Routes.GiftApproval}

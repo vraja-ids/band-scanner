@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ScannerParams, RouteName } from '../../../routes/index';
 
 type Props = {
@@ -14,6 +14,7 @@ export default function Scanner({ navigation, route }: Props) {
   const [isScanningEnabled, setIsScanningEnabled] = useState(true);
   const [facing, setFacing] = useState<'back' | 'front'>('back');
   const cameraRef = useRef<any>(null);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (cameraPermission?.status !== 'granted') {
@@ -70,25 +71,25 @@ export default function Scanner({ navigation, route }: Props) {
 
   if (cameraPermission === null) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <Text>Requesting camera permission...</Text>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (cameraPermission?.status !== 'granted') {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <Text style={styles.permissionText}>Camera permission is required to scan barcodes</Text>
         <TouchableOpacity style={styles.button} onPress={requestCameraPermission}>
           <Text style={styles.buttonText}>Grant Permission</Text>
         </TouchableOpacity>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.cameraContainer}>
         <CameraView
           ref={cameraRef}
@@ -121,7 +122,7 @@ export default function Scanner({ navigation, route }: Props) {
           <Text style={styles.buttonText}>Go Back</Text>
         </TouchableOpacity>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 

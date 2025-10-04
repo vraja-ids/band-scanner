@@ -4,10 +4,12 @@ export const Keys = {
   AUTH_TOKEN: 'authToken',
   DEVICE_ID: 'deviceId',
   EXTERNAL_MEMBER_ID: 'externalMemberId',
+  INTERNAL_MEMBER_ID: 'internalMemberId',
   EMAIL_ADDRESS: 'emailAddress',
   LEGAL_NAME: 'legalName',
   SPIRITUAL_NAME: 'spiritualName',
   SELECTED_BUS_NUMBER: 'selectedBusNumber',
+  SELECTED_PRASADAM_TIME: 'selectedPrasadamTime',
 };
 
 export async function getString(key) {

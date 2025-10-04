@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StyleSheet, View, TouchableOpacity, Text, Image } from 'react-native';
+import { getString, Keys } from '../../storage/Session';
 import { Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fetchMealActivity, updateMealActivity } from './MealsViewModel';
@@ -136,7 +137,7 @@ function MealScanScreen(props: any) {
   const addMemberActivity = async (meal: string, data: any) => {
     if (data && data.memberActivityDetails) {
       const formattedLocation = getLocation();
-      const currentScannerId = await AsyncStorage.getItem('memberId');
+      const currentScannerId = await getString(Keys.INTERNAL_MEMBER_ID);
       const mealdata: UpdateMealActivityRequest = {
         tagId: data.memberActivityDetails.tagId,
         apiVersion: '2.9',

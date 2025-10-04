@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { validateVerificationCode, getProfile } from './LoginViewModel';
 import Routes from '../../routes/index';
 import { Keys, getString, setString } from '../../storage/Session';
@@ -7,6 +8,7 @@ import { useBaseScreen } from '../common/util/useBaseScreen';
 
 export default function OtpVerifyScreen({ navigation }: any) {
   const { logAction, logError } = useBaseScreen({ screenName: 'OtpVerifyScreen' });
+  const insets = useSafeAreaInsets();
   const [digits, setDigits] = useState<string[]>(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [authToken, setAuthToken] = useState<string | null>(null);
@@ -98,47 +100,97 @@ export default function OtpVerifyScreen({ navigation }: any) {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Enter 6-digit Code</Text>
-      <View style={styles.otpRow}>
-        {digits.map((d, i) => (
-          <TextInput
-            key={i}
-            ref={(el) => { inputsRef.current[i] = el; }}
-            style={styles.otpInput}
-            value={d}
-            onChangeText={(t) => onChangeDigit(i, t)}
-            onKeyPress={(e) => onKeyPress(i, e)}
-            keyboardType="number-pad"
-            maxLength={1}
-            returnKeyType={i === 5 ? 'done' : 'next'}
-            autoFocus={i === 0}
-          />
-        ))}
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <View style={styles.content}>
+        <Text style={styles.title}>Enter 6-digit Code</Text>
+        <Text style={styles.subtitle}>We sent a verification code to your email</Text>
+        <View style={styles.otpRow}>
+          {digits.map((d, i) => (
+            <TextInput
+              key={i}
+              ref={(el) => { inputsRef.current[i] = el; }}
+              style={styles.otpInput}
+              value={d}
+              onChangeText={(t) => onChangeDigit(i, t)}
+              onKeyPress={(e) => onKeyPress(i, e)}
+              keyboardType="number-pad"
+              maxLength={1}
+              returnKeyType={i === 5 ? 'done' : 'next'}
+              autoFocus={i === 0}
+            />
+          ))}
+        </View>
+        <TouchableOpacity style={styles.button} onPress={validateOtp} disabled={loading}>
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Verify</Text>}
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity style={styles.button} onPress={validateOtp} disabled={loading}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Verify</Text>}
-      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#fff' },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
-  otpRow: { flexDirection: 'row', justifyContent: 'space-between', width: '90%', marginBottom: 16 },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#fff' 
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+  },
+  title: { 
+    fontSize: 28, 
+    fontWeight: 'bold', 
+    marginBottom: 8,
+    color: '#333',
+    textAlign: 'center'
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 32,
+    textAlign: 'center',
+  },
+  otpRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    width: '100%',
+    maxWidth: 300,
+    marginBottom: 32 
+  },
   otpInput: {
     width: 48,
     height: 56,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#ddd',
+    borderRadius: 12,
     textAlign: 'center',
-    fontSize: 20,
-    color: 'black'
+    fontSize: 24,
+    color: '#333',
+    backgroundColor: '#f8f9fa',
+    fontWeight: '600'
   },
-  button: { backgroundColor: '#5dbea3', paddingVertical: 14, paddingHorizontal: 24, borderRadius: 8, width: '90%', alignItems: 'center' },
-  buttonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  button: { 
+    backgroundColor: '#5dbea3', 
+    paddingVertical: 16, 
+    paddingHorizontal: 32, 
+    borderRadius: 12, 
+    width: '100%',
+    maxWidth: 300,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  buttonText: { 
+    color: 'white', 
+    fontWeight: 'bold', 
+    fontSize: 16 
+  },
 });
 
 

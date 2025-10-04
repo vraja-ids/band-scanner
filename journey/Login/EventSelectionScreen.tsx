@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { getEvents, loginScanner } from './LoginViewModel';
 import { SessionManager } from '../../storage/SessionManager';
@@ -11,6 +12,7 @@ import { useBaseScreen } from '../common/util/useBaseScreen';
 export default function EventSelectionScreen() {
   const { logAction, logError } = useBaseScreen({ screenName: 'EventSelectionScreen' });
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [events, setEvents] = useState<Array<{ eventId: string; eventName: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
@@ -26,9 +28,14 @@ export default function EventSelectionScreen() {
       if (response.status === 'success' && response.data?.events) {
         logAction('Events loaded successfully', { count: response.data.events.length });
         setEvents(response.data.events);
+      } else {
+        const errorMessage = (response as any)?.message || 'Failed to load events. Please try again.';
+        Alert.alert('Error', errorMessage);
       }
-    } catch (error) {
+    } catch (error: any) {
       logError(error, 'loadEvents');
+      const errorMessage = error?.message || 'Failed to load events. Please check your connection and try again.';
+      Alert.alert('Connection Error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -45,6 +52,12 @@ export default function EventSelectionScreen() {
       const authToken = await getString(Keys.AUTH_TOKEN);
       if (!authToken) {
         logError('No auth token found', 'handleEventSelect');
+        Alert.alert('Authentication Required', 'Please log in again to continue.');
+        // Navigate back to login
+        (navigation as any).reset({ 
+          index: 0, 
+          routes: [{ name: Routes.LoginEmail }] 
+        });
         return;
       }
 
@@ -56,9 +69,14 @@ export default function EventSelectionScreen() {
       });
 
       if (resp.status === 'success' && (resp.data as any)?.scannerLoginResponse) {
-        const { memberPermissions, scansInThisEvent } = (resp.data as any).scannerLoginResponse;
+        const { memberId, memberPermissions, scansInThisEvent } = (resp.data as any).scannerLoginResponse;
         
-        logAction('LoginScanner successful', { memberPermissions, scansInThisEvent });
+        logAction('LoginScanner successful', { memberId, memberPermissions, scansInThisEvent });
+        
+        // Store memberId as internalMemberId
+        if (memberId) {
+          await setString(Keys.INTERNAL_MEMBER_ID, memberId);
+        }
         
         // Store permissions in SessionManager
         if (memberPermissions) {
@@ -82,27 +100,31 @@ export default function EventSelectionScreen() {
         });
       } else {
         logError('Login scanner failed', 'handleEventSelect');
+        const errorMessage = (resp as any)?.message || 'Failed to authenticate with selected event. Please try again.';
+        Alert.alert('Authentication Error', errorMessage);
         setSelectedEvent(null);
       }
-    } catch (error) {
+    } catch (error: any) {
       logError(error, 'handleEventSelect');
+      const errorMessage = error?.message || 'An unexpected error occurred. Please try again.';
+      Alert.alert('Error', errorMessage);
       setSelectedEvent(null);
     }
   };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#5dbea3" />
           <Text style={styles.loadingText}>Loading events...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.header}>
         <Text style={styles.title}>Select Event</Text>
         <Text style={styles.subtitle}>Choose an event to continue</Text>
@@ -127,7 +149,7 @@ export default function EventSelectionScreen() {
           </TouchableOpacity>
         ))}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -147,7 +169,9 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   header: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
@@ -163,7 +187,9 @@ const styles = StyleSheet.create({
   },
   eventsList: {
     flex: 1,
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
   },
   eventCard: {
     backgroundColor: '#f8f9fa',

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { generateVerificationCode } from './LoginViewModel';
 import { Keys, setString } from '../../storage/Session';
 import Routes from '../../routes/index';
@@ -7,6 +8,7 @@ import { useBaseScreen } from '../common/util/useBaseScreen';
 
 export default function EmailLoginScreen({ navigation }: any) {
   const { logAction, logError } = useBaseScreen({ screenName: 'EmailLoginScreen' });
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -43,29 +45,76 @@ export default function EmailLoginScreen({ navigation }: any) {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Login with Email</Text>
-      <TextInput
-        style={styles.input}
-        value={email}
-        onChangeText={setEmail}
-        placeholder="Enter your email"
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
-      <TouchableOpacity style={styles.button} onPress={sendVerificationCode} disabled={loading}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Send Code</Text>}
-      </TouchableOpacity>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <View style={styles.content}>
+        <Text style={styles.title}>Login with Email</Text>
+        <TextInput
+          style={styles.input}
+          value={email}
+          onChangeText={setEmail}
+          placeholder="Enter your email"
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+        <TouchableOpacity style={styles.button} onPress={sendVerificationCode} disabled={loading}>
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Send Code</Text>}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#fff' },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
-  input: { width: '90%', borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, marginBottom: 16, color: 'black' },
-  button: { backgroundColor: '#5dbea3', paddingVertical: 14, paddingHorizontal: 24, borderRadius: 8, width: '90%', alignItems: 'center' },
-  buttonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#fff' 
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+  },
+  title: { 
+    fontSize: 28, 
+    fontWeight: 'bold', 
+    marginBottom: 32,
+    color: '#333',
+    textAlign: 'center'
+  },
+  input: { 
+    width: '100%', 
+    maxWidth: 400,
+    borderWidth: 1, 
+    borderColor: '#ddd', 
+    borderRadius: 12, 
+    paddingHorizontal: 16,
+    paddingVertical: 14, 
+    marginBottom: 24, 
+    color: '#333',
+    fontSize: 16,
+    backgroundColor: '#f8f9fa'
+  },
+  button: { 
+    backgroundColor: '#5dbea3', 
+    paddingVertical: 16, 
+    paddingHorizontal: 32, 
+    borderRadius: 12, 
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  buttonText: { 
+    color: 'white', 
+    fontWeight: 'bold', 
+    fontSize: 16 
+  },
 });
 
 

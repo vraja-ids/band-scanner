@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, Dimensions, ScrollView, ActivityIndicator, Alert, SafeAreaView } from 'react-native';
+import { View, TouchableOpacity, Text, StyleSheet, Dimensions, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -8,10 +9,13 @@ import Routes from '../../routes/index';
 import { SessionManager } from '../../storage/SessionManager';
 import { getString, Keys, setString } from '../../storage/Session';
 import { useBaseScreen } from '../common/util/useBaseScreen';
+import { updateCount } from '../Daypass/DaypassViewModel';
+import type { UpdateCountRequest } from '../Daypass/models/api';
 
 const HomeScreen = () => {
   const { logAction, logError } = useBaseScreen({ screenName: 'HomeScreen' });
   const navigation: any = useNavigation();
+  const insets = useSafeAreaInsets();
   const [selectedLane, setSelectedLane] = useState<string | null>(null);
   const [showGiftButton, setShowGiftButton] = useState(false);
   const [userName, setUserName] = useState('');
@@ -19,6 +23,11 @@ const HomeScreen = () => {
   const [scansInThisEvent, setScansInThisEvent] = useState<string[]>([]);
   const [selectedEventName, setSelectedEventName] = useState('');
   const [selectedBusNumber, setSelectedBusNumber] = useState<string>('1');
+  const [selectedPrasadamTime, setSelectedPrasadamTime] = useState<string>('Breakfast');
+  const [busCount, setBusCount] = useState<number>(0);
+  const [prasadamCount, setPrasadamCount] = useState<number>(0);
+  const [isUpdatingBusCount, setIsUpdatingBusCount] = useState(false);
+  const [isUpdatingPrasadamCount, setIsUpdatingPrasadamCount] = useState(false);
   const route: any = useRoute();
 
   useEffect(() => {
@@ -51,10 +60,11 @@ const HomeScreen = () => {
       const scansData = await getString('scansInThisEvent');
       const eventName = await getString('selectedEventName');
       const busNumber = await getString(Keys.SELECTED_BUS_NUMBER);
+      const prasadamTime = await getString(Keys.SELECTED_PRASADAM_TIME);
       
       if (scansData) {
         const scans = JSON.parse(scansData);
-        logAction('Event data loaded', { scans, eventName, busNumber });
+        logAction('Event data loaded', { scans, eventName, busNumber, prasadamTime });
         setScansInThisEvent(scans);
       }
       if (eventName) {
@@ -62,6 +72,9 @@ const HomeScreen = () => {
       }
       if (busNumber) {
         setSelectedBusNumber(busNumber);
+      }
+      if (prasadamTime) {
+        setSelectedPrasadamTime(prasadamTime);
       }
     } catch (error) {
       logError(error, 'loadEventData');
@@ -189,10 +202,68 @@ const HomeScreen = () => {
     }
   };
 
+  const handlePrasadamTimeChange = async (prasadamTime: string) => {
+    setSelectedPrasadamTime(prasadamTime);
+    try {
+      await setString(Keys.SELECTED_PRASADAM_TIME, prasadamTime);
+    } catch (error) {
+      console.error('Error saving prasadam time:', error);
+    }
+  };
+
   const handleLogoPress = () => {};
 
   const handleLaneSelect = (lane: string | null) => {
     setSelectedLane(lane);
+  };
+
+  const handleCountUpdate = async (actionId: 'bus' | 'prasadam', count: number) => {
+    const isBus = actionId === 'bus';
+    const setLoading = isBus ? setIsUpdatingBusCount : setIsUpdatingPrasadamCount;
+    const setCount = isBus ? setBusCount : setPrasadamCount;
+    
+    setLoading(true);
+    try {
+      const internalMemberId = await getString(Keys.INTERNAL_MEMBER_ID);
+      const selectedEventId = await getString('selectedEventId');
+      
+      if (!internalMemberId || !selectedEventId) {
+        logError('Missing member ID or event ID', 'handleCountUpdate');
+        Alert.alert('Error', 'Missing member ID or event ID');
+        return;
+      }
+
+      const location = isBus ? `bus${selectedBusNumber}` : selectedPrasadamTime.toLowerCase();
+
+      const request: UpdateCountRequest = {
+        eventId: selectedEventId,
+        actionId,
+        count,
+        location,
+        scannerMemberId: internalMemberId,
+      };
+
+      const response = await updateCount(request);
+
+      if (response.status === 'success' && response.data) {
+        logAction('Count updated successfully', { actionId, count, totalCount: response.data.totalCount });
+        setCount(response.data.totalCount);
+        Alert.alert('Success', `Count updated successfully. Total: ${response.data.totalCount}`);
+      } else {
+        logError('Failed to update count', 'handleCountUpdate');
+        Alert.alert('Error', 'Failed to update count');
+      }
+    } catch (error) {
+      logError(error, 'handleCountUpdate');
+      Alert.alert('Error', 'Failed to update count');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const navigateToDaypassStats = () => {
+    logAction('Navigating to Daypass Activity Stats');
+    (navigation as any).navigate(Routes.DaypassActivityStats);
   };
 
   const isCheckMealDisabled = selectedLane === null;
@@ -268,7 +339,7 @@ const HomeScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <ScrollView style={styles.scrollContainer}>
         <View style={styles.content}>
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -315,6 +386,88 @@ const HomeScreen = () => {
           </View>
         )}
 
+        {/* Show prasadam time picker for daypass scanning */}
+        {!scansInThisEvent.includes('Meals') && !scansInThisEvent.includes('Gifts') && !scansInThisEvent.includes('RegistrationTag') && 
+         scansInThisEvent.includes('Daypass') && 
+         SessionManager.hasPermission('canScanDaypassPrasadam') && (
+          <View style={styles.pickerContainer}>
+            <Text style={styles.pickerLabel}>Select Prasadam Time:</Text>
+            <Picker 
+              selectedValue={selectedPrasadamTime} 
+              onValueChange={handlePrasadamTimeChange} 
+              style={styles.picker}
+            >
+              <Picker.Item label="Breakfast" value="Breakfast" />
+              <Picker.Item label="Lunch" value="Lunch" />
+              <Picker.Item label="Dinner" value="Dinner" />
+            </Picker>
+          </View>
+        )}
+
+        {/* Count Update Buttons for Daypass */}
+        {scansInThisEvent.includes('Daypass') && 
+         (SessionManager.hasPermission('canScanDaypassBus') || SessionManager.hasPermission('canScanDaypassPrasadam')) && (
+          <View style={styles.countUpdateContainer}>
+            {/* Bus Count Update */}
+            {SessionManager.hasPermission('canScanDaypassBus') && (
+              <View style={styles.countRow}>
+                <TouchableOpacity
+                  style={[styles.countButton, isUpdatingBusCount && styles.countButtonDisabled]}
+                  onPress={() => handleCountUpdate('bus', -1)}
+                  disabled={isUpdatingBusCount}
+                >
+                  {isUpdatingBusCount ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.countButtonText}>-1</Text>
+                  )}
+                </TouchableOpacity>
+                <Text style={styles.countDisplay}>{busCount} (Bus)</Text>
+                <TouchableOpacity
+                  style={[styles.countButton, isUpdatingBusCount && styles.countButtonDisabled]}
+                  onPress={() => handleCountUpdate('bus', 1)}
+                  disabled={isUpdatingBusCount}
+                >
+                  {isUpdatingBusCount ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.countButtonText}>+1</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Prasadam Count Update */}
+            {SessionManager.hasPermission('canScanDaypassPrasadam') && (
+              <View style={styles.countRow}>
+                <TouchableOpacity
+                  style={[styles.countButton, isUpdatingPrasadamCount && styles.countButtonDisabled]}
+                  onPress={() => handleCountUpdate('prasadam', -1)}
+                  disabled={isUpdatingPrasadamCount}
+                >
+                  {isUpdatingPrasadamCount ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.countButtonText}>-1</Text>
+                  )}
+                </TouchableOpacity>
+                <Text style={styles.countDisplay}>{prasadamCount} (Prasadam)</Text>
+                <TouchableOpacity
+                  style={[styles.countButton, isUpdatingPrasadamCount && styles.countButtonDisabled]}
+                  onPress={() => handleCountUpdate('prasadam', 1)}
+                  disabled={isUpdatingPrasadamCount}
+                >
+                  {isUpdatingPrasadamCount ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.countButtonText}>+1</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Render buttons based on event type */}
         <View style={styles.buttonsContainer}>
           {renderEventButtons()}
@@ -326,10 +479,19 @@ const HomeScreen = () => {
               <Text style={styles.buttonText}>Activity Stats</Text>
             </TouchableOpacity>
           )}
+
+          {/* Daypass Activity Stats */}
+          {scansInThisEvent.includes('Daypass') && 
+           (SessionManager.hasPermission('canScanDaypassBus') || SessionManager.hasPermission('canScanDaypassPrasadam')) && (
+            <TouchableOpacity style={styles.button} onPress={navigateToDaypassStats}>
+              <Ionicons name="analytics-outline" size={24} color="#fff" />
+              <Text style={styles.buttonText}>Daypass Stats</Text>
+            </TouchableOpacity>
+          )}
         </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -422,6 +584,53 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     marginTop: 20,
+  },
+  countUpdateContainer: {
+    width: '100%',
+    marginBottom: 20,
+    paddingHorizontal: 20,
+  },
+  countRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
+  },
+  countButton: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 25,
+    width: 50,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
+  },
+  countButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  countButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  countDisplay: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
+    flex: 1,
   },
 });
 

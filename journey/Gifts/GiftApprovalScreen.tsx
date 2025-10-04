@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Scr
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SessionManager } from '../../storage/SessionManager';
+import { getString, Keys } from '../../storage/Session';
 import { fetchMemberDetails, updateGiftActivity } from './GiftsViewModel';
 import type { GetMemberGiftActivityRequest, UpdateGiftActivityRequest } from './models/api';
 import { useBaseScreen } from '../common/util/useBaseScreen';
@@ -113,7 +114,7 @@ const GiftApprovalScreen = ({ route }: any) => {
       setIsLoading(true);
     }
     try {
-      const scannerMemberId = await AsyncStorage.getItem('memberId');
+      const scannerMemberId = await getString(Keys.INTERNAL_MEMBER_ID);
       const req: GetMemberGiftActivityRequest = { tagId: tid, category: 'gifttracking', scannerMemberId };
       const memberDetailsResp: any = await fetchMemberDetails(req);
       setMemberDetails(new MemberDetails(memberDetailsResp.memberActivityDetails));

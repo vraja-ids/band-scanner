@@ -63,7 +63,9 @@ Content-Type: application/json
   "eventId": "USASadhuSanga2025",
   "action": "redeem",
   "actionId": "bus",
-  "actionDetails": "Bus 7"
+  "actionDetails": "Bus 7",
+  "location": "Bus 7",
+  "scannerMemberId": "1001"
 }
 ```
 
@@ -72,6 +74,19 @@ Content-Type: application/json
 {
   "success": true,
   "message": "Bus redemption successful"
+}
+```
+
+**Example Request (Redeem Prasadam):**
+```json
+{
+  "dayPassNumber": "DP-2025-001234",
+  "eventId": "USASadhuSanga2025",
+  "action": "redeem",
+  "actionId": "prasadam",
+  "actionDetails": "prasadam Lunch",
+  "location": "Lunch",
+  "scannerMemberId": "1001"
 }
 ```
 
