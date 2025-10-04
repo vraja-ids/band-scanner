@@ -2,6 +2,7 @@ class SessionManagerImpl {
   private static _instance: SessionManagerImpl | null = null;
 
   public permissions: string[] = [];
+  private sessionData: Map<string, any> = new Map();
 
   static get instance(): SessionManagerImpl {
     if (!SessionManagerImpl._instance) {
@@ -22,8 +23,21 @@ class SessionManagerImpl {
     return [...this.permissions];
   }
 
+  setData(key: string, value: any): void {
+    this.sessionData.set(key, value);
+  }
+
+  getData(key: string): any {
+    return this.sessionData.get(key);
+  }
+
+  removeData(key: string): void {
+    this.sessionData.delete(key);
+  }
+
   reset() {
     this.permissions = [];
+    this.sessionData.clear();
   }
 }
 

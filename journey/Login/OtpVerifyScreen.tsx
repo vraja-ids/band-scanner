@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { validateVerificationCode, getProfile } from './LoginViewModel';
 import Routes from '../../routes/index';
 import { Keys, getString, setString } from '../../storage/Session';
@@ -9,6 +10,7 @@ import { useBaseScreen } from '../common/util/useBaseScreen';
 export default function OtpVerifyScreen({ navigation }: any) {
   const { logAction, logError } = useBaseScreen({ screenName: 'OtpVerifyScreen' });
   const insets = useSafeAreaInsets();
+  const { t, i18n } = useTranslation();
   const [digits, setDigits] = useState<string[]>(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [authToken, setAuthToken] = useState<string | null>(null);
@@ -25,7 +27,7 @@ export default function OtpVerifyScreen({ navigation }: any) {
     const otp = digits.join('');
     if (otp.length !== 6) {
       logAction('Invalid OTP length', { otpLength: otp.length });
-      Alert.alert('Invalid Code', 'Please enter the 6-digit code.');
+      Alert.alert(t('login.invalidOtp'), t('login.invalidOtp'));
       return;
     }
     
@@ -36,7 +38,7 @@ export default function OtpVerifyScreen({ navigation }: any) {
       const resp = await validateVerificationCode(payload);
       if (resp.status === 'error') {
         logError(resp.message || 'Invalid verification code', 'validateOtp');
-        Alert.alert('Error', resp.message || 'Invalid verification code');
+        Alert.alert(t('common.error'), resp.message || t('login.invalidOtp'));
         setLoading(false);
         return;
       }
@@ -45,14 +47,14 @@ export default function OtpVerifyScreen({ navigation }: any) {
       const effectiveAuthToken = data?.authToken || authToken;
       if (!effectiveAuthToken) {
         logError('Missing auth token', 'validateOtp');
-        Alert.alert('Error', 'Missing auth token');
+        Alert.alert(t('common.error'), t('login.authRequired'));
         setLoading(false);
         return;
       }
 
       // Fetch profile
-      logAction('Fetching user profile', { authToken: effectiveAuthToken });
-      const profileReq = { authToken: effectiveAuthToken, apiVersion: '1.8', locale: 'en' };
+      logAction('Fetching user profile', { authToken: effectiveAuthToken, locale: i18n.language });
+      const profileReq = { authToken: effectiveAuthToken, apiVersion: '1.8', locale: i18n.language };
       const profileResp = await getProfile(profileReq);
       if (profileResp.status === 'success' && profileResp.data?.externalMemberId) {
         const profile: any = profileResp.data;
@@ -65,11 +67,11 @@ export default function OtpVerifyScreen({ navigation }: any) {
         navigation.reset({ index: 0, routes: [{ name: Routes.EventSelection }] });
       } else {
         logError('Failed to load profile', 'validateOtp');
-        Alert.alert('Error', 'Failed to load profile');
+        Alert.alert(t('common.error'), t('login.authError'));
       }
     } catch (e: any) {
       logError(e, 'validateOtp');
-      Alert.alert('Error', e?.message || 'Something went wrong');
+      Alert.alert(t('common.error'), e?.message || t('login.connectionError'));
     } finally {
       setLoading(false);
     }
@@ -100,31 +102,41 @@ export default function OtpVerifyScreen({ navigation }: any) {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Enter 6-digit Code</Text>
-        <Text style={styles.subtitle}>We sent a verification code to your email</Text>
-        <View style={styles.otpRow}>
-          {digits.map((d, i) => (
-            <TextInput
-              key={i}
-              ref={(el) => { inputsRef.current[i] = el; }}
-              style={styles.otpInput}
-              value={d}
-              onChangeText={(t) => onChangeDigit(i, t)}
-              onKeyPress={(e) => onKeyPress(i, e)}
-              keyboardType="number-pad"
-              maxLength={1}
-              returnKeyType={i === 5 ? 'done' : 'next'}
-              autoFocus={i === 0}
-            />
-          ))}
+    <KeyboardAvoidingView 
+      style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.content}>
+          <Text style={styles.title}>{t('login.otpTitle')}</Text>
+          <Text style={styles.subtitle}>{t('login.otpDescription')}</Text>
+          <View style={styles.otpRow}>
+            {digits.map((d, i) => (
+              <TextInput
+                key={i}
+                ref={(el) => { inputsRef.current[i] = el; }}
+                style={styles.otpInput}
+                value={d}
+                onChangeText={(t) => onChangeDigit(i, t)}
+                onKeyPress={(e) => onKeyPress(i, e)}
+                keyboardType="number-pad"
+                maxLength={1}
+                returnKeyType={i === 5 ? 'done' : 'next'}
+                autoFocus={i === 0}
+              />
+            ))}
+          </View>
+          <TouchableOpacity style={styles.button} onPress={validateOtp} disabled={loading}>
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>{t('login.verify')}</Text>}
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.button} onPress={validateOtp} disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Verify</Text>}
-        </TouchableOpacity>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -132,6 +144,10 @@ const styles = StyleSheet.create({
   container: { 
     flex: 1, 
     backgroundColor: '#fff' 
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   content: {
     flex: 1,

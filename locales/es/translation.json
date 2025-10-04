@@ -1,0 +1,127 @@
+{
+  "common": {
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "cancel": "Cancelar",
+    "done": "Hecho",
+    "back": "Atrás",
+    "refresh": "Actualizar",
+    "logout": "Cerrar sesión",
+    "confirm": "Confirmar",
+    "yes": "Sí",
+    "no": "No",
+    "actions": "Acciones"
+  },
+  "language": {
+    "selectLanguage": "Seleccionar idioma",
+    "english": "English",
+    "russian": "Русский",
+    "spanish": "Español"
+  },
+  "splash": {
+    "title": "SS Admin",
+    "loading": "Cargando..."
+  },
+  "login": {
+    "email": "Dirección de correo electrónico",
+    "emailPlaceholder": "Ingrese su correo electrónico",
+    "sendCode": "Enviar código de verificación",
+    "otpTitle": "Ingrese código de verificación",
+    "otpDescription": "Enviamos un código de 6 dígitos a su correo electrónico",
+    "verify": "Verificar",
+    "resendCode": "Reenviar código",
+    "invalidEmail": "Por favor ingrese una dirección de correo electrónico válida",
+    "invalidOtp": "Por favor ingrese un código de 6 dígitos válido",
+    "authRequired": "Autenticación requerida",
+    "authError": "Error de autenticación",
+    "connectionError": "Error de conexión"
+  },
+  "eventSelection": {
+    "title": "Seleccionar evento",
+    "loadingEvents": "Cargando eventos...",
+    "noEvents": "No hay eventos disponibles",
+    "selectEvent": "Seleccione un evento para continuar"
+  },
+  "home": {
+    "welcome": "Bienvenido",
+    "event": "Evento",
+    "selectLane": "Seleccionar carril",
+    "selectBusNumber": "Seleccionar número de autobús",
+    "selectPrasadamTime": "Seleccionar hora de prasadam",
+    "daypass": "Pase diario",
+    "meals": "Comidas",
+    "gifts": "Regalos",
+    "services": "Servicios",
+    "tags": "Etiquetas",
+    "activityStats": "Estadísticas de actividad",
+    "daypassStats": "Estadísticas de pases diarios",
+    "logoutConfirm": "¿Está seguro de que desea cerrar sesión?",
+    "logoutTitle": "Cerrar sesión"
+  },
+  "daypass": {
+    "title": "Gestión de pases diarios",
+    "daypassNumber": "Número de pase diario",
+    "purchaserName": "Comprador",
+    "daypassName": "Nombre del pase diario",
+    "status": "Estado",
+    "busStatus": "Estado del autobús",
+    "prasadamStatus": "Estado del prasadam",
+    "notRedeemed": "No canjeado",
+    "redeemBus": "Canjear autobús",
+    "unredeemBus": "Descanjear autobús",
+    "redeemPrasadam": "Canjear prasadam",
+    "unredeemPrasadam": "Descanjear prasadam",
+    "active": "Activo",
+    "redeemed": "Canjeado",
+    "scannerAlert": "Alerta del escáner",
+    "actionSuccess": "Acción completada exitosamente",
+    "actionError": "No se pudo completar la acción"
+  },
+  "daypassStats": {
+    "title": "Estadísticas de actividad de pases diarios",
+    "selectActivity": "Seleccionar actividad",
+    "selectDate": "Seleccionar fecha",
+    "totalCount": "Conteo total",
+    "bus": "Autobús",
+    "breakfast": "Desayuno",
+    "lunch": "Almuerzo",
+    "dinner": "Cena"
+  },
+  "gifts": {
+    "title": "Aprobación de regalos",
+    "approve": "Aprobar",
+    "disapprove": "Desaprobar",
+    "fulfill": "Cumplir",
+    "unfulfill": "No cumplir",
+    "quantity": "Cantidad",
+    "selectQuantity": "Seleccionar cantidad"
+  },
+  "services": {
+    "title": "Aprobación de servicios",
+    "acknowledge": "Reconocer",
+    "selectService": "Seleccionar servicio"
+  },
+  "meals": {
+    "title": "Escanear comida",
+    "scanMeal": "Escanear comida",
+    "location": "Ubicación"
+  },
+  "tags": {
+    "title": "Registrar etiqueta",
+    "register": "Registrar",
+    "tagId": "ID de etiqueta"
+  },
+  "scanner": {
+    "title": "Escáner",
+    "scanQR": "Escanear código QR",
+    "permissionDenied": "Permiso de cámara denegado",
+    "requestPermission": "Solicitar permiso"
+  },
+  "countUpdate": {
+    "bus": "Autobús",
+    "prasadam": "Prasadam",
+    "countUpdated": "Conteo actualizado exitosamente",
+    "countError": "No se pudo actualizar el conteo"
+  }
+}

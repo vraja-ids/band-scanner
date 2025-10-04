@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { SessionManager } from '../../storage/SessionManager';
 import { getString, setString, Keys } from '../../storage/Session';
 import { getDaypassStatus, updateDayPassStatus } from './DaypassViewModel';
@@ -13,6 +14,7 @@ export default function DaypassScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { dayPassNumber } = route.params as { dayPassNumber: string };
   
   const [isLoading, setIsLoading] = useState(false);
@@ -182,7 +184,7 @@ export default function DaypassScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={[styles.buttonText, isRedeemed && styles.buttonTextInactive]}>
-                Redeem {actionId}
+                {actionId === 'bus' ? t('daypass.redeemBus') : t('daypass.redeemPrasadam')}
               </Text>
             )}
           </TouchableOpacity>
@@ -205,7 +207,7 @@ export default function DaypassScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={[styles.buttonText, !isRedeemed && styles.buttonTextInactive]}>
-                Unredeem {actionId}
+                {actionId === 'bus' ? t('daypass.unredeemBus') : t('daypass.unredeemPrasadam')}
               </Text>
             )}
           </TouchableOpacity>
@@ -218,7 +220,7 @@ export default function DaypassScreen() {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color="#5dbea3" />
-        <Text style={styles.loadingText}>Loading daypass status...</Text>
+        <Text style={styles.loadingText}>{t('common.loading')}</Text>
       </View>
     );
   }
@@ -227,40 +229,40 @@ export default function DaypassScreen() {
     <View style={[styles.safeArea, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <ScrollView style={styles.scrollContainer}>
         <View style={styles.container}>
-        <Text style={styles.title}>Daypass Management</Text>
-        <Text style={styles.daypassNumber}>Daypass: {dayPassNumber}</Text>
+        <Text style={styles.title}>{t('daypass.title')}</Text>
+        <Text style={styles.daypassNumber}>{t('daypass.daypassNumber')}: {dayPassNumber}</Text>
         
         {daypassData && (
           <>
             <View style={styles.statusContainer}>
-              <Text style={styles.statusTitle}>Daypass Details</Text>
-              <Text style={styles.detailText}>Number: {daypassData.daypassNumber}</Text>
-              <Text style={styles.detailText}>Purchaser: {daypassData.purchaserName}</Text>
-              <Text style={styles.detailText}>Name: {daypassData.daypassName}</Text>
-              <Text style={styles.statusTitle}>Status: {daypassData.status}</Text>
+              <Text style={styles.statusTitle}>{t('daypass.title')}</Text>
+              <Text style={styles.detailText}>{t('daypass.daypassNumber')}: {daypassData.daypassNumber}</Text>
+              <Text style={styles.detailText}>{t('daypass.purchaserName')}: {daypassData.purchaserName}</Text>
+              <Text style={styles.detailText}>{t('daypass.daypassName')}: {daypassData.daypassName}</Text>
+              <Text style={styles.statusTitle}>{t('daypass.status')}: {daypassData.status}</Text>
               <Text style={styles.statusDetails}>
-                Bus: <Text style={[
+                {t('daypass.busStatus')}: <Text style={[
                   styles.statusText,
                   daypassData.statusDetails.bus ? styles.redeemedText : styles.notRedeemedText
                 ]}>
-                  {daypassData.statusDetails.bus || 'Not redeemed'}
+                  {daypassData.statusDetails.bus || t('daypass.notRedeemed')}
                 </Text>
               </Text>
               <Text style={styles.statusDetails}>
-                Prasadam: <Text style={[
+                {t('daypass.prasadamStatus')}: <Text style={[
                   styles.statusText,
                   daypassData.statusDetails.prasadam ? styles.redeemedText : styles.notRedeemedText
                 ]}>
-                  {daypassData.statusDetails.prasadam || 'Not redeemed'}
+                  {daypassData.statusDetails.prasadam || t('daypass.notRedeemed')}
                 </Text>
               </Text>
               {daypassData.scannerAlert && (
-                <Text style={styles.alertText}>⚠️ Scanner Alert</Text>
+                <Text style={styles.alertText}>⚠️ {t('daypass.scannerAlert')}</Text>
               )}
             </View>
 
             <View style={styles.actionsContainer}>
-              <Text style={styles.actionsTitle}>Actions</Text>
+              <Text style={styles.actionsTitle}>{t('common.actions')}</Text>
               {renderActionButtons('bus')}
               {renderActionButtons('prasadam')}
             </View>

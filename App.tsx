@@ -1,6 +1,8 @@
 import React from 'react';
+import { StatusBar } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import './i18n'; // Initialize i18n
 import Routes from './routes/index';
 import ActivityStatsScreen from './journey/Home/ActivityStatsScreen';
 import Scanner from './journey/common/util/Scanner';
@@ -15,25 +17,40 @@ import SplashScreen from './journey/Login/SplashScreen';
 import EventSelectionScreen from './journey/Login/EventSelectionScreen';
 import DaypassScreen from './journey/Daypass/DaypassScreen';
 import DaypassActivityStatsScreen from './journey/Daypass/DaypassActivityStatsScreen';
+import RedeemBusScreen from './journey/Daypass/RedeemBusScreen';
+import RedeemPrasadamScreen from './journey/Daypass/RedeemPrasadamScreen';
+import RedeemSuccessScreen from './journey/Daypass/RedeemSuccessScreen';
+import LanguageSelectionScreen from './journey/Login/LanguageSelectionScreen';
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName={Routes.Login + 'Splash'}>
+    <>
+      <StatusBar 
+        barStyle="dark-content" 
+        backgroundColor="#000000" 
+        translucent={false}
+      />
+      <NavigationContainer>
+      <Stack.Navigator initialRouteName={Routes.LoginSplash}>
         <Stack.Screen 
-          name={Routes.Login + 'Splash'}
+          name={Routes.LoginSplash}
           component={SplashScreen} 
           options={{ headerShown: false }} 
         />
         <Stack.Screen 
-          name={Routes.Login + 'Email'}
+          name={Routes.LanguageSelection}
+          component={LanguageSelectionScreen} 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name={Routes.LoginEmail}
           component={EmailLoginScreen} 
           options={{ headerShown: false }} 
         />
         <Stack.Screen 
-          name={Routes.Login + 'Otp'}
+          name={Routes.LoginOtp}
           component={OtpVerifyScreen} 
           options={{ headerShown: false }} 
         />
@@ -84,8 +101,24 @@ export default function App() {
           component={DaypassScreen}
           options={{ title: 'Daypass Management' }}
         />
+        <Stack.Screen 
+          name={Routes.RedeemBus}
+          component={RedeemBusScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name={Routes.RedeemPrasadam}
+          component={RedeemPrasadamScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name={Routes.RedeemSuccess}
+          component={RedeemSuccessScreen}
+          options={{ headerShown: false }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
+    </>
   );
 }
 

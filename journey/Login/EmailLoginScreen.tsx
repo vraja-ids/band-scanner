@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { generateVerificationCode } from './LoginViewModel';
 import { Keys, setString } from '../../storage/Session';
 import Routes from '../../routes/index';
@@ -9,13 +10,14 @@ import { useBaseScreen } from '../common/util/useBaseScreen';
 export default function EmailLoginScreen({ navigation }: any) {
   const { logAction, logError } = useBaseScreen({ screenName: 'EmailLoginScreen' });
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
 
   const sendVerificationCode = async () => {
     if (!email || !email.includes('@')) {
       logAction('Invalid email validation failed', { email });
-      Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      Alert.alert(t('login.invalidEmail'), t('login.invalidEmail'));
       return;
     }
     
@@ -31,36 +33,48 @@ export default function EmailLoginScreen({ navigation }: any) {
           await setString(Keys.AUTH_TOKEN, data.authToken);
         }
         await setString(Keys.EMAIL_ADDRESS, email);
-        navigation.navigate(Routes.Login + 'Otp');
+        navigation.navigate(Routes.LoginOtp);
       } else if (resp.status === 'error') {
         logError(resp.message || 'Failed to send verification code', 'sendVerificationCode');
-        Alert.alert('Error', resp.message || 'Failed to send verification code');
+        Alert.alert(t('common.error'), resp.message || t('login.authError'));
       }
     } catch (e: any) {
       logError(e, 'sendVerificationCode');
-      Alert.alert('Error', e?.message || 'Something went wrong');
+      Alert.alert(t('common.error'), e?.message || t('login.connectionError'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Login with Email</Text>
-        <TextInput
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          placeholder="Enter your email"
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-        <TouchableOpacity style={styles.button} onPress={sendVerificationCode} disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Send Code</Text>}
-        </TouchableOpacity>
-      </View>
-    </View>
+    <KeyboardAvoidingView 
+      style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.content}>
+          <Text style={styles.title}>{t('login.email')}</Text>
+          <TextInput
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            placeholder={t('login.emailPlaceholder')}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            returnKeyType="done"
+            onSubmitEditing={sendVerificationCode}
+          />
+          <TouchableOpacity style={styles.button} onPress={sendVerificationCode} disabled={loading}>
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>{t('login.sendCode')}</Text>}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -68,6 +82,10 @@ const styles = StyleSheet.create({
   container: { 
     flex: 1, 
     backgroundColor: '#fff' 
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   content: {
     flex: 1,

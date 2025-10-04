@@ -2,7 +2,7 @@
   "expo": {
     "name": "SS Admin",
     "slug": "band-scanner",
-    "version": "2.1.0",
+    "version": "2.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "splash": {
@@ -21,7 +21,12 @@
       "newArchEnabled": true,
       "supportsTablet": true,
       "bundleIdentifier": "com.sadhusanga.ScannerApp",
-      "buildNumber": "1",
+      "buildNumber": "7",
+      "version": "2.2.0",
+      "statusBar": {
+        "barStyle": "light-content",
+        "backgroundColor": "#000000"
+      },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
@@ -34,7 +39,8 @@
     "android": {
       "newArchEnabled": true,
       "package": "com.sadhusanga.ScannerApp",
-      "versionCode": 1,
+      "versionCode": 22,
+      "version": "2.2.0",
       "permissions": [
         "CAMERA",
         "INTERNET",
@@ -45,6 +51,10 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
+      },
+      "statusBar": {
+        "barStyle": "light-content",
+        "backgroundColor": "#000000"
       }
     },
     "web": {
@@ -63,6 +73,6 @@
         "projectId": "4403da0a-bab0-40b3-bdcf-7db525915f4f"
       }
     },
-    "owner": "sadhusanga"
+    "owner": "mohamaya"
   }
 }

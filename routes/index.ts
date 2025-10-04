@@ -1,4 +1,5 @@
 export const Routes = {
+  LanguageSelection: 'LanguageSelection',
   Login: 'Login',
   LoginEmail: 'LoginEmail',
   LoginOtp: 'LoginOtp',
@@ -13,6 +14,11 @@ export const Routes = {
   GiftApproval: 'GiftApproval',
   ServiceApproval: 'ServiceApproval',
   Daypass: 'Daypass',
+  RedeemBus: 'RedeemBus',
+  RedeemPrasadam: 'RedeemPrasadam',
+  RedeemSuccess: 'RedeemSuccess',
+  RedeemBusScan: 'RedeemBusScan',
+  RedeemPrasadamScan: 'RedeemPrasadamScan',
 } as const;
 
 export type RouteName = typeof Routes[keyof typeof Routes];
@@ -26,6 +32,9 @@ export interface ScannerParams {
   location?: string | number | Array<string | number>;
   message?: string;
   tag?: { id: string };
+  type?: 'bus' | 'prasadam';
+  busNumber?: string;
+  prasadamTime?: string;
 }
 
 export interface RegisterTagParams {

@@ -1,0 +1,142 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "done": "Done",
+    "back": "Back",
+    "refresh": "Refresh",
+    "logout": "Logout",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No",
+    "actions": "Actions",
+    "backToHome": "Back to Home"
+  },
+  "language": {
+    "selectLanguage": "Select Language",
+    "english": "English",
+    "russian": "Русский",
+    "spanish": "Español"
+  },
+  "splash": {
+    "title": "SS Admin",
+    "loading": "Loading..."
+  },
+  "login": {
+    "email": "Email Address",
+    "emailPlaceholder": "Enter your email",
+    "sendCode": "Send Verification Code",
+    "otpTitle": "Enter Verification Code",
+    "otpDescription": "We sent a 6-digit code to your email",
+    "verify": "Verify",
+    "resendCode": "Resend Code",
+    "invalidEmail": "Please enter a valid email address",
+    "invalidOtp": "Please enter a valid 6-digit code",
+    "authRequired": "Authentication Required",
+    "authError": "Authentication Error",
+    "connectionError": "Connection Error"
+  },
+  "eventSelection": {
+    "title": "Select Event",
+    "loadingEvents": "Loading events...",
+    "noEvents": "No events available",
+    "selectEvent": "Select an event to continue"
+  },
+  "home": {
+    "welcome": "Welcome",
+    "event": "Event",
+    "selectLane": "Select Lane",
+    "selectBusNumber": "Select Bus Number",
+    "selectPrasadamTime": "Select Prasadam Time",
+    "daypass": "Daypass",
+    "meals": "Meals",
+    "gifts": "Gifts",
+    "services": "Services",
+    "tags": "Tags",
+    "activityStats": "Activity Stats",
+    "daypassStats": "Daypass Stats",
+    "logoutConfirm": "Are you sure you want to logout?",
+    "logoutTitle": "Logout"
+  },
+  "daypass": {
+    "title": "Daypass Management",
+    "daypassNumber": "Daypass Number",
+    "purchaserName": "Purchaser",
+    "daypassName": "Daypass Name",
+    "status": "Status",
+    "busStatus": "Bus Status",
+    "prasadamStatus": "Prasadam Status",
+    "notRedeemed": "Not redeemed",
+    "redeemBus": "Redeem Bus",
+    "unredeemBus": "Unredeem Bus",
+    "redeemPrasadam": "Redeem Prasadam",
+    "unredeemPrasadam": "Unredeem Prasadam",
+    "active": "Active",
+    "redeemed": "Redeemed",
+    "scannerAlert": "Scanner Alert",
+    "actionSuccess": "Action completed successfully",
+    "actionError": "Failed to complete action",
+    "selectBus": "Select Bus",
+    "selectPrasadam": "Select Prasadam",
+    "selectBusFirst": "Please select a bus number first",
+    "selectPrasadamFirst": "Please select a prasadam time first",
+    "scanQR": "Scan QR",
+    "scanNext": "Scan Next",
+    "busRedeemed": "Redeemed for Bus",
+    "busUnredeemed": "Unredeemed for Bus",
+    "prasadamRedeemed": "Redeemed for Prasadam",
+    "prasadamUnredeemed": "Unredeemed for Prasadam",
+    "busRedeemedSuccess": "Successfully redeemed for Bus {busNumber}",
+    "busUnredeemedSuccess": "Successfully unredeemed for Bus {busNumber}",
+    "prasadamRedeemedSuccess": "Successfully redeemed for {prasadamTime}",
+    "prasadamUnredeemedSuccess": "Successfully unredeemed for {prasadamTime}"
+  },
+  "daypassStats": {
+    "title": "Daypass Activity Stats",
+    "selectActivity": "Select Activity",
+    "selectDate": "Select Date",
+    "totalCount": "Total Count",
+    "bus": "Bus",
+    "breakfast": "Breakfast",
+    "lunch": "Lunch",
+    "dinner": "Dinner"
+  },
+  "gifts": {
+    "title": "Gift Approval",
+    "approve": "Approve",
+    "disapprove": "Disapprove",
+    "fulfill": "Fulfill",
+    "unfulfill": "Unfulfill",
+    "quantity": "Quantity",
+    "selectQuantity": "Select Quantity"
+  },
+  "services": {
+    "title": "Service Approval",
+    "acknowledge": "Acknowledge",
+    "selectService": "Select Service"
+  },
+  "meals": {
+    "title": "Meal Scan",
+    "scanMeal": "Scan Meal",
+    "location": "Location"
+  },
+  "tags": {
+    "title": "Register Tag",
+    "register": "Register",
+    "tagId": "Tag ID"
+  },
+  "scanner": {
+    "title": "Scanner",
+    "scanQR": "Scan QR Code",
+    "permissionDenied": "Camera permission denied",
+    "requestPermission": "Request Permission"
+  },
+  "countUpdate": {
+    "bus": "Bus",
+    "prasadam": "Prasadam",
+    "countUpdated": "Count updated successfully",
+    "countError": "Failed to update count"
+  }
+}

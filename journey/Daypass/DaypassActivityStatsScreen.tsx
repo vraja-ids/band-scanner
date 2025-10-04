@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, ScrollView, Platform, Modal, FlatList } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { getString, Keys } from '../../storage/Session';
@@ -13,6 +14,7 @@ import { useBaseScreen } from '../common/util/useBaseScreen';
 const DaypassActivityStatsScreen: React.FC = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { logAction, logError } = useBaseScreen({ screenName: 'DaypassActivityStatsScreen' });
 
   const [selectedActivity, setSelectedActivity] = useState<string>('bus1');
@@ -21,8 +23,9 @@ const DaypassActivityStatsScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tempDate, setTempDate] = useState<Date>(new Date());
+  const [showActivityModal, setShowActivityModal] = useState(false);
 
-  const busOptions = Array.from({ length: 12 }, (_, i) => `bus${i + 1}`);
+  const busOptions = Array.from({ length: 25 }, (_, i) => `bus${i + 1}`);
   const prasadamOptions = ['breakfast', 'lunch', 'dinner'];
   const allOptions = [...busOptions, ...prasadamOptions];
 
@@ -112,26 +115,17 @@ const DaypassActivityStatsScreen: React.FC = () => {
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Daypass Activity Stats</Text>
+        <Text style={styles.headerTitle}>{t('daypassStats.title')}</Text>
         <View style={styles.placeholder} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Activity Dropdown */}
         <View style={styles.dropdownContainer}>
-          <Text style={styles.dropdownLabel}>Select Activity:</Text>
+          <Text style={styles.dropdownLabel}>{t('daypassStats.selectActivity')}:</Text>
           <TouchableOpacity 
             style={styles.dropdown}
-            onPress={() => {
-              Alert.alert(
-                'Select Activity',
-                'Choose an activity',
-                allOptions.map(option => ({
-                  text: getActivityDisplayName(option),
-                  onPress: async () => setSelectedActivity(option)
-                })).concat([{ text: 'Cancel', onPress: async () => {} }])
-              );
-            }}
+            onPress={() => setShowActivityModal(true)}
           >
             <Text style={styles.dropdownText}>{getActivityDisplayName(selectedActivity)}</Text>
             <Ionicons name="chevron-down" size={20} color="#666" />
@@ -140,7 +134,7 @@ const DaypassActivityStatsScreen: React.FC = () => {
 
         {/* Date Picker */}
         <View style={styles.dropdownContainer}>
-          <Text style={styles.dropdownLabel}>Select Date:</Text>
+          <Text style={styles.dropdownLabel}>{t('daypassStats.selectDate')}:</Text>
           <TouchableOpacity 
             style={styles.dropdown}
             onPress={openDatePicker}
@@ -160,7 +154,7 @@ const DaypassActivityStatsScreen: React.FC = () => {
         {showDatePicker && (
           <View style={styles.datePickerContainer}>
             <View style={styles.datePickerModal}>
-              <Text style={styles.datePickerTitle}>Select Date</Text>
+              <Text style={styles.datePickerTitle}>{t('daypassStats.selectDate')}</Text>
               <DateTimePicker
                 value={tempDate}
                 mode="date"
@@ -175,7 +169,7 @@ const DaypassActivityStatsScreen: React.FC = () => {
                     style={styles.datePickerButton}
                     onPress={() => setShowDatePicker(false)}
                   >
-                    <Text style={styles.datePickerButtonText}>Cancel</Text>
+                    <Text style={styles.datePickerButtonText}>{t('common.cancel')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.datePickerButton, styles.datePickerButtonPrimary]}
@@ -186,7 +180,7 @@ const DaypassActivityStatsScreen: React.FC = () => {
                       logAction('Date confirmed', { date: dateString });
                     }}
                   >
-                    <Text style={[styles.datePickerButtonText, styles.datePickerButtonTextPrimary]}>Done</Text>
+                    <Text style={[styles.datePickerButtonText, styles.datePickerButtonTextPrimary]}>{t('common.done')}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -196,7 +190,7 @@ const DaypassActivityStatsScreen: React.FC = () => {
 
         {/* Stats Display */}
         <View style={styles.statsContainer}>
-          <Text style={styles.statsLabel}>Total Count for {getActivityDisplayName(selectedActivity)}</Text>
+          <Text style={styles.statsLabel}>{t('daypassStats.totalCount')} {getActivityDisplayName(selectedActivity)}</Text>
           {isLoading ? (
             <ActivityIndicator size="large" color="#4CAF50" style={styles.loader} />
           ) : (
@@ -214,6 +208,56 @@ const DaypassActivityStatsScreen: React.FC = () => {
           <Text style={styles.refreshButtonText}>Refresh</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Activity Selection Modal */}
+      <Modal
+        visible={showActivityModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowActivityModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t('daypassStats.selectActivity')}</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowActivityModal(false)}
+              >
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={allOptions}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.activityOption,
+                    selectedActivity === item && styles.activityOptionSelected
+                  ]}
+                  onPress={() => {
+                    setSelectedActivity(item);
+                    setShowActivityModal(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.activityOptionText,
+                    selectedActivity === item && styles.activityOptionTextSelected
+                  ]}>
+                    {getActivityDisplayName(item)}
+                  </Text>
+                  {selectedActivity === item && (
+                    <Ionicons name="checkmark" size={20} color="#4CAF50" />
+                  )}
+                </TouchableOpacity>
+              )}
+              style={styles.activityList}
+              showsVerticalScrollIndicator={false}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -406,6 +450,61 @@ const styles = StyleSheet.create({
   },
   datePickerButtonTextPrimary: {
     color: '#fff',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    width: '80%',
+    maxHeight: '70%',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  activityList: {
+    maxHeight: 300,
+  },
+  activityOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  activityOptionSelected: {
+    backgroundColor: '#f8f9fa',
+  },
+  activityOptionText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  activityOptionTextSelected: {
+    color: '#4CAF50',
+    fontWeight: '600',
   },
 });
 

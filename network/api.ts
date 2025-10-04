@@ -8,7 +8,7 @@ import { getAuthToken } from '../storage/Session';
 import { success, error } from './ApiResponse';
 import type { ApiResponse } from './types';
 
-export const API_BASE_URL: string = 'http://367.network.sadhu-sanga.appspot.com';
+export const API_BASE_URL: string = 'https://network.sadhusangaretreat.com';
 export const NETWORK_TIMEOUT_MS: number = 10000;
 export const USE_MOCK_API: boolean = false;
 export const DEFAULT_API_VERSION: string = '1.8';

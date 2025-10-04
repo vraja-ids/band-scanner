@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, Dimensions, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, TouchableOpacity, Text, StyleSheet, Dimensions, ScrollView, ActivityIndicator, Alert, Modal, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { changeLanguage } from '../../i18n';
 import Routes from '../../routes/index';
 import { SessionManager } from '../../storage/SessionManager';
 import { getString, Keys, setString } from '../../storage/Session';
@@ -16,6 +18,7 @@ const HomeScreen = () => {
   const { logAction, logError } = useBaseScreen({ screenName: 'HomeScreen' });
   const navigation: any = useNavigation();
   const insets = useSafeAreaInsets();
+  const { t, i18n } = useTranslation();
   const [selectedLane, setSelectedLane] = useState<string | null>(null);
   const [showGiftButton, setShowGiftButton] = useState(false);
   const [userName, setUserName] = useState('');
@@ -28,6 +31,7 @@ const HomeScreen = () => {
   const [prasadamCount, setPrasadamCount] = useState<number>(0);
   const [isUpdatingBusCount, setIsUpdatingBusCount] = useState(false);
   const [isUpdatingPrasadamCount, setIsUpdatingPrasadamCount] = useState(false);
+  const [showBusModal, setShowBusModal] = useState(false);
   const route: any = useRoute();
 
   useEffect(() => {
@@ -95,18 +99,40 @@ const HomeScreen = () => {
     }
   };
 
+  const handleLanguageChange = () => {
+    const languages = [
+      { code: 'en', name: 'English', flag: '🇺🇸' },
+      { code: 'ru', name: 'Русский', flag: '🇷🇺' },
+      { code: 'es', name: 'Español', flag: '🇪🇸' },
+    ];
+
+    Alert.alert(
+      t('language.selectLanguage'),
+      '',
+      languages.map(lang => ({
+        text: `${lang.flag} ${lang.name}`,
+        onPress: async () => {
+          if (lang.code !== i18n.language) {
+            await changeLanguage(lang.code);
+            logAction('Language changed', { language: lang.code });
+          }
+        }
+      })).concat([{ text: t('common.cancel'), onPress: async () => {} }])
+    );
+  };
+
   const handleLogout = () => {
     logAction('Logout confirmation requested');
     Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
+      t('home.logoutTitle'),
+      t('home.logoutConfirm'),
       [
         {
-          text: 'Cancel',
+          text: t('common.cancel'),
           style: 'cancel',
         },
         {
-          text: 'Yes, Logout',
+          text: t('common.logout'),
           style: 'destructive',
           onPress: performLogout,
         },
@@ -186,11 +212,12 @@ const HomeScreen = () => {
     });
   };
 
-  const navigateToDaypass = () => {
-    navigation.navigate(Routes.Scanner, {
-      screen: Routes.Daypass,
-      message: 'Scan Daypass QR Code',
-    });
+  const navigateToRedeemBus = () => {
+    navigation.navigate(Routes.RedeemBus);
+  };
+
+  const navigateToRedeemPrasadam = () => {
+    navigation.navigate(Routes.RedeemPrasadam);
   };
 
   const handleBusNumberChange = async (busNumber: string) => {
@@ -287,7 +314,7 @@ const HomeScreen = () => {
           disabled={isCheckMealDisabled}
         >
           <Ionicons name="restaurant-outline" size={24} color="#fff" />
-          <Text style={styles.buttonText}>Check Meal</Text>
+          <Text style={styles.buttonText}>{t('meals.title')}</Text>
         </TouchableOpacity>
       );
     }
@@ -300,7 +327,7 @@ const HomeScreen = () => {
           onPress={navigateToGiftScanner}
         >
           <Ionicons name="gift-outline" size={24} color="#fff" />
-          <Text style={styles.buttonText}>Gift Approval</Text>
+          <Text style={styles.buttonText}>{t('gifts.title')}</Text>
         </TouchableOpacity>
       );
     }
@@ -313,25 +340,39 @@ const HomeScreen = () => {
           onPress={navigateToRegisterTag}
         >
           <Ionicons name="person-add-outline" size={24} color="#fff" />
-          <Text style={styles.buttonText}>Register Tag</Text>
+          <Text style={styles.buttonText}>{t('tags.title')}</Text>
         </TouchableOpacity>
       );
     }
 
-    // Show daypass scanner if traditional ones are not available
+    // Show separate redeem buttons if daypass is available
     if (!scansInThisEvent.includes('Meals') && !scansInThisEvent.includes('Gifts') && !scansInThisEvent.includes('RegistrationTag')) {
-      if (scansInThisEvent.includes('Daypass') && 
-          (SessionManager.hasPermission('canScanDaypassBus') || SessionManager.hasPermission('canScanDaypassPrasadam'))) {
-        buttons.push(
-          <TouchableOpacity
-            key="daypass"
-            style={styles.button}
-            onPress={navigateToDaypass}
-          >
-            <Ionicons name="card-outline" size={24} color="#fff" />
-            <Text style={styles.buttonText}>Daypass Scanner</Text>
-          </TouchableOpacity>
-        );
+      if (scansInThisEvent.includes('Daypass')) {
+        if (SessionManager.hasPermission('canScanDaypassBus')) {
+          buttons.push(
+            <TouchableOpacity
+              key="redeem-bus"
+              style={styles.button}
+              onPress={navigateToRedeemBus}
+            >
+              <Ionicons name="bus-outline" size={24} color="#fff" />
+              <Text style={styles.buttonText}>{t('daypass.redeemBus')}</Text>
+            </TouchableOpacity>
+          );
+        }
+        
+        if (SessionManager.hasPermission('canScanDaypassPrasadam')) {
+          buttons.push(
+            <TouchableOpacity
+              key="redeem-prasadam"
+              style={styles.button}
+              onPress={navigateToRedeemPrasadam}
+            >
+              <Ionicons name="restaurant-outline" size={24} color="#fff" />
+              <Text style={styles.buttonText}>{t('daypass.redeemPrasadam')}</Text>
+            </TouchableOpacity>
+          );
+        }
       }
     }
 
@@ -342,17 +383,22 @@ const HomeScreen = () => {
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <ScrollView style={styles.scrollContainer}>
         <View style={styles.content}>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={24} color="#5dbea3" />
-          </TouchableOpacity>
-          {userName ? <Text style={styles.welcomeText}>Hare Krishna! {userName}</Text> : null}
-          {selectedEventName ? <Text style={styles.eventText}>Event: {selectedEventName}</Text> : null}
+          <View style={styles.headerRow}>
+            <TouchableOpacity style={styles.languageButton} onPress={handleLanguageChange}>
+              <Ionicons name="language-outline" size={24} color="#5dbea3" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <Ionicons name="log-out-outline" size={24} color="#5dbea3" />
+            </TouchableOpacity>
+          </View>
+          {userName ? <Text style={styles.welcomeText}>{t('home.welcome')} {userName}</Text> : null}
+          {selectedEventName ? <Text style={styles.eventText}>{t('home.event')}: {selectedEventName}</Text> : null}
         {/* Show lane picker only for meal scanning */}
         {scansInThisEvent.includes('Meals') && (
           <View style={styles.pickerContainer}>
-            <Text style={styles.pickerLabel}>Select Lane:</Text>
+            <Text style={styles.pickerLabel}>{t('home.selectLane')}:</Text>
             <Picker selectedValue={selectedLane} onValueChange={handleLaneSelect} style={styles.picker}>
-              <Picker.Item label="Select Lane" value={null} />
+              <Picker.Item label={t('home.selectLane')} value={null} />
               <Picker.Item label="Lane 1" value="1" />
               <Picker.Item label="Lane 2" value="2" />
               <Picker.Item label="Lane 3" value="3" />
@@ -365,59 +411,6 @@ const HomeScreen = () => {
               <Picker.Item label="VIP Lane" value="10" />
               <Picker.Item label="Fast Lane" value="11" />
             </Picker>
-          </View>
-        )}
-
-        {/* Show bus number dropdown for daypass scanning */}
-        {!scansInThisEvent.includes('Meals') && !scansInThisEvent.includes('Gifts') && !scansInThisEvent.includes('RegistrationTag') && 
-         scansInThisEvent.includes('Daypass') && 
-         (SessionManager.hasPermission('canScanDaypassBus') || SessionManager.hasPermission('canScanDaypassPrasadam')) && (
-          <View style={styles.dropdownContainer}>
-            <Text style={styles.dropdownLabel}>Select Bus Number:</Text>
-            <TouchableOpacity 
-              style={styles.dropdown}
-              onPress={() => {
-                // Simple implementation - you can enhance this with a modal or custom dropdown
-                Alert.alert(
-                  'Select Bus Number',
-                  'Choose a bus number',
-                  Array.from({ length: 12 }, (_, i) => i + 1).map(num => ({
-                    text: `Bus ${num}`,
-                    onPress: async () => await handleBusNumberChange(num.toString())
-                  })).concat([{ text: 'Cancel', onPress: async () => {} }])
-                );
-              }}
-            >
-              <Text style={styles.dropdownText}>Bus {selectedBusNumber}</Text>
-              <Ionicons name="chevron-down" size={20} color="#666" />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Show prasadam time dropdown for daypass scanning */}
-        {!scansInThisEvent.includes('Meals') && !scansInThisEvent.includes('Gifts') && !scansInThisEvent.includes('RegistrationTag') && 
-         scansInThisEvent.includes('Daypass') && 
-         SessionManager.hasPermission('canScanDaypassPrasadam') && (
-          <View style={styles.dropdownContainer}>
-            <Text style={styles.dropdownLabel}>Select Prasadam Time:</Text>
-            <TouchableOpacity 
-              style={styles.dropdown}
-              onPress={() => {
-                Alert.alert(
-                  'Select Prasadam Time',
-                  'Choose a meal time',
-                  [
-                    { text: 'Breakfast', onPress: async () => await handlePrasadamTimeChange('Breakfast') },
-                    { text: 'Lunch', onPress: async () => await handlePrasadamTimeChange('Lunch') },
-                    { text: 'Dinner', onPress: async () => await handlePrasadamTimeChange('Dinner') },
-                    { text: 'Cancel', onPress: async () => {} }
-                  ]
-                );
-              }}
-            >
-              <Text style={styles.dropdownText}>{selectedPrasadamTime}</Text>
-              <Ionicons name="chevron-down" size={20} color="#666" />
-            </TouchableOpacity>
           </View>
         )}
 
@@ -503,7 +496,7 @@ const HomeScreen = () => {
            (SessionManager.hasPermission('canScanDaypassBus') || SessionManager.hasPermission('canScanDaypassPrasadam')) && (
             <TouchableOpacity style={styles.button} onPress={navigateToDaypassStats}>
               <Ionicons name="analytics-outline" size={24} color="#fff" />
-              <Text style={styles.buttonText}>Daypass Stats</Text>
+              <Text style={styles.buttonText}>{t('home.daypassStats')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -573,14 +566,32 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginLeft: 8,
   },
-  logoutButton: {
-    position: 'absolute',
-    top: 60,
-    right: 20,
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  languageButton: {
     padding: 10,
-    zIndex: 1,
     backgroundColor: 'white',
     borderRadius: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
+  },
+  logoutButton: {
+    padding: 10,
+    backgroundColor: 'white',
+    borderRadius: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
   },
   pickerContainer: {
     width: '80%',
@@ -676,6 +687,61 @@ const styles = StyleSheet.create({
     color: '#333',
     textAlign: 'center',
     flex: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    width: '80%',
+    maxHeight: '70%',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  busList: {
+    maxHeight: 300,
+  },
+  busOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  busOptionSelected: {
+    backgroundColor: '#f8f9fa',
+  },
+  busOptionText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  busOptionTextSelected: {
+    color: '#4CAF50',
+    fontWeight: '600',
   },
 });
 

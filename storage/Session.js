@@ -10,6 +10,7 @@ export const Keys = {
   SPIRITUAL_NAME: 'spiritualName',
   SELECTED_BUS_NUMBER: 'selectedBusNumber',
   SELECTED_PRASADAM_TIME: 'selectedPrasadamTime',
+  SELECTED_LANGUAGE: 'selectedLanguage',
 };
 
 export async function getString(key) {

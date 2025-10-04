@@ -12,10 +12,19 @@ export default function SplashScreen({ navigation }: any) {
   
   useEffect(() => {
     (async () => {
+      // First check if language is selected
+      const selectedLanguage = await getString(Keys.SELECTED_LANGUAGE);
+      if (!selectedLanguage) {
+        logAction('No language selected, navigating to language selection');
+        navigation.reset({ index: 0, routes: [{ name: Routes.LanguageSelection }] });
+        return;
+      }
+
+      // Language is selected, proceed with normal flow
       const externalMemberId = await getString(Keys.EXTERNAL_MEMBER_ID);
       if (!externalMemberId) {
         logAction('No external member ID found, navigating to email login');
-        navigation.reset({ index: 0, routes: [{ name: Routes.Login + 'Email' }] });
+        navigation.reset({ index: 0, routes: [{ name: Routes.LoginEmail }] });
         return;
       }
 

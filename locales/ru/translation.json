@@ -1,0 +1,127 @@
+{
+  "common": {
+    "loading": "Загрузка...",
+    "error": "Ошибка",
+    "success": "Успешно",
+    "cancel": "Отмена",
+    "done": "Готово",
+    "back": "Назад",
+    "refresh": "Обновить",
+    "logout": "Выйти",
+    "confirm": "Подтвердить",
+    "yes": "Да",
+    "no": "Нет",
+    "actions": "Действия"
+  },
+  "language": {
+    "selectLanguage": "Выберите язык",
+    "english": "English",
+    "russian": "Русский",
+    "spanish": "Español"
+  },
+  "splash": {
+    "title": "SS Admin",
+    "loading": "Загрузка..."
+  },
+  "login": {
+    "email": "Адрес электронной почты",
+    "emailPlaceholder": "Введите ваш email",
+    "sendCode": "Отправить код подтверждения",
+    "otpTitle": "Введите код подтверждения",
+    "otpDescription": "Мы отправили 6-значный код на ваш email",
+    "verify": "Подтвердить",
+    "resendCode": "Отправить код повторно",
+    "invalidEmail": "Пожалуйста, введите действительный адрес электронной почты",
+    "invalidOtp": "Пожалуйста, введите действительный 6-значный код",
+    "authRequired": "Требуется аутентификация",
+    "authError": "Ошибка аутентификации",
+    "connectionError": "Ошибка соединения"
+  },
+  "eventSelection": {
+    "title": "Выберите событие",
+    "loadingEvents": "Загрузка событий...",
+    "noEvents": "События недоступны",
+    "selectEvent": "Выберите событие для продолжения"
+  },
+  "home": {
+    "welcome": "Добро пожаловать",
+    "event": "Событие",
+    "selectLane": "Выберите полосу",
+    "selectBusNumber": "Выберите номер автобуса",
+    "selectPrasadamTime": "Выберите время прасадама",
+    "daypass": "Дневной пропуск",
+    "meals": "Питание",
+    "gifts": "Подарки",
+    "services": "Услуги",
+    "tags": "Теги",
+    "activityStats": "Статистика активности",
+    "daypassStats": "Статистика дневных пропусков",
+    "logoutConfirm": "Вы уверены, что хотите выйти?",
+    "logoutTitle": "Выход"
+  },
+  "daypass": {
+    "title": "Управление дневными пропусками",
+    "daypassNumber": "Номер дневного пропуска",
+    "purchaserName": "Покупатель",
+    "daypassName": "Название дневного пропуска",
+    "status": "Статус",
+    "busStatus": "Статус автобуса",
+    "prasadamStatus": "Статус прасадама",
+    "notRedeemed": "Не выкуплен",
+    "redeemBus": "Выкупить автобус",
+    "unredeemBus": "Отменить выкуп автобуса",
+    "redeemPrasadam": "Выкупить прасадам",
+    "unredeemPrasadam": "Отменить выкуп прасадама",
+    "active": "Активен",
+    "redeemed": "Выкуплен",
+    "scannerAlert": "Предупреждение сканера",
+    "actionSuccess": "Действие выполнено успешно",
+    "actionError": "Не удалось выполнить действие"
+  },
+  "daypassStats": {
+    "title": "Статистика активности дневных пропусков",
+    "selectActivity": "Выберите активность",
+    "selectDate": "Выберите дату",
+    "totalCount": "Общее количество",
+    "bus": "Автобус",
+    "breakfast": "Завтрак",
+    "lunch": "Обед",
+    "dinner": "Ужин"
+  },
+  "gifts": {
+    "title": "Одобрение подарков",
+    "approve": "Одобрить",
+    "disapprove": "Отклонить",
+    "fulfill": "Выполнить",
+    "unfulfill": "Отменить выполнение",
+    "quantity": "Количество",
+    "selectQuantity": "Выберите количество"
+  },
+  "services": {
+    "title": "Одобрение услуг",
+    "acknowledge": "Подтвердить",
+    "selectService": "Выберите услугу"
+  },
+  "meals": {
+    "title": "Сканирование питания",
+    "scanMeal": "Сканировать питание",
+    "location": "Местоположение"
+  },
+  "tags": {
+    "title": "Регистрация тега",
+    "register": "Зарегистрировать",
+    "tagId": "ID тега"
+  },
+  "scanner": {
+    "title": "Сканер",
+    "scanQR": "Сканировать QR код",
+    "permissionDenied": "Разрешение на камеру отклонено",
+    "requestPermission": "Запросить разрешение"
+  },
+  "countUpdate": {
+    "bus": "Автобус",
+    "prasadam": "Прасадам",
+    "countUpdated": "Количество обновлено успешно",
+    "countError": "Не удалось обновить количество"
+  }
+}
