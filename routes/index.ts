@@ -13,7 +13,6 @@ export const Routes = {
   DaypassActivityStats: 'DaypassActivityStats',
   GiftApproval: 'GiftApproval',
   ServiceApproval: 'ServiceApproval',
-  Daypass: 'Daypass',
   RedeemBus: 'RedeemBus',
   RedeemPrasadam: 'RedeemPrasadam',
   RedeemSuccess: 'RedeemSuccess',
@@ -35,6 +34,7 @@ export interface ScannerParams {
   type?: 'bus' | 'prasadam';
   busNumber?: string;
   prasadamTime?: string;
+  lane?: string;
 }
 
 export interface RegisterTagParams {

@@ -16,10 +16,13 @@ export default function RedeemPrasadamScreen() {
   const { t } = useTranslation();
   
   const [selectedPrasadamTime, setSelectedPrasadamTime] = useState<string>('');
+  const [selectedLane, setSelectedLane] = useState<string>('');
   const [showPrasadamModal, setShowPrasadamModal] = useState(false);
+  const [showLaneModal, setShowLaneModal] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
 
   const prasadamOptions = ['Breakfast', 'Lunch', 'Dinner'];
+  const laneOptions = Array.from({ length: 10 }, (_, i) => `Lane ${i + 1}`);
 
   const handleBack = () => {
     logAction('Navigating back to Home');
@@ -34,11 +37,20 @@ export default function RedeemPrasadamScreen() {
     logAction('Prasadam time selected', { prasadamTime });
   };
 
+  const handleLaneChange = (lane: string) => {
+    setSelectedLane(lane);
+    setShowLaneModal(false);
+    // Store in SessionManager for persistence during scanning session
+    (SessionManager as any).setData('selectedRedeemLane', lane);
+    logAction('Lane selected', { lane });
+  };
+
   const handleScanQR = () => {
     logAction('Opening QR scanner for prasadam redemption');
     (navigation as any).navigate('Scanner', {
       screen: 'RedeemPrasadamScan',
       prasadamTime: selectedPrasadamTime,
+      lane: selectedLane,
       type: 'prasadam'
     });
   };
@@ -69,14 +81,28 @@ export default function RedeemPrasadamScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Lane Selection */}
+        <View style={styles.selectionContainer}>
+          <Text style={styles.label}>{t('daypass.selectLane')}:</Text>
+          <TouchableOpacity 
+            style={styles.selectionButton}
+            onPress={() => setShowLaneModal(true)}
+          >
+            <Text style={styles.selectionText}>
+              {selectedLane || t('daypass.selectLane')}
+            </Text>
+            <Ionicons name="chevron-down" size={20} color="#666" />
+          </TouchableOpacity>
+        </View>
+
         {/* Scan QR Button */}
         <TouchableOpacity 
           style={[
             styles.scanButton, 
-            (!selectedPrasadamTime || isScanning) && styles.scanButtonDisabled
+            (!selectedPrasadamTime || !selectedLane || isScanning) && styles.scanButtonDisabled
           ]}
           onPress={handleScanQR}
-          disabled={!selectedPrasadamTime || isScanning}
+          disabled={!selectedPrasadamTime || !selectedLane || isScanning}
         >
           {isScanning ? (
             <ActivityIndicator size="small" color="#fff" />
@@ -85,11 +111,11 @@ export default function RedeemPrasadamScreen() {
               <Ionicons 
                 name="qr-code-outline" 
                 size={24} 
-                color={selectedPrasadamTime ? "#fff" : "#ccc"} 
+                color={(selectedPrasadamTime && selectedLane) ? "#fff" : "#ccc"} 
               />
               <Text style={[
                 styles.scanButtonText,
-                !selectedPrasadamTime && styles.scanButtonTextDisabled
+                (!selectedPrasadamTime || !selectedLane) && styles.scanButtonTextDisabled
               ]}>
                 {t('daypass.scanQR')}
               </Text>
@@ -144,6 +170,53 @@ export default function RedeemPrasadamScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Lane Selection Modal */}
+      <Modal
+        visible={showLaneModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowLaneModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t('daypass.selectLane')}</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowLaneModal(false)}
+              >
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={laneOptions}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.laneOption,
+                    selectedLane === item && styles.laneOptionSelected
+                  ]}
+                  onPress={() => handleLaneChange(item)}
+                >
+                  <Text style={[
+                    styles.laneOptionText,
+                    selectedLane === item && styles.laneOptionTextSelected
+                  ]}>
+                    {item}
+                  </Text>
+                  {selectedLane === item && (
+                    <Ionicons name="checkmark" size={20} color="#4CAF50" />
+                  )}
+                </TouchableOpacity>
+              )}
+              style={styles.laneList}
+              showsVerticalScrollIndicator={false}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -179,32 +252,39 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 20,
     justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   selectionContainer: {
-    marginBottom: 40,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginBottom: 30,
+    padding: 15,
+    width: '100%',
+    maxWidth: 400,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
   },
   label: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
     marginBottom: 10,
+    textAlign: 'center',
   },
   selectionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
+    backgroundColor: '#f8f9fa',
     borderRadius: 8,
     padding: 15,
     borderWidth: 1,
     borderColor: '#e9ecef',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.22,
-    shadowRadius: 2.22,
   },
   selectionText: {
     fontSize: 16,
@@ -289,6 +369,28 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   prasadamOptionTextSelected: {
+    color: '#4CAF50',
+    fontWeight: '600',
+  },
+  laneList: {
+    maxHeight: 300,
+  },
+  laneOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  laneOptionSelected: {
+    backgroundColor: '#f8f9fa',
+  },
+  laneOptionText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  laneOptionTextSelected: {
     color: '#4CAF50',
     fontWeight: '600',
   },

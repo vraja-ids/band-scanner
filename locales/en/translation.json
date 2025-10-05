@@ -61,7 +61,6 @@
     "logoutTitle": "Logout"
   },
   "daypass": {
-    "title": "Daypass Management",
     "daypassNumber": "Daypass Number",
     "purchaserName": "Purchaser",
     "daypassName": "Daypass Name",
@@ -80,6 +79,7 @@
     "actionError": "Failed to complete action",
     "selectBus": "Select Bus",
     "selectPrasadam": "Select Prasadam",
+    "selectLane": "Select Lane",
     "selectBusFirst": "Please select a bus number first",
     "selectPrasadamFirst": "Please select a prasadam time first",
     "scanQR": "Scan QR",

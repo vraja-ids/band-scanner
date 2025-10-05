@@ -1,11 +1,13 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { useBaseScreen } from '../common/util/useBaseScreen';
 import { SessionManager } from '../../storage/SessionManager';
+import { updateDayPassStatus } from './DaypassViewModel';
+import { getString, Keys } from '@/storage/Session';
 
 export default function RedeemSuccessScreen() {
   const { logAction } = useBaseScreen({ screenName: 'RedeemSuccessScreen' });
@@ -27,6 +29,12 @@ export default function RedeemSuccessScreen() {
   // Get values from SessionManager
   const busNumber = (SessionManager as any).getData('selectedRedeemBusNumber') || '';
   const prasadamTime = (SessionManager as any).getData('selectedRedeemPrasadamTime') || '';
+  
+  // State for handling unredeem action
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [currentDaypassDetails, setCurrentDaypassDetails] = useState(daypassDetails);
+  const [currentIsUnredeem, setCurrentIsUnredeem] = useState(isUnredeem);
+  const [currentIsError, setCurrentIsError] = useState(isError);
 
 
   const handleScanNext = () => {
@@ -47,14 +55,58 @@ export default function RedeemSuccessScreen() {
     });
   };
 
-  const handleUnredeem = () => {
+  const handleUnredeem = async () => {
+    if (!dayPassNumber) {
+      Alert.alert('Error', 'Daypass number not available');
+      return;
+    }
+
+    setIsProcessing(true);
     logAction('Unredeem button pressed', { type, busNumber, prasadamTime, dayPassNumber });
-    // Navigate to scanner for unredeem action
-    (navigation as any).replace('Scanner', {
-      screen: type === 'bus' ? 'RedeemBusScan' : 'RedeemPrasadamScan',
-      type: type,
-      isUnredeem: true
-    });
+
+    try {
+      // Get current session data
+      const eventId = await getString('selectedEventId');
+      const scannerMemberId = await getString(Keys.INTERNAL_MEMBER_ID);
+
+      if (!eventId || !scannerMemberId) {
+        Alert.alert('Error', 'Session data not available');
+        setIsProcessing(false);
+        return;
+      }
+
+      // Get lane from SessionManager for prasadam
+      const lane = (SessionManager as any).getData('selectedRedeemLane') || '';
+      
+      // For bus: actionId = 'bus', actionDetails = 'Bus X'
+      // For prasadam: actionId = meal time (Breakfast/Lunch/Dinner), actionDetails = 'Lane X'
+      const actionId = type === 'bus' ? 'bus' : prasadamTime;
+      const actionDetails = type === 'bus' ? `Bus ${busNumber}` : lane;
+
+      // Call unredeem API
+      const response = await updateDayPassStatus({
+        dayPassNumber: dayPassNumber,
+        eventId: eventId,
+        action: 'unredeem',
+        actionId: actionId as any,
+        actionDetails: actionDetails,
+        scannerMemberId: scannerMemberId
+      });
+
+      if (response.status === 'success') {
+        // Update state to show success - no need to call getDaypassStatus again
+        setCurrentIsError(false);
+        setCurrentIsUnredeem(true);
+        logAction('Unredeem successful', { dayPassNumber, type });
+      } else {
+        Alert.alert('Error', response.status === 'error' ? response.message : 'Failed to unredeem daypass');
+      }
+    } catch (error) {
+      logAction('Unredeem error', { error: (error as Error).message });
+      Alert.alert('Error', 'Failed to unredeem daypass');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleBackToHome = () => {
@@ -63,7 +115,7 @@ export default function RedeemSuccessScreen() {
   };
 
   const getTitle = () => {
-    if (isUnredeem) {
+    if (currentIsUnredeem) {
       return type === 'bus' ? `Unredeemed for Bus ${busNumber}` : `Unredeemed for ${prasadamTime}`;
     } else {
       return type === 'bus' ? `Redeemed for Bus ${busNumber}` : `Redeemed for ${prasadamTime}`;
@@ -77,60 +129,72 @@ export default function RedeemSuccessScreen() {
           {/* Status Icon */}
           <View style={styles.iconContainer}>
             <Ionicons 
-              name={isError ? "close-circle" : (isUnredeem ? "close-circle" : "checkmark-circle")} 
+              name={currentIsError ? "close-circle" : "checkmark-circle"} 
               size={80} 
-              color={isError ? "#f44336" : (isUnredeem ? "#f44336" : "#4CAF50")} 
+              color={currentIsError ? "#f44336" : "#4CAF50"} 
             />
           </View>
 
           {/* Title */}
           <Text style={styles.title}>
-            {isError ? 'Redeem Failed' : getTitle()}
+            {currentIsError ? 'Redeem Failed' : getTitle()}
           </Text>
 
           {/* Error Message */}
-          {isError && errorMessage && (
+          {currentIsError && errorMessage && (
             <Text style={styles.errorMessage}>{errorMessage}</Text>
           )}
 
           {/* Daypass Details */}
-          {daypassDetails && (
+          { currentDaypassDetails && currentIsError && (
             <View style={styles.detailsContainer}>
               <Text style={styles.detailsTitle}>Daypass Details</Text>
               
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Daypass Number:</Text>
-                <Text style={styles.detailValue}>{daypassDetails.daypassNumber}</Text>
+                <Text style={styles.detailValue}>{currentDaypassDetails.daypassNumber}</Text>
               </View>
               
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Purchaser:</Text>
-                <Text style={styles.detailValue}>{daypassDetails.purchaserName}</Text>
+                <Text style={styles.detailValue}>{currentDaypassDetails.purchaserName}</Text>
               </View>
               
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Daypass Name:</Text>
-                <Text style={styles.detailValue}>{daypassDetails.daypassName}</Text>
+                <Text style={styles.detailValue}>{currentDaypassDetails.daypassName}</Text>
               </View>
 
               {/* Bus Status */}
-              {daypassDetails.statusDetails?.bus && (
+              {currentDaypassDetails.statusDetails?.bus && (
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Bus Status:</Text>
-                  <Text style={styles.detailValue}>{daypassDetails.statusDetails.bus}</Text>
+                  <Text style={styles.detailValue}>{currentDaypassDetails.statusDetails.bus}</Text>
                 </View>
               )}
 
               {/* Prasadam Status */}
-              {daypassDetails.statusDetails?.prasadam && (
+              {currentDaypassDetails.statusDetails?.Breakfast && (
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Prasadam Status:</Text>
-                  <Text style={styles.detailValue}>{daypassDetails.statusDetails.prasadam}</Text>
+                  <Text style={styles.detailLabel}>Breakfast:</Text>
+                  <Text style={styles.detailValue}>{currentDaypassDetails.statusDetails.Breakfast}</Text>
+                </View>
+              )}
+              {currentDaypassDetails.statusDetails?.Lunch && (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Lunch:</Text>
+                  <Text style={styles.detailValue}>{currentDaypassDetails.statusDetails.Lunch}</Text>
+                </View>
+              )}
+              {currentDaypassDetails.statusDetails?.Dinner && (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Dinner:</Text>
+                  <Text style={styles.detailValue}>{currentDaypassDetails.statusDetails.Dinner}</Text>
                 </View>
               )}
 
               {/* Scanner Alert */}
-              {daypassDetails.scannerAlert && (
+              {currentDaypassDetails.scannerAlert && (
                 <View style={styles.alertContainer}>
                   <Ionicons name="warning" size={20} color="#ff9800" />
                   <Text style={styles.alertText}>Scanner Alert</Text>
@@ -141,14 +205,21 @@ export default function RedeemSuccessScreen() {
 
           {/* Action Buttons */}
           <View style={styles.buttonContainer}>
-            {isError ? (
+            {currentIsError ? (
               canUnredeem ? (
                 <TouchableOpacity 
-                  style={styles.unredeemButton}
+                  style={[styles.unredeemButton, isProcessing && styles.buttonDisabled]}
                   onPress={handleUnredeem}
+                  disabled={isProcessing}
                 >
-                  <Ionicons name="close-circle-outline" size={24} color="#fff" />
-                  <Text style={styles.unredeemButtonText}>Unredeem</Text>
+                  {isProcessing ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Ionicons name="close-circle-outline" size={24} color="#fff" />
+                  )}
+                  <Text style={styles.unredeemButtonText}>
+                    {isProcessing ? 'Processing...' : 'Unredeem'}
+                  </Text>
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity 
@@ -365,5 +436,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
 });

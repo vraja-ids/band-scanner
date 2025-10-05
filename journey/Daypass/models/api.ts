@@ -6,7 +6,9 @@ export interface GetDaypassStatusRequest {
 
 export interface DaypassStatusDetails {
   bus?: string;
-  prasadam?: string;
+  Breakfast?: string;
+  Lunch?: string;
+  Dinner?: string;
 }
 
 export interface GetDaypassStatusResponse {
@@ -24,8 +26,8 @@ export interface UpdateDayPassStatusRequest {
   dayPassNumber: string;
   eventId: string;
   action: 'redeem' | 'unredeem';
-  actionId: 'bus' | 'prasadam';
-  actionDetails: string; // e.g., "Bus 7"
+  actionId: 'bus' | 'Breakfast' | 'Lunch' | 'Dinner';
+  actionDetails: string; // e.g., "Bus 7" or "Lane 1"
   scannerMemberId: string;
 }
 

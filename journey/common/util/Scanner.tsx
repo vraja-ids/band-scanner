@@ -20,6 +20,7 @@ export default function Scanner({ navigation, route }: Props) {
   const [facing, setFacing] = useState<'back' | 'front'>('back');
   const [isProcessing, setIsProcessing] = useState(false);
   const cameraRef = useRef<any>(null);
+  const isProcessingRef = useRef(false);
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
@@ -35,9 +36,22 @@ export default function Scanner({ navigation, route }: Props) {
     return unsubscribe;
   }, [navigation]);
 
+  // Cleanup effect to reset processing state
+  useEffect(() => {
+    return () => {
+      isProcessingRef.current = false;
+      setIsProcessing(false);
+    };
+  }, []);
+
   const handleRedeemScan = async (dayPassNumber: string) => {
-    if (isProcessing) return;
+    // Prevent multiple calls using ref
+    if (isProcessingRef.current) {
+      logAction('Scan already in progress, ignoring duplicate scan');
+      return;
+    }
     
+    isProcessingRef.current = true;
     setIsProcessing(true);
     setIsScanningEnabled(false);
     
@@ -55,19 +69,24 @@ export default function Scanner({ navigation, route }: Props) {
       // Get values from SessionManager
       const busNumber = (SessionManager as any).getData('selectedRedeemBusNumber') || '';
       const prasadamTime = (SessionManager as any).getData('selectedRedeemPrasadamTime') || '';
-      const location = type === 'bus' ? `Bus ${busNumber}` : prasadamTime;
+      const lane = (SessionManager as any).getData('selectedRedeemLane') || '';
+      
+      // For bus: actionId = 'bus', actionDetails = 'Bus X'
+      // For prasadam: actionId = meal time (Breakfast/Lunch/Dinner), actionDetails = 'Lane X'
+      const actionId = type === 'bus' ? 'bus' : prasadamTime;
+      const actionDetails = type === 'bus' ? `Bus ${busNumber}` : lane;
       
       const res = await updateDayPassStatus({
         dayPassNumber,
         action: isUnredeem ? 'unredeem' : 'redeem',
-        actionId: type as 'bus' | 'prasadam',
-        actionDetails: location,
+        actionId: actionId as any,
+        actionDetails: actionDetails,
         scannerMemberId: internalMemberId,
         eventId: selectedEventId,
       });
 
       if (res.status === 'success') {
-        logAction('Redeem successful', { dayPassNumber, type, location });
+        logAction('Redeem successful', { dayPassNumber, type, actionId, actionDetails });
         navigation.replace('RedeemSuccess', {
           type,
           isUnredeem: isUnredeem || false,
@@ -84,6 +103,7 @@ export default function Scanner({ navigation, route }: Props) {
       const prasadamTime = (SessionManager as any).getData('selectedRedeemPrasadamTime') || '';
       await handleRedeemError(dayPassNumber, type, busNumber, prasadamTime, (error as any)?.message || 'Redeem failed');
     } finally {
+      isProcessingRef.current = false;
       setIsProcessing(false);
     }
   };
@@ -108,14 +128,16 @@ export default function Scanner({ navigation, route }: Props) {
       if (response.status === 'success' && response.data) {
         const daypassData = response.data.daypassDetails;
         const hasBusStatus = daypassData.statusDetails.bus && daypassData.statusDetails.bus.length > 0;
-        const hasPrasadamStatus = daypassData.statusDetails.prasadam && daypassData.statusDetails.prasadam.length > 0;
+        const hasPrasadamStatus = daypassData.statusDetails.Breakfast || daypassData.statusDetails.Lunch || daypassData.statusDetails.Dinner;
         
         let canUnredeem = false;
         
         if (type === 'bus' && hasBusStatus) {
           canUnredeem = true;
         } else if (type === 'prasadam' && hasPrasadamStatus) {
-          const hasMatchingPrasadam = daypassData.statusDetails.prasadam?.includes(prasadamTime || 'ABCDEFGH');
+          // Check if the specific meal time exists in statusDetails
+          const mealTimeKey = prasadamTime as keyof typeof daypassData.statusDetails;
+          const hasMatchingPrasadam = daypassData.statusDetails[mealTimeKey];
           if (hasMatchingPrasadam) canUnredeem = true;
         }
         
@@ -155,7 +177,7 @@ export default function Scanner({ navigation, route }: Props) {
 
 
   const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) => {
-    if (isScanningEnabled && !isProcessing) {
+    if (isScanningEnabled && !isProcessing && !isProcessingRef.current) {
       const screenName = route.params?.screen as RouteName;
       
       // Handle redeem scanning
@@ -166,11 +188,7 @@ export default function Scanner({ navigation, route }: Props) {
       
       // Handle other scanning
       setIsScanningEnabled(false);
-      if (screenName === 'Daypass') {
-        navigation.replace(screenName, {
-          dayPassNumber: data,
-        });
-      } else if (screenName) {
+      if (screenName) {
         navigation.replace(screenName, {
           location: route.params?.location,
           tag: { id: data },

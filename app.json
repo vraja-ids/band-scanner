@@ -21,7 +21,7 @@
       "newArchEnabled": true,
       "supportsTablet": true,
       "bundleIdentifier": "com.sadhusanga.ScannerApp",
-      "buildNumber": "7",
+      "buildNumber": "8",
       "version": "2.2.0",
       "statusBar": {
         "barStyle": "light-content",
@@ -39,7 +39,7 @@
     "android": {
       "newArchEnabled": true,
       "package": "com.sadhusanga.ScannerApp",
-      "versionCode": 22,
+      "versionCode": 23,
       "version": "2.2.0",
       "permissions": [
         "CAMERA",

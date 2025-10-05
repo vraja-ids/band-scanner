@@ -15,7 +15,6 @@ import EmailLoginScreen from './journey/Login/EmailLoginScreen';
 import OtpVerifyScreen from './journey/Login/OtpVerifyScreen';
 import SplashScreen from './journey/Login/SplashScreen';
 import EventSelectionScreen from './journey/Login/EventSelectionScreen';
-import DaypassScreen from './journey/Daypass/DaypassScreen';
 import DaypassActivityStatsScreen from './journey/Daypass/DaypassActivityStatsScreen';
 import RedeemBusScreen from './journey/Daypass/RedeemBusScreen';
 import RedeemPrasadamScreen from './journey/Daypass/RedeemPrasadamScreen';
@@ -95,11 +94,6 @@ export default function App() {
           name={Routes.ServiceApproval}
           component={ServiceApprovalScreen}
           options={{ title: 'Service Approval' }}
-        />
-        <Stack.Screen 
-          name={Routes.Daypass}
-          component={DaypassScreen}
-          options={{ title: 'Daypass Management' }}
         />
         <Stack.Screen 
           name={Routes.RedeemBus}
