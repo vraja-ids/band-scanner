@@ -57,7 +57,7 @@ export default function RedeemSuccessScreen() {
 
   const handleUnredeem = async () => {
     if (!dayPassNumber) {
-      Alert.alert('Error', 'Daypass number not available');
+      Alert.alert(t('common.error'), t('daypass.daypassNumberNotAvailable'));
       return;
     }
 
@@ -70,7 +70,7 @@ export default function RedeemSuccessScreen() {
       const scannerMemberId = await getString(Keys.INTERNAL_MEMBER_ID);
 
       if (!eventId || !scannerMemberId) {
-        Alert.alert('Error', 'Session data not available');
+        Alert.alert(t('common.error'), t('daypass.sessionDataNotAvailable'));
         setIsProcessing(false);
         return;
       }
@@ -99,11 +99,11 @@ export default function RedeemSuccessScreen() {
         setCurrentIsUnredeem(true);
         logAction('Unredeem successful', { dayPassNumber, type });
       } else {
-        Alert.alert('Error', response.status === 'error' ? response.message : 'Failed to unredeem daypass');
+        Alert.alert(t('common.error'), response.status === 'error' ? response.message : t('daypass.failedToUnredeem'));
       }
     } catch (error) {
       logAction('Unredeem error', { error: (error as Error).message });
-      Alert.alert('Error', 'Failed to unredeem daypass');
+      Alert.alert(t('common.error'), t('daypass.failedToUnredeem'));
     } finally {
       setIsProcessing(false);
     }
@@ -137,7 +137,7 @@ export default function RedeemSuccessScreen() {
 
           {/* Title */}
           <Text style={styles.title}>
-            {currentIsError ? 'Redeem Failed' : getTitle()}
+            {currentIsError ? t('daypass.redeemFailed') : getTitle()}
           </Text>
 
           {/* Error Message */}
@@ -148,27 +148,27 @@ export default function RedeemSuccessScreen() {
           {/* Daypass Details */}
           { currentDaypassDetails && currentIsError && (
             <View style={styles.detailsContainer}>
-              <Text style={styles.detailsTitle}>Daypass Details</Text>
+              <Text style={styles.detailsTitle}>{t('daypass.daypassDetails')}</Text>
               
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Daypass Number:</Text>
+                <Text style={styles.detailLabel}>{t('daypass.daypassNumber')}:</Text>
                 <Text style={styles.detailValue}>{currentDaypassDetails.daypassNumber}</Text>
               </View>
               
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Purchaser:</Text>
+                <Text style={styles.detailLabel}>{t('daypass.purchaser')}:</Text>
                 <Text style={styles.detailValue}>{currentDaypassDetails.purchaserName}</Text>
               </View>
               
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Daypass Name:</Text>
+                <Text style={styles.detailLabel}>{t('daypass.daypassName')}:</Text>
                 <Text style={styles.detailValue}>{currentDaypassDetails.daypassName}</Text>
               </View>
 
               {/* Bus Status */}
               {currentDaypassDetails.statusDetails?.bus && (
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Bus Status:</Text>
+                  <Text style={styles.detailLabel}>{t('daypass.busStatus')}:</Text>
                   <Text style={styles.detailValue}>{currentDaypassDetails.statusDetails.bus}</Text>
                 </View>
               )}
@@ -176,19 +176,19 @@ export default function RedeemSuccessScreen() {
               {/* Prasadam Status */}
               {currentDaypassDetails.statusDetails?.Breakfast && (
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Breakfast:</Text>
+                  <Text style={styles.detailLabel}>{t('daypass.breakfast')}:</Text>
                   <Text style={styles.detailValue}>{currentDaypassDetails.statusDetails.Breakfast}</Text>
                 </View>
               )}
               {currentDaypassDetails.statusDetails?.Lunch && (
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Lunch:</Text>
+                  <Text style={styles.detailLabel}>{t('daypass.lunch')}:</Text>
                   <Text style={styles.detailValue}>{currentDaypassDetails.statusDetails.Lunch}</Text>
                 </View>
               )}
               {currentDaypassDetails.statusDetails?.Dinner && (
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Dinner:</Text>
+                  <Text style={styles.detailLabel}>{t('daypass.dinner')}:</Text>
                   <Text style={styles.detailValue}>{currentDaypassDetails.statusDetails.Dinner}</Text>
                 </View>
               )}
@@ -197,7 +197,7 @@ export default function RedeemSuccessScreen() {
               {currentDaypassDetails.scannerAlert && (
                 <View style={styles.alertContainer}>
                   <Ionicons name="warning" size={20} color="#ff9800" />
-                  <Text style={styles.alertText}>Scanner Alert</Text>
+                  <Text style={styles.alertText}>{t('daypass.scannerAlert')}</Text>
                 </View>
               )}
             </View>
@@ -218,7 +218,7 @@ export default function RedeemSuccessScreen() {
                     <Ionicons name="close-circle-outline" size={24} color="#fff" />
                   )}
                   <Text style={styles.unredeemButtonText}>
-                    {isProcessing ? 'Processing...' : 'Unredeem'}
+                    {isProcessing ? t('daypass.processing') : t('daypass.unredeem')}
                   </Text>
                 </TouchableOpacity>
               ) : (
@@ -227,7 +227,7 @@ export default function RedeemSuccessScreen() {
                   onPress={handleRedeem}
                 >
                   <Ionicons name="refresh-outline" size={24} color="#fff" />
-                  <Text style={styles.redeemButtonText}>Redeem</Text>
+                  <Text style={styles.redeemButtonText}>{t('daypass.redeem')}</Text>
                 </TouchableOpacity>
               )
             ) : (

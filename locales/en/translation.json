@@ -91,7 +91,19 @@
     "busRedeemedSuccess": "Successfully redeemed for Bus {busNumber}",
     "busUnredeemedSuccess": "Successfully unredeemed for Bus {busNumber}",
     "prasadamRedeemedSuccess": "Successfully redeemed for {prasadamTime}",
-    "prasadamUnredeemedSuccess": "Successfully unredeemed for {prasadamTime}"
+    "prasadamUnredeemedSuccess": "Successfully unredeemed for {prasadamTime}",
+    "redeemFailed": "Redeem Failed",
+    "daypassDetails": "Daypass Details",
+    "purchaser": "Purchaser",
+    "breakfast": "Breakfast",
+    "lunch": "Lunch",
+    "dinner": "Dinner",
+    "unredeem": "Unredeem",
+    "redeem": "Redeem",
+    "processing": "Processing...",
+    "daypassNumberNotAvailable": "Daypass number not available",
+    "sessionDataNotAvailable": "Session data not available",
+    "failedToUnredeem": "Failed to unredeem daypass"
   },
   "daypassStats": {
     "title": "Daypass Activity Stats",
@@ -129,9 +141,17 @@
   },
   "scanner": {
     "title": "Scanner",
-    "scanQR": "Scan QR Code",
     "permissionDenied": "Camera permission denied",
-    "requestPermission": "Request Permission"
+    "requestPermission": "Request Permission",
+    "requestingPermission": "Requesting camera permission...",
+    "cameraPermissionRequired": "Camera permission is required to scan barcodes",
+    "grantPermission": "Grant Permission",
+    "processing": "Processing...",
+    "flipCamera": "Flip Camera",
+    "takePicture": "Take Picture",
+    "goBack": "Go Back",
+    "scanAlreadyInProgress": "Scan already in progress, ignoring duplicate scan",
+    "missingCredentials": "Missing member ID or event ID"
   },
   "countUpdate": {
     "bus": "Bus",

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { updateDayPassStatus, getDaypassStatus } from '../../Daypass/DaypassViewModel';
 import { getString, Keys } from '../../../storage/Session';
 import { SessionManager } from '../../../storage/SessionManager';
@@ -15,6 +16,7 @@ type Props = {
 
 export default function Scanner({ navigation, route }: Props) {
   const { logAction, logError } = useBaseScreen({ screenName: 'Scanner' });
+  const { t } = useTranslation();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [isScanningEnabled, setIsScanningEnabled] = useState(true);
   const [facing, setFacing] = useState<'back' | 'front'>('back');
@@ -47,7 +49,7 @@ export default function Scanner({ navigation, route }: Props) {
   const handleRedeemScan = async (dayPassNumber: string) => {
     // Prevent multiple calls using ref
     if (isProcessingRef.current) {
-      logAction('Scan already in progress, ignoring duplicate scan');
+      logAction(t('scanner.scanAlreadyInProgress'));
       return;
     }
     
@@ -62,7 +64,7 @@ export default function Scanner({ navigation, route }: Props) {
       
       if (!internalMemberId || !selectedEventId) {
         logError('Missing member ID or event ID', 'handleRedeemScan');
-        Alert.alert('Error', 'Missing member ID or event ID');
+        Alert.alert(t('common.error'), t('scanner.missingCredentials'));
         return;
       }
 
@@ -115,7 +117,7 @@ export default function Scanner({ navigation, route }: Props) {
       const scannerMemberId = await getString(Keys.INTERNAL_MEMBER_ID);
       
       if (!eventId || !scannerMemberId) {
-        Alert.alert('Error', 'Missing event ID or member ID');
+        Alert.alert(t('common.error'), t('scanner.missingCredentials'));
         return;
       }
       
@@ -221,7 +223,7 @@ export default function Scanner({ navigation, route }: Props) {
   if (cameraPermission === null) {
     return (
       <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        <Text>Requesting camera permission...</Text>
+        <Text>{t('scanner.requestingPermission')}</Text>
       </View>
     );
   }
@@ -229,9 +231,9 @@ export default function Scanner({ navigation, route }: Props) {
   if (cameraPermission?.status !== 'granted') {
     return (
       <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        <Text style={styles.permissionText}>Camera permission is required to scan barcodes</Text>
+        <Text style={styles.permissionText}>{t('scanner.cameraPermissionRequired')}</Text>
         <TouchableOpacity style={styles.button} onPress={requestCameraPermission}>
-          <Text style={styles.buttonText}>Grant Permission</Text>
+          <Text style={styles.buttonText}>{t('scanner.grantPermission')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -258,24 +260,24 @@ export default function Scanner({ navigation, route }: Props) {
         {isProcessing && (
           <View style={styles.processingContainer}>
             <ActivityIndicator size="large" color="#fff" />
-            <Text style={styles.processingText}>Processing...</Text>
+            <Text style={styles.processingText}>{t('scanner.processing')}</Text>
           </View>
         )}
       </View>
 
       <View style={styles.buttonsRow}>
         <TouchableOpacity style={styles.button} onPress={toggleCameraFacing}>
-          <Text style={styles.buttonText}>Flip Camera</Text>
+          <Text style={styles.buttonText}>{t('scanner.flipCamera')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.button} onPress={takePicture}>
-          <Text style={styles.buttonText}>Take Picture</Text>
+          <Text style={styles.buttonText}>{t('scanner.takePicture')}</Text>
         </TouchableOpacity>
       </View>
 
       {navigation && (
-        <TouchableOpacity style={[styles.button, styles.homeButton]} onPress={goToPreviousScreen}>
-          <Text style={styles.buttonText}>Go Back</Text>
+        <TouchableOpacity style={styles.homeButton} onPress={goToPreviousScreen}>
+          <Text style={styles.buttonText}>{t('scanner.goBack')}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -316,21 +318,27 @@ const styles = StyleSheet.create({
   },
   buttonsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'center',
     width: '100%',
     paddingHorizontal: 20,
     marginTop: 20,
+    gap: 15,
   },
   button: {
     backgroundColor: '#3ABEF9',
     paddingVertical: 15,
-    paddingHorizontal: 30,
+    paddingHorizontal: 25,
     borderRadius: 10,
+    flex: 1,
     marginHorizontal: 10,
   },
   homeButton: {
     marginTop: 20,
+    marginHorizontal: 20,
     backgroundColor: '#34c759',
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 10,
   },
   buttonText: {
     color: 'white',
