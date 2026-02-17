@@ -94,12 +94,18 @@ export default function EventSelectionScreen() {
         await setString('selectedEventId', eventId);
         await setString('selectedEventName', eventName);
 
-        // Navigate to Home
-        logAction('Navigating to Home screen');
-        (navigation as any).reset({ 
-          index: 0, 
-          routes: [{ name: Routes.Home }] 
-        });
+        // For Rishikesh Kirtan Fest event, navigate directly to scan screen
+        if (eventId === 'RishikeshKirtanFest2026') {
+          logAction('Navigating to Rishikesh Kirtan Scan screen');
+          (navigation as any).replace(Routes.RishikeshKirtanScan);
+        } else {
+          // Navigate to Home
+          logAction('Navigating to Home screen');
+          (navigation as any).reset({
+            index: 0,
+            routes: [{ name: Routes.Home }]
+          });
+        }
       } else {
         logError('Login scanner failed', 'handleEventSelect');
         const errorMessage = (resp as any)?.message || t('login.authError');

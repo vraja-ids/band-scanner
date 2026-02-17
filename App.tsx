@@ -20,6 +20,7 @@ import RedeemBusScreen from './journey/Daypass/RedeemBusScreen';
 import RedeemPrasadamScreen from './journey/Daypass/RedeemPrasadamScreen';
 import RedeemSuccessScreen from './journey/Daypass/RedeemSuccessScreen';
 import LanguageSelectionScreen from './journey/Login/LanguageSelectionScreen';
+import RishikeshKirtanScanScreen from './journey/RishikeshKirtanFest/RishikeshKirtanScanScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -105,9 +106,14 @@ export default function App() {
           component={RedeemPrasadamScreen}
           options={{ headerShown: false }}
         />
-        <Stack.Screen 
+        <Stack.Screen
           name={Routes.RedeemSuccess}
           component={RedeemSuccessScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name={Routes.RishikeshKirtanScan}
+          component={RishikeshKirtanScanScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

@@ -296,16 +296,12 @@
         "eventName": "USA Sadhu Sanga 2025"
       },
       {
-        "eventId": "IndiaFest2025",
-        "eventName": "India Festival 2025"
+        "eventId": "RishikeshKirtanFest2026",
+        "eventName": "Rishikesh Kirtan Fest 2026"
       },
       {
         "eventId": "DaypassEvent2025",
         "eventName": "Daypass Event 2025"
-      },
-      {
-        "eventId": "MealEvent2025",
-        "eventName": "Meal Service Event 2025"
       }
     ]
   },
@@ -339,6 +335,92 @@
   },
   "getActivityStats_error": {
     "activities": []
+  },
+  "getDaypassStatus_rishikesh": {
+    "daypassDetails": {
+      "daypassNumber": 2,
+      "purchaserName": "Srk",
+      "daypassName": "RKFDay1-Morning",
+      "city": "Baltimore",
+      "country": "United States",
+      "scannerAlert": false,
+      "status": "active",
+      "statusDetails": {
+        "null": "null-null"
+      }
+    }
+  },
+  "getDaypassStatus_rishikesh_redeemed": {
+    "daypassDetails": {
+      "daypassNumber": 3,
+      "purchaserName": "John Doe",
+      "daypassName": "RKFDay1-Evening",
+      "city": "New York",
+      "country": "United States",
+      "scannerAlert": false,
+      "status": "redeemed",
+      "statusDetails": {
+        "prasadam": "lane1"
+      }
+    }
+  },
+  "getDaypassStatus_rishikesh_rejected": {
+    "daypassDetails": {
+      "daypassNumber": 4,
+      "purchaserName": "Jane Smith",
+      "daypassName": "RKFDay2-Morning",
+      "city": "Los Angeles",
+      "country": "United States",
+      "scannerAlert": false,
+      "status": "rejected",
+      "statusDetails": {}
+    }
+  },
+  "getDaypassStatus_not_found": {
+    "daypassDetails": {
+      "daypassNumber": 0,
+      "purchaserName": "",
+      "daypassName": "",
+      "scannerAlert": false,
+      "status": "unknown",
+      "statusDetails": {}
+    }
+  },
+  "getDaypassStatus_kartik": {
+    "daypassDetails": {
+      "daypassNumber": 2232,
+      "purchaserName": "Priya-carana",
+      "daypassName": "Mayapur-Initiations",
+      "city": "Buffalo Grove",
+      "country": "United States",
+      "scannerAlert": false,
+      "status": "redeemed",
+      "statusDetails": {
+        "bus": "Bus 1-Seva Svarupa Dasa-Mohanis"
+      }
+    }
+  },
+  "updateDayPassStatus_approve": {
+    "success": "true",
+    "message": "Updated Sucessfully",
+    "count": null,
+    "activityname": "prasadam"
+  },
+  "updateDayPassStatus_reject": {
+    "success": "true",
+    "message": "Daypass Rejected"
+  },
+  "loginScanner_rishikesh_event": {
+    "scannerLoginResponse": {
+      "memberId": "1005",
+      "legalName": "Test User",
+      "spiritualName": "Devakinandan",
+      "memberPermissions": [
+        "canScanOthersQr",
+        "canViewActivityStats"
+      ],
+      "scansInThisEvent": []
+    }
   }
 }
 

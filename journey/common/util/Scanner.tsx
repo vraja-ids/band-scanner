@@ -25,6 +25,9 @@ export default function Scanner({ navigation, route }: Props) {
   const isProcessingRef = useRef(false);
   const insets = useSafeAreaInsets();
 
+  // Determine source screen from route params
+  const sourceScreen = route.params?.screen as RouteName;
+
   useEffect(() => {
     if (cameraPermission?.status !== 'granted') {
       requestCameraPermission();
@@ -181,13 +184,22 @@ export default function Scanner({ navigation, route }: Props) {
   const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) => {
     if (isScanningEnabled && !isProcessing && !isProcessingRef.current) {
       const screenName = route.params?.screen as RouteName;
-      
+
       // Handle redeem scanning
       if (screenName === 'RedeemBusScan' || screenName === 'RedeemPrasadamScan') {
         handleRedeemScan(data);
         return;
       }
-      
+
+      // Handle Rishikesh Kirtan Fest scanning
+      if (screenName === 'RishikeshKirtanScan') {
+        setIsScanningEnabled(false);
+        navigation.replace('RishikeshKirtanScan', {
+          tag: { id: data },
+        });
+        return;
+      }
+
       // Handle other scanning
       setIsScanningEnabled(false);
       if (screenName) {
@@ -217,7 +229,16 @@ export default function Scanner({ navigation, route }: Props) {
   };
 
   const goToPreviousScreen = () => {
-    navigation.goBack();
+    // Navigate back based on source screen
+    if (sourceScreen === 'RishikeshKirtanScan') {
+      logAction('Navigating back to RishikeshKirtanScan');
+      navigation.replace('RishikeshKirtanScan');
+    } else if ((navigation as any).canGoBack?.()) {
+      navigation.goBack();
+    } else {
+      logAction('Cannot go back, navigating to Home');
+      (navigation as any).navigate('Home');
+    }
   };
 
   if (cameraPermission === null) {

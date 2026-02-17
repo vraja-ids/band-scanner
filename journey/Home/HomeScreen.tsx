@@ -25,6 +25,7 @@ const HomeScreen = () => {
   const [canScanOthersQr, setCanScanOthersQr] = useState(false);
   const [scansInThisEvent, setScansInThisEvent] = useState<string[]>([]);
   const [selectedEventName, setSelectedEventName] = useState('');
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedBusNumber, setSelectedBusNumber] = useState<string>('1');
   const [selectedPrasadamTime, setSelectedPrasadamTime] = useState<string>('Breakfast');
   const [busCount, setBusCount] = useState<number>(0);
@@ -63,9 +64,10 @@ const HomeScreen = () => {
     try {
       const scansData = await getString('scansInThisEvent');
       const eventName = await getString('selectedEventName');
+      const eventId = await getString('selectedEventId');
       const busNumber = await getString(Keys.SELECTED_BUS_NUMBER);
       const prasadamTime = await getString(Keys.SELECTED_PRASADAM_TIME);
-      
+
       if (scansData) {
         const scans = JSON.parse(scansData);
         logAction('Event data loaded', { scans, eventName, busNumber, prasadamTime });
@@ -73,6 +75,9 @@ const HomeScreen = () => {
       }
       if (eventName) {
         setSelectedEventName(eventName);
+      }
+      if (eventId) {
+        setSelectedEventId(eventId);
       }
       if (busNumber) {
         setSelectedBusNumber(busNumber);
@@ -220,6 +225,10 @@ const HomeScreen = () => {
     navigation.navigate(Routes.RedeemPrasadam);
   };
 
+  const navigateToRishikeshKirtanScan = () => {
+    navigation.navigate(Routes.RishikeshKirtanScan);
+  };
+
   const handleBusNumberChange = async (busNumber: string) => {
     setSelectedBusNumber(busNumber);
     try {
@@ -303,6 +312,21 @@ const HomeScreen = () => {
 
   const renderEventButtons = () => {
     const buttons: React.ReactElement[] = [];
+
+    // Special handling for Rishikesh Kirtan Fest event
+    if (selectedEventId === 'RishikeshKirtanFest2026') {
+      buttons.push(
+        <TouchableOpacity
+          key="rishikesh-scan"
+          style={styles.button}
+          onPress={navigateToRishikeshKirtanScan}
+        >
+          <Ionicons name="qr-code-outline" size={24} color="#fff" />
+          <Text style={styles.buttonText}>Scan Attendee</Text>
+        </TouchableOpacity>
+      );
+      return buttons;
+    }
 
     // Show traditional scanners if they're in scansInThisEvent
     if (scansInThisEvent.includes('Meals')) {

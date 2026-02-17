@@ -16,6 +16,8 @@ export interface GetDaypassStatusResponse {
     daypassNumber: number;
     purchaserName: string;
     daypassName: string;
+    city?: string;
+    country?: string;
     scannerAlert: boolean;
     status: 'active' | 'redeemed';
     statusDetails: DaypassStatusDetails;
@@ -25,15 +27,17 @@ export interface GetDaypassStatusResponse {
 export interface UpdateDayPassStatusRequest {
   dayPassNumber: string;
   eventId: string;
-  action: 'redeem' | 'unredeem';
-  actionId: 'bus' | 'Breakfast' | 'Lunch' | 'Dinner';
+  action: 'redeem' | 'unredeem' | 'Approve' | 'Reject';
+  actionId: 'bus' | 'Breakfast' | 'Lunch' | 'Dinner' | 'Entry';
   actionDetails: string; // e.g., "Bus 7" or "Lane 1"
   scannerMemberId: string;
 }
 
 export interface UpdateDayPassStatusResponse {
-  success: boolean;
+  success: boolean | string;
   message?: string;
+  count?: number | null;
+  activityname?: string;
 }
 
 export interface GetDaypassActivityStatsRequest {

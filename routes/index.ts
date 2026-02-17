@@ -18,6 +18,7 @@ export const Routes = {
   RedeemSuccess: 'RedeemSuccess',
   RedeemBusScan: 'RedeemBusScan',
   RedeemPrasadamScan: 'RedeemPrasadamScan',
+  RishikeshKirtanScan: 'RishikeshKirtanScan',
 } as const;
 
 export type RouteName = typeof Routes[keyof typeof Routes];
