@@ -181,6 +181,109 @@ export default function Scanner({ navigation, route }: Props) {
   };
 
 
+  const handleRishikeshKirtanScan = async (dayPassNumber: string) => {
+    if (isProcessingRef.current) {
+      logAction('Scan already in progress');
+      return;
+    }
+
+    isProcessingRef.current = true;
+    setIsProcessing(true);
+    setIsScanningEnabled(false);
+
+    try {
+      const internalMemberId = await getString(Keys.INTERNAL_MEMBER_ID);
+      const selectedEventId = await getString('selectedEventId');
+
+      if (!internalMemberId || !selectedEventId) {
+        logError('Missing member ID or event ID', 'handleRishikeshKirtanScan');
+        Alert.alert('Error', 'Missing credentials. Please log in again.');
+        return;
+      }
+
+      // Auto-redeem the pass
+      const res = await updateDayPassStatus({
+        dayPassNumber,
+        action: 'redeem',
+        actionId: 'prasadam',
+        actionDetails: 'lane1',
+        scannerMemberId: internalMemberId,
+        eventId: selectedEventId,
+      });
+
+      if (res.status === 'success') {
+        logAction('Pass redeemed successfully', { dayPassNumber });
+        navigation.replace('RishikeshKirtanRedeemSuccess', {
+          isSuccess: true,
+          dayPassNumber,
+        });
+      } else {
+        logError('Redeem failed, checking status', 'handleRishikeshKirtanScan');
+        await handleRishikeshKirtanError(dayPassNumber, res?.status === 'error' ? res?.message : 'Pass may already be redeemed');
+      }
+    } catch (error) {
+      logError(error, 'handleRishikeshKirtanScan');
+      await handleRishikeshKirtanError(dayPassNumber, (error as any)?.message || 'Failed to redeem pass');
+    } finally {
+      isProcessingRef.current = false;
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRishikeshKirtanError = async (dayPassNumber: string, redeemError?: string) => {
+    try {
+      logAction('Handling redeem error', { dayPassNumber, redeemError });
+      const eventId = await getString('selectedEventId');
+      const scannerMemberId = await getString(Keys.INTERNAL_MEMBER_ID);
+
+      if (!eventId || !scannerMemberId) {
+        Alert.alert('Error', 'Missing credentials');
+        return;
+      }
+
+      const response = await getDaypassStatus({
+        dayPassNumber,
+        eventId,
+        scannerMemberId
+      });
+
+      if (response.status === 'success' && response.data) {
+        const daypassData = response.data.daypassDetails;
+
+        // Check if already redeemed
+        if (daypassData.status === 'redeemed') {
+          navigation.replace('RishikeshKirtanRedeemSuccess', {
+            isSuccess: false,
+            dayPassNumber,
+            errorMessage: 'This pass has already been redeemed',
+            daypassDetails: daypassData,
+          });
+        } else {
+          // Other error (not found, etc)
+          navigation.replace('RishikeshKirtanRedeemSuccess', {
+            isSuccess: false,
+            dayPassNumber,
+            errorMessage: redeemError || 'Failed to redeem pass',
+            daypassDetails: daypassData,
+          });
+        }
+      } else {
+        navigation.replace('RishikeshKirtanRedeemSuccess', {
+          isSuccess: false,
+          dayPassNumber,
+          errorMessage: redeemError || 'Failed to get daypass status',
+        });
+      }
+    } catch (error) {
+      logError(error, 'handleRishikeshKirtanError');
+      navigation.replace('RishikeshKirtanRedeemSuccess', {
+        isSuccess: false,
+        dayPassNumber,
+        errorMessage: 'Failed to get daypass status',
+      });
+    }
+  };
+
   const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) => {
     if (isScanningEnabled && !isProcessing && !isProcessingRef.current) {
       const screenName = route.params?.screen as RouteName;
@@ -191,12 +294,9 @@ export default function Scanner({ navigation, route }: Props) {
         return;
       }
 
-      // Handle Rishikesh Kirtan Fest scanning
+      // Handle Rishikesh Kirtan Fest scanning - auto-redeem
       if (screenName === 'RishikeshKirtanScan') {
-        setIsScanningEnabled(false);
-        navigation.replace('RishikeshKirtanScan', {
-          tag: { id: data },
-        });
+        handleRishikeshKirtanScan(data);
         return;
       }
 

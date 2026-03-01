@@ -21,6 +21,7 @@ import RedeemPrasadamScreen from './journey/Daypass/RedeemPrasadamScreen';
 import RedeemSuccessScreen from './journey/Daypass/RedeemSuccessScreen';
 import LanguageSelectionScreen from './journey/Login/LanguageSelectionScreen';
 import RishikeshKirtanScanScreen from './journey/RishikeshKirtanFest/RishikeshKirtanScanScreen';
+import RishikeshKirtanRedeemSuccessScreen from './journey/RishikeshKirtanFest/RishikeshKirtanRedeemSuccessScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -114,6 +115,11 @@ export default function App() {
         <Stack.Screen
           name={Routes.RishikeshKirtanScan}
           component={RishikeshKirtanScanScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name={Routes.RishikeshKirtanRedeemSuccess}
+          component={RishikeshKirtanRedeemSuccessScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

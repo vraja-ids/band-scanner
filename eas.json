@@ -11,8 +11,8 @@
         "image": "macos-sequoia-15.3-xcode-16.2"
       },
       "android": {
-        "image": "macos-sequoia-15.3-xcode-16.2"
-      }
+        "image": "latest"      
+}
     },
     "preview": {
       "distribution": "internal",
@@ -20,8 +20,8 @@
         "image": "macos-sequoia-15.3-xcode-16.2"
       },
       "android": {
-        "image": "macos-sequoia-15.3-xcode-16.2"
-      }
+        "image": "latest"      
+}
     },
     "production": {
       "ios": {
@@ -29,8 +29,8 @@
         "resourceClass": "m-medium"
       },
       "android": {
-        "image": "macos-sequoia-15.3-xcode-16.2",
-        "resourceClass": "medium"
+        "image": "latest",       
+"resourceClass": "medium"
       }
     }
   },
