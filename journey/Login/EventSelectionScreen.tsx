@@ -65,21 +65,21 @@ export default function EventSelectionScreen() {
 
       // Call loginScanner with selected event
       logAction('Calling loginScanner', { authToken, eventId });
-      const resp = await loginScanner({ 
-        authToken: authToken, 
-        eventId: eventId 
+      const resp = await loginScanner({
+        authToken: authToken,
+        eventId: eventId
       });
 
       if (resp.status === 'success' && (resp.data as any)?.scannerLoginResponse) {
         const { memberId, memberPermissions, scansInThisEvent } = (resp.data as any).scannerLoginResponse;
-        
+
         logAction('LoginScanner successful', { memberId, memberPermissions, scansInThisEvent });
-        
+
         // Store memberId as internalMemberId
         if (memberId) {
           await setString(Keys.INTERNAL_MEMBER_ID, memberId);
         }
-        
+
         // Store permissions in SessionManager
         if (memberPermissions) {
           SessionManager.setPermissions(memberPermissions);

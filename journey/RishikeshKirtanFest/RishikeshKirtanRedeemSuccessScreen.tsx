@@ -70,7 +70,7 @@ export default function RishikeshKirtanRedeemSuccessScreen() {
         dayPassNumber,
         eventId,
         action: 'unredeem',
-        actionId: 'prasadam',
+        actionId: 'entrance-gate',
         actionDetails: 'lane1',
         scannerMemberId,
       });
@@ -173,7 +173,7 @@ export default function RishikeshKirtanRedeemSuccessScreen() {
               </View>
 
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Purchaser:</Text>
+                <Text style={styles.detailLabel}>Name:</Text>
                 <Text style={[styles.detailValue, { color: theme.text }]}>
                   {daypassDetails.purchaserName}
                 </Text>
@@ -186,20 +186,12 @@ export default function RishikeshKirtanRedeemSuccessScreen() {
                 </Text>
               </View>
 
-              {daypassDetails.city && (
+              {/* City and Country combined */}
+              {(daypassDetails.city || daypassDetails.country) && (
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>City:</Text>
+                  <Text style={styles.detailLabel}>Location:</Text>
                   <Text style={[styles.detailValue, { color: theme.text }]}>
-                    {daypassDetails.city}
-                  </Text>
-                </View>
-              )}
-
-              {daypassDetails.country && (
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Country:</Text>
-                  <Text style={[styles.detailValue, { color: theme.text }]}>
-                    {daypassDetails.country}
+                    {[daypassDetails.city, daypassDetails.country].filter(Boolean).join(', ')}
                   </Text>
                 </View>
               )}

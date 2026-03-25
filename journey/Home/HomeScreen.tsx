@@ -33,6 +33,7 @@ const HomeScreen = () => {
   const [isUpdatingBusCount, setIsUpdatingBusCount] = useState(false);
   const [isUpdatingPrasadamCount, setIsUpdatingPrasadamCount] = useState(false);
   const [showBusModal, setShowBusModal] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const route: any = useRoute();
 
   useEffect(() => {
@@ -87,6 +88,8 @@ const HomeScreen = () => {
       }
     } catch (error) {
       logError(error, 'loadEventData');
+    } finally {
+      setIsInitialLoading(false);
     }
   };
 
@@ -302,6 +305,11 @@ const HomeScreen = () => {
     (navigation as any).navigate(Routes.DaypassActivityStats);
   };
 
+  const navigateToRishikeshKirtanActivityStats = () => {
+    logAction('Navigating to Rishikesh Kirtan Activity Stats');
+    (navigation as any).navigate(Routes.RishikeshKirtanActivityStats);
+  };
+
   const isCheckMealDisabled = selectedLane === null;
 
   const handleGiftScan = (tagId: string) => {
@@ -325,6 +333,19 @@ const HomeScreen = () => {
           <Text style={styles.buttonText}>Scan Attendee</Text>
         </TouchableOpacity>
       );
+
+      // Show Activity Stats button to all users
+      buttons.push(
+        <TouchableOpacity
+          key="rishikesh-stats"
+          style={styles.button}
+          onPress={navigateToRishikeshKirtanActivityStats}
+        >
+          <Ionicons name="analytics-outline" size={24} color="#fff" />
+          <Text style={styles.buttonText}>Activity Stats</Text>
+        </TouchableOpacity>
+      );
+
       return buttons;
     }
 
@@ -405,8 +426,14 @@ const HomeScreen = () => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-      <ScrollView style={styles.scrollContainer}>
-        <View style={styles.content}>
+      {isInitialLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#5dbea3" />
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      ) : (
+        <ScrollView style={styles.scrollContainer}>
+          <View style={styles.content}>
           <View style={styles.headerRow}>
             <TouchableOpacity style={styles.languageButton} onPress={handleLanguageChange}>
               <Ionicons name="language-outline" size={24} color="#5dbea3" />
@@ -417,6 +444,7 @@ const HomeScreen = () => {
           </View>
           {userName ? <Text style={styles.welcomeText}>{t('home.welcome')} {userName}</Text> : null}
           {selectedEventName ? <Text style={styles.eventText}>{t('home.event')}: {selectedEventName}</Text> : null}
+
         {/* Show lane picker only for meal scanning */}
         {scansInThisEvent.includes('Meals') && (
           <View style={styles.pickerContainer}>
@@ -516,7 +544,7 @@ const HomeScreen = () => {
           )}
 
           {/* Daypass Activity Stats */}
-          {scansInThisEvent.includes('Daypass') && 
+          {scansInThisEvent.includes('Daypass') &&
            (SessionManager.hasPermission('canScanDaypassBus') || SessionManager.hasPermission('canScanDaypassPrasadam')) && (
             <TouchableOpacity style={styles.button} onPress={navigateToDaypassStats}>
               <Ionicons name="analytics-outline" size={24} color="#fff" />
@@ -526,6 +554,7 @@ const HomeScreen = () => {
         </View>
         </View>
       </ScrollView>
+      )}
     </View>
   );
 };
@@ -558,6 +587,16 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 20,
     textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 10,
   },
   logoContainer: {
     width: windowWidth * 0.75,

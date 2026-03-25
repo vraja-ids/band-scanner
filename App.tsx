@@ -22,17 +22,21 @@ import RedeemSuccessScreen from './journey/Daypass/RedeemSuccessScreen';
 import LanguageSelectionScreen from './journey/Login/LanguageSelectionScreen';
 import RishikeshKirtanScanScreen from './journey/RishikeshKirtanFest/RishikeshKirtanScanScreen';
 import RishikeshKirtanRedeemSuccessScreen from './journey/RishikeshKirtanFest/RishikeshKirtanRedeemSuccessScreen';
+import RishikeshKirtanActivityStatsScreen from './journey/RishikeshKirtanFest/RishikeshKirtanActivityStatsScreen';
+import InflowComparisonScreen from './journey/RishikeshKirtanFest/InflowComparisonScreen';
+import BackgroundStatsService from './services/BackgroundStatsService';
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
     <>
-      <StatusBar 
-        barStyle="dark-content" 
-        backgroundColor="#000000" 
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#000000"
         translucent={false}
       />
+      <BackgroundStatsService />
       <NavigationContainer>
       <Stack.Navigator initialRouteName={Routes.LoginSplash}>
         <Stack.Screen 
@@ -120,6 +124,16 @@ export default function App() {
         <Stack.Screen
           name={Routes.RishikeshKirtanRedeemSuccess}
           component={RishikeshKirtanRedeemSuccessScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name={Routes.RishikeshKirtanActivityStats}
+          component={RishikeshKirtanActivityStatsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name={Routes.InflowComparison}
+          component={InflowComparisonScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

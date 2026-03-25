@@ -42,14 +42,30 @@ export interface UpdateDayPassStatusResponse {
 
 export interface GetDaypassActivityStatsRequest {
   eventId: string;
-  activity: string; // "bus1", "bus2", ..., "bus12", "breakfast", "lunch", "dinner"
+  activity: string; // "bus1", "bus2", ..., "bus12", "breakfast", "lunch", "dinner", "prasadam"
   date: string; // YYYY-MM-DD format
   scannerMemberId: string;
+}
+
+export interface ActivityStatItem {
+  [key: string]: number; // e.g., { "lane1": 2 } or { "Breakfast": 5 }
+}
+
+export interface ActivityStat {
+  totalCount: number;
+  activity: ActivityStatItem[];
+  daypassName: string;
 }
 
 export interface GetDaypassActivityStatsResponse {
   totalCount: number;
   activity: string;
+  date: string;
+}
+
+// New response format for Rishikesh Kirtan Fest
+export interface RishikeshKirtanActivityStatsResponse {
+  activityStats: ActivityStat[];
   date: string;
 }
 

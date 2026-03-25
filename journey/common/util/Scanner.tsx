@@ -205,7 +205,7 @@ export default function Scanner({ navigation, route }: Props) {
       const res = await updateDayPassStatus({
         dayPassNumber,
         action: 'redeem',
-        actionId: 'prasadam',
+        actionId: 'entrance-gate',
         actionDetails: 'lane1',
         scannerMemberId: internalMemberId,
         eventId: selectedEventId,
@@ -213,10 +213,36 @@ export default function Scanner({ navigation, route }: Props) {
 
       if (res.status === 'success') {
         logAction('Pass redeemed successfully', { dayPassNumber });
-        navigation.replace('RishikeshKirtanRedeemSuccess', {
-          isSuccess: true,
-          dayPassNumber,
-        });
+
+        // Fetch daypass details to show user info
+        try {
+          const statusResponse = await getDaypassStatus({
+            dayPassNumber,
+            eventId: selectedEventId,
+            scannerMemberId: internalMemberId,
+          });
+
+          if (statusResponse.status === 'success' && statusResponse.data) {
+            navigation.replace('RishikeshKirtanRedeemSuccess', {
+              isSuccess: true,
+              dayPassNumber,
+              daypassDetails: statusResponse.data.daypassDetails,
+            });
+          } else {
+            // If fetch fails, still show success but without details
+            navigation.replace('RishikeshKirtanRedeemSuccess', {
+              isSuccess: true,
+              dayPassNumber,
+            });
+          }
+        } catch (statusError) {
+          logError(statusError, 'handleRishikeshKirtanScan - fetch status');
+          // If fetch fails, still show success but without details
+          navigation.replace('RishikeshKirtanRedeemSuccess', {
+            isSuccess: true,
+            dayPassNumber,
+          });
+        }
       } else {
         logError('Redeem failed, checking status', 'handleRishikeshKirtanScan');
         await handleRishikeshKirtanError(dayPassNumber, res?.status === 'error' ? res?.message : 'Pass may already be redeemed');

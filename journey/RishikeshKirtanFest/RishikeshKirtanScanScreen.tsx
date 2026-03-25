@@ -8,6 +8,7 @@ import { getDaypassStatus, updateDayPassStatus } from '../Daypass/DaypassViewMod
 import { getString, Keys } from '../../storage/Session';
 import { useBaseScreen } from '../common/util/useBaseScreen';
 import type { GetDaypassStatusResponse } from '../Daypass/models/api';
+import Routes from '../../routes/index';
 
 type RouteParams = {
   tag?: { id: string };
@@ -199,7 +200,7 @@ export default function RishikeshKirtanScanScreen() {
         dayPassNumber: tagId,
         eventId,
         action: 'redeem',
-        actionId: 'prasadam',
+        actionId: 'entrance-gate',
         actionDetails: 'lane1',
         scannerMemberId,
       });
@@ -268,7 +269,7 @@ export default function RishikeshKirtanScanScreen() {
         dayPassNumber: tagId,
         eventId,
         action: 'reject',
-        actionId: 'prasadam',
+        actionId: 'entrance-gate',
         actionDetails: 'lane1',
         scannerMemberId,
       });
@@ -324,6 +325,16 @@ export default function RishikeshKirtanScanScreen() {
     navigation.navigate('Home');
   };
 
+  const handleActivityStats = () => {
+    logAction('Navigating to activity stats');
+    navigation.navigate(Routes.RishikeshKirtanActivityStats);
+  };
+
+  const handleInflowComparison = () => {
+    logAction('Navigating to inflow comparison');
+    navigation.navigate(Routes.InflowComparison);
+  };
+
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -348,6 +359,20 @@ export default function RishikeshKirtanScanScreen() {
           >
             <Ionicons name="qr-code-outline" size={24} color="#fff" />
             <Text style={styles.scanButtonText}>Scan Attendee</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.scanButton, { backgroundColor: '#9C27B0' }]}
+            onPress={handleActivityStats}
+          >
+            <Ionicons name="analytics-outline" size={24} color="#fff" />
+            <Text style={styles.scanButtonText}>Activity Stats</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.scanButton, { backgroundColor: '#FF9800' }]}
+            onPress={handleInflowComparison}
+          >
+            <Ionicons name="trending-up" size={24} color="#fff" />
+            <Text style={styles.scanButtonText}>Inflow Chart</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.homeButton, { borderColor: theme.primary }]}
@@ -415,7 +440,7 @@ export default function RishikeshKirtanScanScreen() {
             </View>
 
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Purchaser:</Text>
+              <Text style={styles.detailLabel}>Name:</Text>
               <Text style={[styles.detailValue, { color: theme.text }]}>{daypassData.purchaserName}</Text>
             </View>
 
@@ -424,17 +449,13 @@ export default function RishikeshKirtanScanScreen() {
               <Text style={[styles.detailValue, { color: theme.text }]}>{daypassData.daypassName}</Text>
             </View>
 
-            {daypassData.city && (
+            {/* City and Country combined */}
+            {(daypassData.city || daypassData.country) && (
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>City:</Text>
-                <Text style={[styles.detailValue, { color: theme.text }]}>{daypassData.city}</Text>
-              </View>
-            )}
-
-            {daypassData.country && (
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Country:</Text>
-                <Text style={[styles.detailValue, { color: theme.text }]}>{daypassData.country}</Text>
+                <Text style={styles.detailLabel}>Location:</Text>
+                <Text style={[styles.detailValue, { color: theme.text }]}>
+                  {[daypassData.city, daypassData.country].filter(Boolean).join(', ')}
+                </Text>
               </View>
             )}
 
