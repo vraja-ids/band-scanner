@@ -45,10 +45,10 @@ export default function EventSelectionScreen() {
 
   const handleEventSelect = async (eventId: string, eventName: string) => {
     if (selectedEvent) return; // Prevent multiple selections
-    
+
     logAction('Event selected', { eventId, eventName });
     setSelectedEvent(eventId);
-    
+
     try {
       // Get auth token from storage
       const authToken = await getString(Keys.AUTH_TOKEN);
@@ -56,18 +56,29 @@ export default function EventSelectionScreen() {
         logError('No auth token found', 'handleEventSelect');
         Alert.alert('Authentication Required', 'Please log in again to continue.');
         // Navigate back to login
-        (navigation as any).reset({ 
-          index: 0, 
-          routes: [{ name: Routes.LoginEmail }] 
+        (navigation as any).reset({
+          index: 0,
+          routes: [{ name: Routes.LoginEmail }]
         });
         return;
       }
 
-      // Call loginScanner with selected event
-      logAction('Calling loginScanner', { authToken, eventId });
+      // Map frontend event IDs to backend event IDs
+      // The backend uses different IDs than what's in events.json
+      const eventMapping: Record<string, string> = {
+        'SadhuSanga2026': 'USASadhuSangaRetreat2026',
+        'KartikParikrama2025': 'KartikParikrama2025',
+        'RishikeshKirtanFest2026': 'RishikeshKirtanFest2026',
+      };
+
+      const backendEventId = eventMapping[eventId] || eventId;
+      logAction('Using backend event ID', { frontend: eventId, backend: backendEventId });
+
+      // Call loginScanner with mapped event ID
+      logAction('Calling loginScanner', { authToken, eventId: backendEventId });
       const resp = await loginScanner({
         authToken: authToken,
-        eventId: eventId
+        eventId: backendEventId
       });
 
       if (resp.status === 'success' && (resp.data as any)?.scannerLoginResponse) {
@@ -90,9 +101,10 @@ export default function EventSelectionScreen() {
           await setString('scansInThisEvent', JSON.stringify(scansInThisEvent));
         }
 
-        // Store selected event info
-        await setString('selectedEventId', eventId);
+        // Store selected event info (use backend event ID for API calls)
+        await setString('selectedEventId', backendEventId);
         await setString('selectedEventName', eventName);
+        await setString('selectedEventIdFrontend', eventId); // Store frontend ID for mapping
 
         // For Rishikesh Kirtan Fest event, navigate directly to scan screen
         if (eventId === 'RishikeshKirtanFest2026') {
