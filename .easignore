@@ -1,0 +1,51 @@
+# Build artifacts
+*.ipa
+*.apk
+build-*.ipa
+build-*.apk
+
+# iOS build artifacts
+ios/Pods/
+ios/build/
+ios/*.log
+ios/DerivedData/
+
+# iOS build cache
+ios/Podfile.lock
+
+# Logs
+*.log
+ios-build.log
+
+# Environment files
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# Test coverage
+coverage/
+
+# Android build
+android/.gradle/
+android/app/build/
+android/build/
+
+# Node modules (EAS handles this, but just in case)
+node_modules/
+
+# Package manager lock files (EAS handles these)
+yarn.lock
+package-lock.json
