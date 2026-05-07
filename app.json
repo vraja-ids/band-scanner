@@ -3,7 +3,7 @@
     "name": "SS Admin",
     "slug": "band-scanner",
     "version": "2.2.9",
-    "orientation": "portrait",
+    "orientation": ["portrait", "landscapeLeft", "landscapeRight"],
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/icon.png",
@@ -21,7 +21,7 @@
       "newArchEnabled": true,
       "supportsTablet": true,
       "bundleIdentifier": "com.sadhusanga.ScannerApp",
-      "buildNumber": "21",
+      "buildNumber": "22",
       "version": "2.2.9",
       "statusBar": {
         "barStyle": "light-content",
