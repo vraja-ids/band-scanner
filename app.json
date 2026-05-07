@@ -2,7 +2,7 @@
   "expo": {
     "name": "SS Admin",
     "slug": "band-scanner",
-    "version": "2.2.0",
+    "version": "2.2.9",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "splash": {
@@ -21,8 +21,8 @@
       "newArchEnabled": true,
       "supportsTablet": true,
       "bundleIdentifier": "com.sadhusanga.ScannerApp",
-      "buildNumber": "11",
-      "version": "2.2.0",
+      "buildNumber": "21",
+      "version": "2.2.9",
       "statusBar": {
         "barStyle": "light-content",
         "backgroundColor": "#000000"
@@ -40,7 +40,7 @@
       "newArchEnabled": true,
       "package": "com.sadhusanga.ScannerApp",
       "versionCode": 26,
-      "version": "2.2.0",
+      "version": "2.2.9",
       "permissions": [
         "CAMERA",
         "INTERNET",
@@ -69,9 +69,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "4403da0a-bab0-40b3-bdcf-7db525915f4f"
+        "projectId": "eedf4ca2-7f92-48aa-a4c9-2095d7f9f150"
       }
     },
-    "owner": "mohamaya"
+    "owner": "loghash"
   }
 }
