@@ -7,6 +7,7 @@
 export type DashboardStage =
   | 'planned'
   | 'cooked'
+  | 'distributed'
   | 'stored'
   | 'staging'
   | 'refill_station_1'
@@ -26,12 +27,14 @@ export const ALL_STAGES: DashboardStage[] = [
   'refill_station_3',
   'served',
   'left_over',
+  'distributed',
 ];
 
 // Movement rules - which stages can move to which
 export const MOVEMENT_RULES: Record<DashboardStage, DashboardStage[]> = {
   planned: ['cooked'],
   cooked: ['stored'],
+  distributed: [], // Calculated stage, no movements
   stored: ['staging'],
   staging: ['refill_station_1', 'refill_station_2', 'refill_station_3'],
   refill_station_1: ['served'],
@@ -45,6 +48,7 @@ export const MOVEMENT_RULES: Record<DashboardStage, DashboardStage[]> = {
 export const REVERSE_MOVEMENT_RULES: Record<DashboardStage, DashboardStage[]> = {
   planned: [],
   cooked: ['planned'],
+  distributed: [], // Calculated stage, no movements
   stored: ['cooked', 'left_over'],
   staging: ['stored', 'left_over'],
   refill_station_1: ['staging', 'left_over'],
@@ -58,6 +62,7 @@ export const REVERSE_MOVEMENT_RULES: Record<DashboardStage, DashboardStage[]> = 
 export const STAGE_DISPLAY_NAMES: Record<DashboardStage, string> = {
   planned: 'Planned',
   cooked: 'Cooked',
+  distributed: 'Distributed',
   stored: 'Stored',
   staging: 'Staging',
   refill_station_1: 'Refill Stn 1',
@@ -70,21 +75,25 @@ export const STAGE_DISPLAY_NAMES: Record<DashboardStage, string> = {
 // Team view configurations
 export type TeamView = 'all' | 'team1_kitchen' | 'team2_staging' | 'team3_serving';
 
-export const TEAM_VIEW_CONFIGS: Record<TeamView, { name: string; stages: DashboardStage[] }> = {
+export const TEAM_VIEW_CONFIGS: Record<TeamView, { name: string; shortName: string; stages: DashboardStage[] }> = {
   all: {
     name: 'All Stages',
+    shortName: 'All',
     stages: ALL_STAGES,
   },
   team1_kitchen: {
     name: 'Team 1 (Kitchen)',
-    stages: ['planned', 'cooked', 'stored'],
+    shortName: 'Kitchen',
+    stages: ['planned', 'cooked', 'distributed', 'stored'],
   },
   team2_staging: {
     name: 'Team 2 (Staging)',
+    shortName: 'Staging',
     stages: ['stored', 'staging', 'refill_station_1', 'refill_station_2', 'refill_station_3'],
   },
   team3_serving: {
     name: 'Team 3 (Serving)',
+    shortName: 'Serving',
     stages: ['refill_station_1', 'refill_station_2', 'refill_station_3', 'served', 'left_over'],
   },
 };
@@ -98,6 +107,7 @@ export interface DashboardItem {
   low_qty_threshold: number;
   planned_qty: number;
   cooked_qty: number;
+  distributed_qty: number;
   stored_qty: number;
   staging_qty: number;
   refill_station_1_qty: number;
@@ -112,6 +122,7 @@ export const getStageQuantity = (item: DashboardItem, stage: DashboardStage): nu
   const qtyMap: Record<DashboardStage, keyof DashboardItem> = {
     planned: 'planned_qty',
     cooked: 'cooked_qty',
+    distributed: 'distributed_qty',
     stored: 'stored_qty',
     staging: 'staging_qty',
     refill_station_1: 'refill_station_1_qty',
@@ -236,6 +247,12 @@ export const STAGE_THEMES: Record<DashboardStage, StageTheme> = {
     color: '#F57C00',
     borderColor: '#FFECB3',
     iconColor: '#FFA000',
+  },
+  distributed: {
+    background: '#E0F2F1',
+    color: '#00695C',
+    borderColor: '#B2DFDB',
+    iconColor: '#009688',
   },
   stored: {
     background: '#E8F5E9',

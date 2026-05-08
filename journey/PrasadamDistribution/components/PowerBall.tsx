@@ -24,11 +24,17 @@ export const PowerBall: React.FC<PowerBallProps> = memo(
       return <View style={{ width: size, height: size }} />;
     }
 
+    // Calculate compact size - scale ball size proportionally to container
+    // Use more of the available space for better visibility
+    const compactSize = size;
+    const ballSize = Math.floor(compactSize * 0.8); // 80% of container
+    const fontSize = Math.max(12, Math.floor(ballSize * 0.45)); // Scale font with ball size
+
     if (compact) {
       return (
-        <View style={[styles.compactContainer, { borderColor: color }]}>
-          <View style={[styles.compactBall, { backgroundColor: color }]}>
-            <Text style={[styles.compactText, { color: '#000' }]}>{quantity}</Text>
+        <View style={[styles.compactContainer, { width: compactSize, height: compactSize, borderColor: color }]}>
+          <View style={[styles.compactBall, { width: ballSize, height: ballSize, borderRadius: ballSize / 2, backgroundColor: color }]}>
+            <Text style={[styles.compactText, { fontSize, color: '#000' }]}>{quantity}</Text>
           </View>
         </View>
       );
@@ -79,22 +85,15 @@ const styles = StyleSheet.create({
     borderColor: '#FFF',
   },
   compactContainer: {
-    width: 40,
-    height: 40,
     borderWidth: 2,
-    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
   compactBall: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
   compactText: {
-    fontSize: 14,
     fontWeight: '600',
   },
 });

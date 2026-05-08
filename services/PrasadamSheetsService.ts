@@ -49,6 +49,8 @@ export interface Meal {
   status: string;
   created_at: string;
   updated_at: string;
+  meal_name?: string; // Display name for the meal
+  date?: string; // Date of the meal
 }
 
 export interface MenuItem {
