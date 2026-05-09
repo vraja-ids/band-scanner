@@ -39,6 +39,7 @@ import {
   TEAM_VIEW_CONFIGS,
   STAGE_DISPLAY_NAMES,
   MOVEMENT_RULES,
+  getItemColor,
 } from './types/dashboard.types';
 import { PowerBall } from './components/PowerBall';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -86,7 +87,8 @@ function stageToLocation(stage: DashboardStage): string | null {
 function buildDashboardItems(
   menuItems: MenuItem[],
   inventory: LocationInventoryItem[],
-  expectedDevotees: number = 0
+  expectedDevotees: number = 0,
+  devoteesScanned: number = 0
 ): DashboardItem[] {
   const items: DashboardItem[] = [];
 
@@ -110,26 +112,25 @@ function buildDashboardItems(
 
     // Calculate percentages for Kitchen view
     // Devotees Remaining %: How many devotees still need to be served
-    // If expectedDevotees is 1500 and 300 have been served, 80% remain
-    // Assuming 1 tray serves 10 devotees
-    const traysPerDevotee = 10;
-    const devoteesAlreadyServed = served * traysPerDevotee;
-    const devoteesRemaining = Math.max(0, expectedDevotees - devoteesAlreadyServed);
+    // Uses actual scanned count from meal activity
+    // 0 scanned / 1000 expected = 100% remaining (all still need to be served)
+    const devoteesRemaining = Math.max(0, expectedDevotees - devoteesScanned);
     const devoteesPercentage = expectedDevotees > 0
       ? Math.round((devoteesRemaining / expectedDevotees) * 100)
-      : (expectedDevotees === 0 ? 0 : 100);
+      : 100;
 
-    // Trays Remaining %: How much of cooked is still in circulation (not left over)
-    // Higher % = more trays available, need to cook less
-    // Lower % = most trays served, may need to cook more
-    const traysRemaining = cooked - leftOver;
+    // Trays Remaining %: What % of cooked trays are left to distribute
+    // 100 cooked, 0 served = 100% remaining (all still need to go out)
+    // 100 cooked, 50 served = 50% remaining
+    // 100 cooked, 100 served = 0% remaining
+    const traysRemainingToServe = Math.max(0, cooked - served);
     const traysPercentage = cooked > 0
-      ? Math.round((traysRemaining / cooked) * 100)
+      ? Math.round((traysRemainingToServe / cooked) * 100)
       : 0;
 
-    // Cooked → Stored moved: For now, initialize from stored_qty as baseline
-    // This tracks cumulative movements from Cooked to Stored (session-based for now)
-    const cookedToStoredMoved = stored; // Start with current stored as baseline
+    // Cooked → Stored moved: Use server value for cumulative movements
+    // This tracks cumulative movements from Cooked to Stored (persisted in sheet)
+    const cookedToStoredMoved = menuItem.kitchen_storage_moved || 0;
 
     items.push({
       item_id: menuItem.item_id,
@@ -292,20 +293,19 @@ function PrasadamDashboardScreen() {
         const expected = eventId ? getExpectedDevoteesForMeal(eventId, mealId) : 0;
         setExpectedDevotees(expected);
 
-        // Fetch meal activity stats (devotees scanned)
+        // Fetch meal activity stats (devotees scanned) BEFORE building dashboard
+        let scanned = 0;
         if (mealId && userId) {
           try {
-            const scanned = await getDevoteesCountForMeal(eventId || '', mealId, userId);
+            scanned = await getDevoteesCountForMeal(eventId || '', mealId, userId);
             setDevoteesScanned(scanned);
           } catch (error) {
             console.error('Failed to fetch meal activity stats:', error);
             setDevoteesScanned(0);
           }
-        } else {
-          setDevoteesScanned(0);
         }
 
-        const dashboardItems = buildDashboardItems(data.menu, data.inventory, expected);
+        const dashboardItems = buildDashboardItems(data.menu, data.inventory, expected, scanned);
         console.log('Dashboard items built:', dashboardItems.length);
         setItems(dashboardItems);
 
@@ -475,6 +475,15 @@ function PrasadamDashboardScreen() {
           console.log('[MOVE] updateLocationInventory (Kitchen) result:', success);
           if (!success) throw new Error('Failed to update inventory');
 
+          // Also update the cumulative kitchen_storage_moved counter on MenuItem
+          const menuSuccess = await updateMenuItem({
+            itemId: selectedItem.item_id,
+            updates: {
+              kitchen_storage_moved: (selectedItem.cooked_to_stored_moved || 0) + quantity,
+            },
+          });
+          console.log('[MOVE] updateMenuItem (kitchen_storage_moved) result:', menuSuccess);
+
           // Create transfer record
           await recordTransfer({
             meal_id: mealId,
@@ -550,8 +559,8 @@ function PrasadamDashboardScreen() {
                   ((updatedItem.cooked_to_stored_moved as number) || 0) + quantity;
               }
 
-              // Subtract from source (except Cooked, which is cumulative)
-              if (selectedStage !== 'cooked') {
+              // Subtract from source (except Cooked and Planned, which are static/cumulative)
+              if (selectedStage !== 'cooked' && selectedStage !== 'planned') {
                 const sourceKey = `${selectedStage}_qty` as keyof DashboardItem;
                 (updatedItem[sourceKey] as number) = Math.max(0, (updatedItem[sourceKey] as number || 0) - quantity);
               }
@@ -564,13 +573,13 @@ function PrasadamDashboardScreen() {
 
         setShowMovePopup(false);
 
-        // Silent background refresh to get server state
-        loadData(true);
+        // Silent background refresh to get server state - AWAIT to prevent race condition
+        await loadData(true);
       } catch (error) {
         console.error('Failed to move quantity:', error);
         Alert.alert('Error', `Failed to move trays: ${error instanceof Error ? error.message : 'Unknown error'}`);
         // Reload to revert optimistic update on error
-        loadData();
+        await loadData();
       } finally {
         // Clear flag to allow auto-refresh again
         movementInProgressRef.current = false;
@@ -628,76 +637,67 @@ function PrasadamDashboardScreen() {
       movementInProgressRef.current = true;
 
       try {
-        // Case 1: Cooked -> Planned (correction - reduce ready_trays if over-reported)
-        if (selectedStage === 'cooked' && toStage === 'planned') {
-          console.log('[REVERSE] Case 1: Cooked correction, reducing ready_trays');
-          const success = await updateMenuItem({
-            itemId: selectedItem.item_id,
-            updates: {
-              // Reduce ready_trays for over-reporting correction
-              ready_trays: Math.max(0, selectedItem.cooked_qty - quantity),
-            },
-          });
-          if (!success) throw new Error('Failed to update tray count');
+        // All reverse moves are location inventory movements
+        const fromLocation = stageToLocation(selectedStage);
+        const toLocation = stageToLocation(toStage);
 
-          // Record the correction transfer
-          await recordTransfer({
-            meal_id: mealId,
-            item_id: selectedItem.item_id,
-            item_name: selectedItem.name,
-            quantity,
-            from_location: 'Cooked',
-            to_location: 'Planned',
-            from_user: userId,
-          });
-        }
-        // Case 2: All other reverses are location inventory movements
-        else {
-          const fromLocation = stageToLocation(selectedStage);
-          const toLocation = stageToLocation(toStage);
+        console.log('[REVERSE] Location inventory movement', { fromLocation, toLocation });
 
-          console.log('[REVERSE] Location inventory movement', { fromLocation, toLocation });
-
-          if (!fromLocation || !toLocation) {
-            Alert.alert('Error', 'Invalid stage mapping');
-            return;
-          }
-
-          // Subtract from source
-          const success1 = await updateLocationInventory({
-            mealId,
-            itemId: selectedItem.item_id,
-            location: fromLocation,
-            quantity,
-            action: 'subtract',
-          });
-
-          // Add to destination (left_over or previous stage)
-          const success2 = await updateLocationInventory({
-            mealId,
-            itemId: selectedItem.item_id,
-            location: toLocation,
-            quantity,
-            action: 'add',
-          });
-
-          if (!success1 || !success2) throw new Error('Failed to move trays');
-
-          // Record the reverse transfer for history
-          await recordTransfer({
-            meal_id: mealId,
-            item_id: selectedItem.item_id,
-            item_name: selectedItem.name,
-            quantity,
-            from_location: fromLocation,
-            to_location: toLocation,
-            from_user: userId,
-          });
+        if (!fromLocation || !toLocation) {
+          Alert.alert('Error', 'Invalid stage mapping');
+          return;
         }
 
-        // Refresh data
-        await loadData();
+        // Subtract from source
+        const success1 = await updateLocationInventory({
+          mealId,
+          itemId: selectedItem.item_id,
+          location: fromLocation,
+          quantity,
+          action: 'subtract',
+        });
+
+        // Add to destination (left_over or previous stage)
+        const success2 = await updateLocationInventory({
+          mealId,
+          itemId: selectedItem.item_id,
+          location: toLocation,
+          quantity,
+          action: 'add',
+        });
+
+        if (!success1 || !success2) throw new Error('Failed to move trays');
+
+        // Record the reverse transfer for history
+        await recordTransfer({
+          meal_id: mealId,
+          item_id: selectedItem.item_id,
+          item_name: selectedItem.name,
+          quantity,
+          from_location: fromLocation,
+          to_location: toLocation,
+          from_user: userId,
+        });
+
+        // Optimistically update local state - add to destination, subtract from source
+        setItems(prevItems => {
+          return prevItems.map(item => {
+            if (item.item_id === selectedItem.item_id) {
+              const updatedItem = { ...item };
+              const destKey = `${toStage}_qty` as keyof DashboardItem;
+              const sourceKey = `${selectedStage}_qty` as keyof DashboardItem;
+              (updatedItem[destKey] as number) = (updatedItem[destKey] as number || 0) + quantity;
+              (updatedItem[sourceKey] as number) = Math.max(0, (updatedItem[sourceKey] as number || 0) - quantity);
+              return updatedItem;
+            }
+            return item;
+          });
+        });
+
         setShowReversePopup(false);
+
+        // Silent background refresh to get server state
+        await loadData(true);
       } catch (error) {
         console.error('Failed to reverse move:', error);
         Alert.alert('Error', `Failed to move trays: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -855,36 +855,21 @@ function PrasadamDashboardScreen() {
     );
   };
 
-  // Render percentage cell with color coding
-  // For "Remaining" percentages:
-  // - Devotees Remaining: High % = More to serve = RED, Low % = Almost done = GREEN
-  // - Trays Remaining: High % = Plenty available = GREEN, Low % = Running out = RED
-  const renderPercentageCell = (percentage: number, type: 'devotees' | 'trays', item: DashboardItem) => {
-    const itemColor = getItemColor(item);
-
-    // Determine background color based on percentage and type
-    let bgColor = '#F5F5F5';
-    let textColor = '#333';
-
+  // Get color for percentage PowerBall based on value and type
+  const getPercentageColor = (percentage: number, type: 'devotees' | 'trays'): { bg: string; text: string } => {
     if (type === 'devotees') {
       // Devotees Remaining: Lower is better (green), Higher means need to cook more (red)
-      if (percentage <= 20) { bgColor = '#E8F5E9'; textColor = '#2E7D32'; } // Green - most served
-      else if (percentage <= 50) { bgColor = '#FFFDE7'; textColor = '#F9A825'; } // Yellow
-      else if (percentage <= 80) { bgColor = '#FFEBEE'; textColor = '#C62828'; } // Orange
-      else { bgColor = '#FFCDD2'; textColor = '#B71C1C'; } // Red - lots still to serve
+      if (percentage <= 20) return { bg: '#E8F5E9', text: '#2E7D32' }; // Green - most served
+      else if (percentage <= 50) return { bg: '#FFFDE7', text: '#F9A825' }; // Yellow
+      else if (percentage <= 80) return { bg: '#FFEBEE', text: '#C62828' }; // Orange
+      else return { bg: '#FFCDD2', text: '#B71C1C' }; // Red - lots still to serve
     } else {
       // Trays Remaining: Higher is better (more available), Lower means running low (red)
-      if (percentage >= 80) { bgColor = '#E8F5E9'; textColor = '#2E7D32'; } // Green - plenty available
-      else if (percentage >= 50) { bgColor = '#FFFDE7'; textColor = '#F9A825'; } // Yellow
-      else if (percentage >= 20) { bgColor = '#FFEBEE'; textColor = '#C62828'; } // Orange
-      else { bgColor = '#FFCDD2'; textColor = '#B71C1C'; } // Red - running low
+      if (percentage >= 80) return { bg: '#E8F5E9', text: '#2E7D32' }; // Green - plenty available
+      else if (percentage >= 50) return { bg: '#FFFDE7', text: '#F9A825' }; // Yellow
+      else if (percentage >= 20) return { bg: '#FFEBEE', text: '#C62828' }; // Orange
+      else return { bg: '#FFCDD2', text: '#B71C1C' }; // Red - running low
     }
-
-    return (
-      <View style={[styles.percentageCell, { backgroundColor: bgColor, borderColor: itemColor }]}>
-        <Text style={[styles.percentageText, { color: textColor }]}>{percentage}%</Text>
-      </View>
-    );
   };
 
   // Render table row for an item
@@ -927,10 +912,28 @@ function PrasadamDashboardScreen() {
         {showPercentages && (
           <>
             <View style={[styles.qtyCell, { width: percentageColumnWidth, borderRightWidth: 3, borderRightColor: '#000' }]}>
-              {renderPercentageCell(item.devotees_percentage || 0, 'devotees', item)}
+              <PowerBall
+                item={item}
+                quantity={item.devotees_percentage || 0}
+                size={powerBallSize}
+                compact
+                showZero={true}
+                overrideColor={getPercentageColor(item.devotees_percentage || 0, 'devotees').bg}
+                overrideTextColor={getPercentageColor(item.devotees_percentage || 0, 'devotees').text}
+                suffix="%"
+              />
             </View>
             <View style={[styles.qtyCell, { width: percentageColumnWidth }]}>
-              {renderPercentageCell(item.trays_percentage || 0, 'trays', item)}
+              <PowerBall
+                item={item}
+                quantity={item.trays_percentage || 0}
+                size={powerBallSize}
+                compact
+                showZero={true}
+                overrideColor={getPercentageColor(item.trays_percentage || 0, 'trays').bg}
+                overrideTextColor={getPercentageColor(item.trays_percentage || 0, 'trays').text}
+                suffix="%"
+              />
             </View>
           </>
         )}

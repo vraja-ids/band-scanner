@@ -15,11 +15,14 @@ interface PowerBallProps {
   compact?: boolean;
   loading?: boolean;
   showStored?: number; // Show small badge for quantity moved to Stored
+  overrideColor?: string; // Override item color (for percentages, etc.)
+  overrideTextColor?: string; // Override text color
+  suffix?: string; // Text to show after quantity (e.g., "%")
 }
 
 export const PowerBall: React.FC<PowerBallProps> = memo(
-  ({ item, quantity, size = 60, showZero = false, compact = false, loading = false, showStored }) => {
-    const color = getItemColor(item);
+  ({ item, quantity, size = 60, showZero = false, compact = false, loading = false, showStored, overrideColor, overrideTextColor, suffix }) => {
+    const color = overrideColor || getItemColor(item);
     const isLow = quantity > 0 && quantity <= item.low_qty_threshold;
 
     if (!showZero && quantity === 0 && !loading) {
@@ -30,7 +33,8 @@ export const PowerBall: React.FC<PowerBallProps> = memo(
     // Use more of the available space for better visibility
     const compactSize = size;
     const ballSize = Math.floor(compactSize * 0.8); // 80% of container
-    const fontSize = Math.max(12, Math.floor(ballSize * 0.45)); // Scale font with ball size
+    // Adjust font size smaller when suffix is present (e.g., "%")
+    const fontSize = Math.max(10, Math.floor(ballSize * (suffix ? 0.35 : 0.45))); // Scale font with ball size
 
     if (loading) {
       // Show loading spinner
@@ -45,7 +49,14 @@ export const PowerBall: React.FC<PowerBallProps> = memo(
       return (
         <View style={[styles.compactContainer, { width: compactSize, height: compactSize, borderColor: color }]}>
           <View style={[styles.compactBall, { width: ballSize, height: ballSize, borderRadius: ballSize / 2, backgroundColor: color }]}>
-            <Text style={[styles.compactText, { fontSize, color: '#000' }]}>{quantity}</Text>
+            <Text
+              style={[styles.compactText, { fontSize, color: overrideTextColor || '#000' }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
+              {quantity}{suffix}
+            </Text>
           </View>
           {/* Show small badge for Stored quantity */}
           {showStored !== undefined && showStored > 0 && (
@@ -60,7 +71,7 @@ export const PowerBall: React.FC<PowerBallProps> = memo(
     return (
       <View style={[styles.container, { width: size, height: size, borderColor: isLow ? '#C62828' : color }]}>
         <View style={[styles.ball, { backgroundColor: color }]}>
-          <Text style={styles.quantity}>{quantity}</Text>
+          <Text style={styles.quantity}>{quantity}{suffix}</Text>
         </View>
         {isLow && <View style={styles.lowIndicator} />}
       </View>

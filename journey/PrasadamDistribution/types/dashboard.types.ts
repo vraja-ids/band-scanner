@@ -30,7 +30,7 @@ export const ALL_STAGES: DashboardStage[] = [
 
 // Movement rules - which stages can move to which
 export const MOVEMENT_RULES: Record<DashboardStage, DashboardStage[]> = {
-  planned: [], // Planned is static reference, no movements allowed
+  planned: ['cooked'], // Tap Planned to move to Cooked (start cooking)
   cooked: ['stored'],
   stored: ['staging'],
   staging: ['refill_station_1', 'refill_station_2', 'refill_station_3'],
@@ -44,7 +44,7 @@ export const MOVEMENT_RULES: Record<DashboardStage, DashboardStage[]> = {
 // Reverse movement rules - for correcting mistakes (long press)
 export const REVERSE_MOVEMENT_RULES: Record<DashboardStage, DashboardStage[]> = {
   planned: [],
-  cooked: ['planned'],
+  cooked: ['left_over'], // No reverse to planned - you can't "uncook"
   stored: ['cooked', 'left_over'],
   staging: ['stored', 'left_over'],
   refill_station_1: ['staging', 'left_over'],

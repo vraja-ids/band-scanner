@@ -351,7 +351,7 @@ function initializeSheet() {
   const sheetConfigs = {
     'EVENTS': ['event_id', 'event_name', 'start_date', 'end_date', 'location', 'expected_attendance', 'status', 'created_at'],
     'MEALS': ['meal_id', 'event_id', 'meal_type', 'day_number', 'meal_instance', 'serving_start_time', 'planned_servings', 'status', 'created_at', 'updated_at'],
-    'MENU_ITEMS': ['item_id', 'meal_id', 'name', 'category', 'planned_trays', 'ready_trays', 'cooking_status', 'is_vegan', 'contains_gluten', 'allergens', 'updated_at'],
+    'MENU_ITEMS': ['item_id', 'meal_id', 'name', 'category', 'planned_trays', 'ready_trays', 'kitchen_storage_moved', 'cooking_status', 'is_vegan', 'contains_gluten', 'allergens', 'updated_at'],
     'TRANSFERS': ['transfer_id', 'meal_id', 'item_id', 'item_name', 'quantity', 'from_location', 'to_location', 'from_user', 'to_user', 'status', 'timestamp_sent', 'timestamp_received'],
     'REFILL_REQUESTS': ['request_id', 'meal_id', 'item_id', 'item_name', 'quantity', 'refill_station', 'requested_by', 'status', 'timestamp', 'fulfilled_at'],
     'LOCATION_INVENTORY': ['inventory_id', 'meal_id', 'item_id', 'item_name', 'category', 'planned_trays', 'ready_trays', 'kitchen', 'staging', 'refill_1', 'refill_2', 'refill_3', 'served', 'left_over', 'updated_at'],
@@ -693,22 +693,22 @@ function populateSampleData() {
     // Add sample menu items
     const menuSheet = ss.getSheetByName('MENU_ITEMS');
     const menuItems = [
-      // Breakfast items
-      ['item_001', 'meal_001', 'Chapati', 'normal', 100, 80, 'Ready', false, false, '', new Date().toISOString()],
-      ['item_002', 'meal_001', 'Dal Tadka', 'normal', 50, 40, 'Ready', false, false, '', new Date().toISOString()],
-      ['item_003', 'meal_001', ' Rice', 'normal', 30, 25, 'Ready', false, false, '', new Date().toISOString()],
-      ['item_004', 'meal_001', 'Halwa', 'normal', 20, 15, 'Ready', false, false, '', new Date().toISOString()],
+      // Breakfast items (item_id, meal_id, name, category, planned, ready, kitchen_storage_moved, status, vegan, gluten, allergens, updated)
+      ['item_001', 'meal_001', 'Chapati', 'normal', 100, 80, 20, 'Ready', false, false, '', new Date().toISOString()],
+      ['item_002', 'meal_001', 'Dal Tadka', 'normal', 50, 40, 10, 'Ready', false, false, '', new Date().toISOString()],
+      ['item_003', 'meal_001', ' Rice', 'normal', 30, 25, 5, 'Ready', false, false, '', new Date().toISOString()],
+      ['item_004', 'meal_001', 'Halwa', 'normal', 20, 15, 3, 'Ready', false, false, '', new Date().toISOString()],
       // Lunch items
-      ['item_005', 'meal_002', 'Chapati', 'normal', 150, 120, 'Ready', false, false, '', new Date().toISOString()],
-      ['item_006', 'meal_002', 'Dal Makhani', 'normal', 60, 50, 'Ready', false, false, '', new Date().toISOString()],
-      ['item_007', 'meal_002', 'Rice', 'normal', 40, 35, 'Ready', false, false, '', new Date().toISOString()],
-      ['item_008', 'meal_002', 'Sabzi', 'normal', 40, 30, 'Ready', false, false, '', new Date().toISOString()],
-      ['item_009', 'meal_002', 'Salad', 'cold', 50, 40, 'Ready', false, false, '', new Date().toISOString()],
+      ['item_005', 'meal_002', 'Chapati', 'normal', 150, 120, 30, 'Ready', false, false, '', new Date().toISOString()],
+      ['item_006', 'meal_002', 'Dal Makhani', 'normal', 60, 50, 15, 'Ready', false, false, '', new Date().toISOString()],
+      ['item_007', 'meal_002', 'Rice', 'normal', 40, 35, 10, 'Ready', false, false, '', new Date().toISOString()],
+      ['item_008', 'meal_002', 'Sabzi', 'normal', 40, 30, 8, 'Ready', false, false, '', new Date().toISOString()],
+      ['item_009', 'meal_002', 'Salad', 'cold', 50, 40, 10, 'Ready', false, false, '', new Date().toISOString()],
       // Dinner items
-      ['item_010', 'meal_003', 'Chapati', 'normal', 120, 100, 'Ready', false, false, '', new Date().toISOString()],
-      ['item_011', 'meal_003', 'Dal', 'normal', 50, 40, 'Ready', false, false, '', new Date().toISOString()],
-      ['item_012', 'meal_003', 'Fried Rice', 'normal', 35, 30, 'Ready', false, false, '', new Date().toISOString()],
-      ['item_013', 'meal_003', 'Sweet Rice', 'normal', 25, 20, 'Ready', false, false, '', new Date().toISOString()],
+      ['item_010', 'meal_003', 'Chapati', 'normal', 120, 100, 25, 'Ready', false, false, '', new Date().toISOString()],
+      ['item_011', 'meal_003', 'Dal', 'normal', 50, 40, 10, 'Ready', false, false, '', new Date().toISOString()],
+      ['item_012', 'meal_003', 'Fried Rice', 'normal', 35, 30, 8, 'Ready', false, false, '', new Date().toISOString()],
+      ['item_013', 'meal_003', 'Sweet Rice', 'normal', 25, 20, 5, 'Ready', false, false, '', new Date().toISOString()],
     ];
     menuItems.forEach(item => menuSheet.appendRow(item));
 

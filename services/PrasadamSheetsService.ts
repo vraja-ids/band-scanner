@@ -10,7 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Configuration
 const PRASADAM_SPREADSHEET_ID = '1iiq9EeSDQ9eQzwkK4rQPbNXJGD_cnp-z0bnlWzDcW6g';
 const GOOGLE_APPS_SCRIPT_URL =
-  'https://script.google.com/macros/s/AKfycbwv8uOZTNIg-dwF-UXMqsFvaio-I-mpTIJxdOIQ5WbalymgQIeoTwIXYj_7m7ImN-ljRA/exec';
+  'https://script.google.com/macros/s/AKfycbx6uOVRafphy0zCrTPgX4D3Rz9vz8-MDEUDHB_D7XZXaRbENg9X9-V2rDSbaRieeNx-Ag/exec';
 
 // Cache configuration
 const CACHE_DURATION_MS = 5000; // 5 seconds
@@ -61,6 +61,7 @@ export interface MenuItem {
   category: string;
   planned_trays: number;
   ready_trays: number;
+  kitchen_storage_moved: number; // Cumulative trays moved from Cooked to Stored (Kitchen Storage)
   cooking_status: string;
   is_vegan: boolean;
   contains_gluten: boolean;

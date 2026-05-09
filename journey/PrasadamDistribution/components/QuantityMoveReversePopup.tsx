@@ -37,8 +37,7 @@ function getReverseOptions(currentStage: DashboardStage): DashboardStage[] {
   // Stage-specific reverse options (left_over is added separately)
   switch (currentStage) {
     case 'cooked':
-      // Can go back to planned
-      options.push('planned');
+      // No reverse options - you can't "uncook" back to planned
       break;
     case 'stored':
       // Can go back to cooked or left_over
@@ -81,6 +80,7 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
   const [quantity, setQuantity] = useState('1');
   const [selectedStage, setSelectedStage] = useState<DashboardStage | null>(null);
   const inputRef = useRef<TextInput>(null);
+  const initializedRef = useRef(false);
 
   const reverseOptions = getReverseOptions(currentStage);
   // Apply filter if provided
@@ -88,15 +88,18 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
     ? reverseOptions.filter(opt => filterToStages.includes(opt))
     : reverseOptions;
 
-  // Auto-select first option as default (or left_over if available in filtered options)
+  // Auto-select first non-left_over option as default (only on initial open)
   useEffect(() => {
-    if (visible) {
-      // Prefer left_over if it's in the filtered options, otherwise use first option
-      const defaultStage = filteredOptions.includes('left_over')
-        ? 'left_over'
-        : filteredOptions[0] || null;
+    if (visible && !initializedRef.current) {
+      initializedRef.current = true;
+      // Prefer the first non-left_over option (more common reverse movement)
+      // Only select left_over if it's the only option or if filtered to only show left_over
+      const defaultStage = filteredOptions.find(opt => opt !== 'left_over') || filteredOptions[0] || null;
       setSelectedStage(defaultStage);
       setQuantity('1');
+    } else if (!visible) {
+      // Reset when closed so next open re-initializes
+      initializedRef.current = false;
     }
   }, [visible, filteredOptions]);
 

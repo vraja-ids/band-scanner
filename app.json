@@ -21,7 +21,7 @@
       "newArchEnabled": true,
       "supportsTablet": true,
       "bundleIdentifier": "com.sadhusanga.ScannerApp",
-      "buildNumber": "23",
+      "buildNumber": "25",
       "version": "2.2.9",
       "statusBar": {
         "barStyle": "light-content",
