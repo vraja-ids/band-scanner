@@ -198,6 +198,7 @@ function PrasadamDashboardScreen() {
   const [scheduleMealId, setScheduleMealId] = useState<string | null>(null);
 
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const movementInProgressRef = useRef(false); // Prevent refresh during movement
 
   // Load user ID
   useEffect(() => {
@@ -249,6 +250,12 @@ function PrasadamDashboardScreen() {
 
   // Load dashboard data
   const loadData = useCallback(async (isBackground = false) => {
+    // Skip background refresh if a movement is in progress to avoid race conditions
+    if (isBackground && movementInProgressRef.current) {
+      console.log('[loadData] Skipping refresh, movement in progress');
+      return;
+    }
+
     if (!mealId) {
       console.warn('No mealId provided, skipping load');
       if (!isBackground) {
@@ -392,6 +399,9 @@ function PrasadamDashboardScreen() {
     async (quantity: number, toStage: DashboardStage) => {
       if (!selectedItem || !selectedStage || !userId) return;
 
+      // Set flag to prevent auto-refresh during movement
+      movementInProgressRef.current = true;
+
       try {
         console.log('[MOVE] Moving quantity:', {
           item: selectedItem.name,
@@ -523,6 +533,9 @@ function PrasadamDashboardScreen() {
         Alert.alert('Error', `Failed to move trays: ${error instanceof Error ? error.message : 'Unknown error'}`);
         // Reload to revert optimistic update on error
         loadData();
+      } finally {
+        // Clear flag to allow auto-refresh again
+        movementInProgressRef.current = false;
       }
     },
     [selectedItem, selectedStage, userId, mealId, loadData]
@@ -564,6 +577,9 @@ function PrasadamDashboardScreen() {
   const handleReverseMove = useCallback(
     async (quantity: number, toStage: DashboardStage) => {
       if (!selectedItem || !selectedStage || !userId) return;
+
+      // Set flag to prevent auto-refresh during movement
+      movementInProgressRef.current = true;
 
       try {
         // Case 1: Cooked -> Planned (correction - reduce ready_trays if over-reported)
@@ -639,6 +655,9 @@ function PrasadamDashboardScreen() {
       } catch (error) {
         console.error('Failed to reverse move:', error);
         Alert.alert('Error', `Failed to move trays: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      } finally {
+        // Clear flag to allow auto-refresh again
+        movementInProgressRef.current = false;
       }
     },
     [selectedItem, selectedStage, userId, mealId, loadData]
