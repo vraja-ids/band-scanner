@@ -7,7 +7,6 @@
 export type DashboardStage =
   | 'planned'
   | 'cooked'
-  | 'distributed'
   | 'stored'
   | 'staging'
   | 'refill_station_1'
@@ -27,14 +26,12 @@ export const ALL_STAGES: DashboardStage[] = [
   'refill_station_3',
   'served',
   'left_over',
-  'distributed',
 ];
 
 // Movement rules - which stages can move to which
 export const MOVEMENT_RULES: Record<DashboardStage, DashboardStage[]> = {
   planned: ['cooked'],
   cooked: ['stored'],
-  distributed: [], // Calculated stage, no movements
   stored: ['staging'],
   staging: ['refill_station_1', 'refill_station_2', 'refill_station_3'],
   refill_station_1: ['served'],
@@ -48,7 +45,6 @@ export const MOVEMENT_RULES: Record<DashboardStage, DashboardStage[]> = {
 export const REVERSE_MOVEMENT_RULES: Record<DashboardStage, DashboardStage[]> = {
   planned: [],
   cooked: ['planned'],
-  distributed: [], // Calculated stage, no movements
   stored: ['cooked', 'left_over'],
   staging: ['stored', 'left_over'],
   refill_station_1: ['staging', 'left_over'],
@@ -62,7 +58,6 @@ export const REVERSE_MOVEMENT_RULES: Record<DashboardStage, DashboardStage[]> = 
 export const STAGE_DISPLAY_NAMES: Record<DashboardStage, string> = {
   planned: 'Planned',
   cooked: 'Cooked',
-  distributed: 'Distributed',
   stored: 'Stored',
   staging: 'Staging',
   refill_station_1: 'Refill Stn 1',
@@ -84,7 +79,7 @@ export const TEAM_VIEW_CONFIGS: Record<TeamView, { name: string; shortName: stri
   team1_kitchen: {
     name: 'Team 1 (Kitchen)',
     shortName: 'Kitchen',
-    stages: ['planned', 'cooked', 'distributed', 'stored'],
+    stages: ['planned', 'cooked', 'served', 'left_over'], // Kitchen view shows 'served' as "Distributed"
   },
   team2_staging: {
     name: 'Team 2 (Staging)',
@@ -115,6 +110,9 @@ export interface DashboardItem {
   refill_station_3_qty: number;
   served_qty: number;
   left_over_qty: number;
+  // Percentage calculations
+  devotees_percentage?: number; // (Cooked / Expected Devotees) * 100
+  trays_percentage?: number; // (Distributed / Cooked) * 100
 }
 
 // Get quantity for a stage
@@ -122,7 +120,6 @@ export const getStageQuantity = (item: DashboardItem, stage: DashboardStage): nu
   const qtyMap: Record<DashboardStage, keyof DashboardItem> = {
     planned: 'planned_qty',
     cooked: 'cooked_qty',
-    distributed: 'distributed_qty',
     stored: 'stored_qty',
     staging: 'staging_qty',
     refill_station_1: 'refill_station_1_qty',
@@ -247,12 +244,6 @@ export const STAGE_THEMES: Record<DashboardStage, StageTheme> = {
     color: '#F57C00',
     borderColor: '#FFECB3',
     iconColor: '#FFA000',
-  },
-  distributed: {
-    background: '#E0F2F1',
-    color: '#00695C',
-    borderColor: '#B2DFDB',
-    iconColor: '#009688',
   },
   stored: {
     background: '#E8F5E9',

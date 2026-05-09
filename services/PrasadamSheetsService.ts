@@ -10,7 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Configuration
 const PRASADAM_SPREADSHEET_ID = '1iiq9EeSDQ9eQzwkK4rQPbNXJGD_cnp-z0bnlWzDcW6g';
 const GOOGLE_APPS_SCRIPT_URL =
-  'https://script.google.com/macros/s/AKfycbyBK_BiMqCKz-qzVV-Ncfw1mMZ53T1ksY_k5vBurCEe2wGnJEEV-eadyyImoYNWcmMQBA/exec';
+  'https://script.google.com/macros/s/AKfycbwv8uOZTNIg-dwF-UXMqsFvaio-I-mpTIJxdOIQ5WbalymgQIeoTwIXYj_7m7ImN-ljRA/exec';
 
 // Cache configuration
 const CACHE_DURATION_MS = 5000; // 5 seconds
@@ -46,6 +46,7 @@ export interface Meal {
   meal_instance: string;
   serving_start_time: string;
   planned_servings: number;
+  expected_devotees?: number; // Expected number of devotees for this meal
   status: string;
   created_at: string;
   updated_at: string;
@@ -298,6 +299,7 @@ async function clearCacheForOperation(operation: string): Promise<void> {
     updateLocationInventory: ['getLocationInventory', 'getDashboardSummary'],
     saveDashboardSettings: ['getDashboardSettings'],
     addMeal: ['getMeals'],
+    updateMealDevotees: ['getMeals'],
   };
 
   const patternsToClear = patterns[operation] || [];
@@ -398,6 +400,14 @@ export async function addMeal(data: {
   return response.status === 'success';
 }
 
+export async function updateMealDevotees(data: {
+  meal_id: string;
+  expected_devotees: number;
+}): Promise<boolean> {
+  const response = await apiPost('updateMealDevotees', data);
+  return response.status === 'success';
+}
+
 // ============================================================================
 // Menu Item Operations
 // ============================================================================
@@ -468,9 +478,14 @@ export async function updateLocationInventory(data: {
   itemId: string;
   location: string;
   quantity: number;
-  operation: 'add' | 'subtract';
+  action: 'add' | 'subtract';
 }): Promise<boolean> {
+  console.log('[PrasadamSheetsService] updateLocationInventory called with:', data);
   const response = await apiPost('updateLocationInventory', data);
+  console.log('[PrasadamSheelsService] updateLocationInventory response:', response);
+  if (response.status !== 'success') {
+    console.error('[PrasadamSheetsService] updateLocationInventory failed:', response.message);
+  }
   return response.status === 'success';
 }
 

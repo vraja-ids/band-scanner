@@ -18,12 +18,16 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRoute, useNavigation } from '@react-navigation/native';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import { getAuthToken, getString } from '../../storage/Session';
+import Routes from '../../routes';
+import { getAuthToken, getString, Keys } from '../../storage/Session';
 import {
   getDashboardSummary,
   updateLocationInventory,
   getMeals,
   updateMenuItem,
+  getTransfers,
+  recordTransfer,
+  type Transfer,
 } from '../../services/PrasadamSheetsService';
 import { QuantityMovePopup } from './components/QuantityMovePopup';
 import { QuantityMoveReversePopup } from './components/QuantityMoveReversePopup';
@@ -39,6 +43,8 @@ import {
 import { PowerBall } from './components/PowerBall';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { MenuItem, LocationInventoryItem, Meal } from '../../services/PrasadamSheetsService';
+import { getDevoteesCountForMeal, getTodayDate } from '../../services/MealActivityService';
+import { getExpectedDevoteesForMeal } from '../../config/mealSchedule';
 
 const { width, height } = Dimensions.get('window');
 const IS_LANDSCAPE = width > height;
@@ -65,7 +71,6 @@ function stageToLocation(stage: DashboardStage): string | null {
   const map: Record<DashboardStage, string | null> = {
     'planned': null, // Uses MenuItem.planned_trays
     'cooked': null, // Uses MenuItem.ready_trays
-    'distributed': null, // Calculated field, not stored in backend
     'stored': 'Kitchen', // Uses LocationInventoryItem.kitchen
     'staging': 'Staging', // Uses LocationInventoryItem.staging
     'refill_station_1': 'Refill 1', // Uses LocationInventoryItem.refill_1
@@ -80,7 +85,8 @@ function stageToLocation(stage: DashboardStage): string | null {
 // Convert menu items and inventory to dashboard items
 function buildDashboardItems(
   menuItems: MenuItem[],
-  inventory: LocationInventoryItem[]
+  inventory: LocationInventoryItem[],
+  expectedDevotees: number = 0
 ): DashboardItem[] {
   const items: DashboardItem[] = [];
 
@@ -97,10 +103,29 @@ function buildDashboardItems(
     const leftOver = invRecord?.left_over || 0;
     const cooked = menuItem.ready_trays;
 
-    // Distributed = Cooked - Served (Buffet Lanes only)
-    // Trays in Stored/Staging/Refill Stations are not yet "distributed"
-    // They will later move to Buffet Lanes (Served) or Left Over
-    const distributed = Math.max(0, cooked - served);
+    // Distributed = All trays that have left the kitchen and are in circulation
+    // = stored (kitchen) + staging + refill stations + served
+    // This represents everything that's been cooked and moved out
+    const distributed = stored + staging + refill1 + refill2 + refill3 + served;
+
+    // Calculate percentages for Kitchen view
+    // Devotees Remaining %: How many devotees still need to be served
+    // If expectedDevotees is 1500 and 300 have been served, 80% remain
+    // Assuming 1 tray serves 10 devotees
+    const traysPerDevotee = 10;
+    const devoteesAlreadyServed = served * traysPerDevotee;
+    const devoteesRemaining = Math.max(0, expectedDevotees - devoteesAlreadyServed);
+    const devoteesPercentage = expectedDevotees > 0
+      ? Math.round((devoteesRemaining / expectedDevotees) * 100)
+      : (expectedDevotees === 0 ? 0 : 100);
+
+    // Trays Remaining %: How much of cooked is still in circulation (not left over)
+    // Higher % = more trays available, need to cook less
+    // Lower % = most trays served, may need to cook more
+    const traysRemaining = cooked - leftOver;
+    const traysPercentage = cooked > 0
+      ? Math.round((traysRemaining / cooked) * 100)
+      : 0;
 
     items.push({
       item_id: menuItem.item_id,
@@ -116,6 +141,8 @@ function buildDashboardItems(
       refill_station_3_qty: refill3,
       served_qty: served,
       left_over_qty: leftOver,
+      devotees_percentage: devoteesPercentage,
+      trays_percentage: traysPercentage,
     });
   }
 
@@ -127,7 +154,6 @@ function getStageQuantity(item: DashboardItem, stage: DashboardStage): number {
   const qtyMap: Record<DashboardStage, keyof DashboardItem> = {
     planned: 'planned_qty',
     cooked: 'cooked_qty',
-    distributed: 'distributed_qty',
     stored: 'stored_qty',
     staging: 'staging_qty',
     refill_station_1: 'refill_station_1_qty',
@@ -164,6 +190,12 @@ function PrasadamDashboardScreen() {
   const [isLoadingMeals, setIsLoadingMeals] = useState(false);
   const [eventId, setEventId] = useState<string | null>(null);
   const [inventoryWarnings, setInventoryWarnings] = useState<string[]>([]);
+  const [transfers, setTransfers] = useState<Transfer[]>([]);
+  const [loadingCells, setLoadingCells] = useState<Set<string>>(new Set());
+  // Meal activity stats
+  const [devoteesScanned, setDevoteesScanned] = useState<number>(0);
+  const [expectedDevotees, setExpectedDevotees] = useState<number>(0);
+  const [scheduleMealId, setScheduleMealId] = useState<string | null>(null);
 
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -239,9 +271,33 @@ function PrasadamDashboardScreen() {
       console.log('Dashboard data received:', data);
 
       if (data) {
-        const dashboardItems = buildDashboardItems(data.menu, data.inventory);
+        // mealId is now the same as schedule meal ID (e.g., 'friDinner', 'satBreakfast')
+        setScheduleMealId(mealId);
+
+        // Get expected devotees for this meal
+        const expected = eventId ? getExpectedDevoteesForMeal(eventId, mealId) : 0;
+        setExpectedDevotees(expected);
+
+        // Fetch meal activity stats (devotees scanned)
+        if (mealId && userId) {
+          try {
+            const scanned = await getDevoteesCountForMeal(eventId || '', mealId, userId);
+            setDevoteesScanned(scanned);
+          } catch (error) {
+            console.error('Failed to fetch meal activity stats:', error);
+            setDevoteesScanned(0);
+          }
+        } else {
+          setDevoteesScanned(0);
+        }
+
+        const dashboardItems = buildDashboardItems(data.menu, data.inventory, expected);
         console.log('Dashboard items built:', dashboardItems.length);
         setItems(dashboardItems);
+
+        // Load transfers for long-press history
+        const transferData = await getTransfers(mealId);
+        setTransfers(transferData);
 
         // Check for inventory warnings (tracked inventory > cooked)
         // Warning when (Stored + Staging + Refill Stations + Served) > Cooked
@@ -269,23 +325,44 @@ function PrasadamDashboardScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [mealId]);
+  }, [mealId, eventId, userId]);
+
+  // Fetch meal activity stats separately (refresh more frequently)
+  const loadActivityStats = useCallback(async () => {
+    if (!eventId || !mealId || !userId) return;
+
+    // mealId is now the same as schedule meal ID (e.g., 'friDinner', 'satBreakfast')
+    try {
+      const scanned = await getDevoteesCountForMeal(eventId, mealId, userId);
+      setDevoteesScanned(scanned);
+    } catch (error) {
+      console.error('Failed to fetch meal activity stats:', error);
+    }
+  }, [eventId, mealId, userId]);
 
   // Initial load and auto-refresh
   useEffect(() => {
     loadData();
+    loadActivityStats();
 
-    // Set up auto-refresh
+    // Set up auto-refresh for dashboard data (every 5 seconds)
     refreshTimerRef.current = setInterval(() => {
       loadData(true);
     }, AUTO_REFRESH_INTERVAL);
+
+    // Set up separate interval for activity stats (every 10 seconds)
+    // Devotee counts change more frequently than inventory
+    const activityStatsInterval = setInterval(() => {
+      loadActivityStats();
+    }, 10000);
 
     return () => {
       if (refreshTimerRef.current) {
         clearInterval(refreshTimerRef.current);
       }
+      clearInterval(activityStatsInterval);
     };
-  }, [loadData]);
+  }, [loadData, loadActivityStats]);
 
   // Refresh on screen focus
   useFocusEffect(
@@ -336,6 +413,17 @@ function PrasadamDashboardScreen() {
           });
           console.log('[MOVE] updateMenuItem result:', success);
           if (!success) throw new Error('Failed to update tray count');
+
+          // Create transfer record for cooking
+          await recordTransfer({
+            meal_id: mealId,
+            item_id: selectedItem.item_id,
+            item_name: selectedItem.name,
+            quantity,
+            from_location: 'Planned',
+            to_location: 'Cooked',
+            from_user: userId,
+          });
         }
         // Case 2: Cooked -> Stored (moves to kitchen storage, does NOT reduce ready_trays)
         // ready_trays tracks TOTAL cooked (cumulative), should never decrease
@@ -347,10 +435,21 @@ function PrasadamDashboardScreen() {
             itemId: selectedItem.item_id,
             location: 'Kitchen',
             quantity,
-            operation: 'add',
+            action: 'add',
           });
           console.log('[MOVE] updateLocationInventory (Kitchen) result:', success);
           if (!success) throw new Error('Failed to update inventory');
+
+          // Create transfer record
+          await recordTransfer({
+            meal_id: mealId,
+            item_id: selectedItem.item_id,
+            item_name: selectedItem.name,
+            quantity,
+            from_location: 'Kitchen',
+            to_location: 'Kitchen',
+            from_user: userId,
+          });
         }
         // Case 3: Location inventory movements (stored -> staging -> refill stations -> served -> left_over)
         else {
@@ -370,7 +469,7 @@ function PrasadamDashboardScreen() {
             itemId: selectedItem.item_id,
             location: fromLocation,
             quantity,
-            operation: 'subtract',
+            action: 'subtract',
           });
           console.log('[MOVE] updateLocationInventory (subtract) result:', success1);
 
@@ -380,19 +479,50 @@ function PrasadamDashboardScreen() {
             itemId: selectedItem.item_id,
             location: toLocation,
             quantity,
-            operation: 'add',
+            action: 'add',
           });
           console.log('[MOVE] updateLocationInventory (add) result:', success2);
 
           if (!success1 || !success2) throw new Error('Failed to move trays');
+
+          // Create transfer record
+          await recordTransfer({
+            meal_id: mealId,
+            item_id: selectedItem.item_id,
+            item_name: selectedItem.name,
+            quantity,
+            from_location: fromLocation,
+            to_location: toLocation,
+            from_user: userId,
+          });
         }
 
-        // Refresh data
-        await loadData();
+        // Optimistically update local state - add to destination, subtract from source
+        setItems(prevItems => {
+          return prevItems.map(item => {
+            if (item.item_id === selectedItem.item_id) {
+              const updatedItem = { ...item };
+              const sourceKey = `${selectedStage}_qty` as keyof DashboardItem;
+              const destKey = `${toStage}_qty` as keyof DashboardItem;
+
+              (updatedItem[sourceKey] as number) = Math.max(0, (updatedItem[sourceKey] as number || 0) - quantity);
+              (updatedItem[destKey] as number) = (updatedItem[destKey] as number || 0) + quantity;
+
+              return updatedItem;
+            }
+            return item;
+          });
+        });
+
         setShowMovePopup(false);
+
+        // Silent background refresh to get server state
+        loadData(true);
       } catch (error) {
         console.error('Failed to move quantity:', error);
         Alert.alert('Error', `Failed to move trays: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        // Reload to revert optimistic update on error
+        loadData();
       }
     },
     [selectedItem, selectedStage, userId, mealId, loadData]
@@ -411,6 +541,25 @@ function PrasadamDashboardScreen() {
     []
   );
 
+  // Get recent transfers for an item (for the reverse popup history display)
+  const getItemTransactions = useCallback((itemId: string, currentStage: DashboardStage) => {
+    console.log('[getItemTransactions] Looking for transfers for item:', itemId, 'total transfers:', transfers.length);
+    // Filter transfers for this item, sort by timestamp (newest first), take last 3
+    const itemTransfers = transfers
+      .filter(t => t.item_id === itemId)
+      .sort((a, b) => new Date(b.timestamp_sent).getTime() - new Date(a.timestamp_sent).getTime())
+      .slice(0, 3);
+
+    console.log('[getItemTransactions] Found transfers for item:', itemTransfers.length);
+
+    // Transform to the format expected by the popup
+    return itemTransfers.map(t => ({
+      stage: t.to_location, // Show where it moved TO
+      quantity: t.quantity,
+      timestamp: new Date(t.timestamp_sent).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    }));
+  }, [transfers]);
+
   // Handle reverse move (corrections) - Cooked is cumulative so reverses work differently
   const handleReverseMove = useCallback(
     async (quantity: number, toStage: DashboardStage) => {
@@ -428,6 +577,17 @@ function PrasadamDashboardScreen() {
             },
           });
           if (!success) throw new Error('Failed to update tray count');
+
+          // Record the correction transfer
+          await recordTransfer({
+            meal_id: mealId,
+            item_id: selectedItem.item_id,
+            item_name: selectedItem.name,
+            quantity,
+            from_location: 'Cooked',
+            to_location: 'Planned',
+            from_user: userId,
+          });
         }
         // Case 2: All other reverses are location inventory movements
         else {
@@ -447,7 +607,7 @@ function PrasadamDashboardScreen() {
             itemId: selectedItem.item_id,
             location: fromLocation,
             quantity,
-            operation: 'subtract',
+            action: 'subtract',
           });
 
           // Add to destination (left_over or previous stage)
@@ -456,10 +616,21 @@ function PrasadamDashboardScreen() {
             itemId: selectedItem.item_id,
             location: toLocation,
             quantity,
-            operation: 'add',
+            action: 'add',
           });
 
           if (!success1 || !success2) throw new Error('Failed to move trays');
+
+          // Record the reverse transfer for history
+          await recordTransfer({
+            meal_id: mealId,
+            item_id: selectedItem.item_id,
+            item_name: selectedItem.name,
+            quantity,
+            from_location: fromLocation,
+            to_location: toLocation,
+            from_user: userId,
+          });
         }
 
         // Refresh data
@@ -516,12 +687,62 @@ function PrasadamDashboardScreen() {
   // Get current stages based on team view
   const visibleStages = TEAM_VIEW_CONFIGS[teamView].stages;
 
+  // Get display name for a stage (context-aware for Kitchen view)
+  const getStageDisplayName = (stage: DashboardStage): string => {
+    // In Kitchen view, show 'served' as "Distributed" (same data, different label)
+    if (teamView === 'team1_kitchen' && stage === 'served') {
+      return 'Distributed';
+    }
+    return STAGE_DISPLAY_NAMES[stage];
+  };
+
+  // Stage color groups for headers
+  const getStageColor = (stage: DashboardStage): string => {
+    // In Kitchen view, 'served' displays as "Distributed" - use blue color
+    if (teamView === 'team1_kitchen' && stage === 'served') {
+      return '#1565C0'; // Dark Blue - Distributed
+    }
+
+    const colorMap: Record<DashboardStage, string> = {
+      planned: '#455A64',      // Dark Gray - Planning
+      cooked: '#E65100',       // Dark Orange - Cooking
+      stored: '#5D4037',       // Dark Brown - Storage
+      staging: '#FF8F00',      // Dark Amber - Staging area
+      refill_station_1: '#2E7D32', // Dark Green - Refill 1
+      refill_station_2: '#388E3C', // Medium Dark Green - Refill 2
+      refill_station_3: '#43A047', // Lighter Dark Green - Refill 3
+      served: '#6A1B9A',       // Dark Purple - Buffet lanes (in other views)
+      left_over: '#C62828',    // Dark Red - Leftover
+    };
+    return colorMap[stage] || '#999';
+  };
+
+  // Stage groups for separators
+  const getStageGroup = (stage: DashboardStage): number => {
+    const groupMap: Record<DashboardStage, number> = {
+      planned: 0,
+      cooked: 1,
+      stored: 1,
+      staging: 3,
+      refill_station_1: 4,
+      refill_station_2: 4,
+      refill_station_3: 4,
+      served: 5,
+      left_over: 6,
+    };
+    return groupMap[stage] ?? 0;
+  };
+
   // Calculate dynamic column width based on number of visible stages
-  const numColumns = visibleStages.length + 1; // +1 for item name column
+  // +1 for item name, +2 for percentage columns (only in Kitchen view)
+  const showPercentages = teamView === 'team1_kitchen';
+  const numPercentageCols = showPercentages ? 2 : 0;
+  const numColumns = visibleStages.length + 1 + numPercentageCols;
   const screenWidth = Dimensions.get('window').width;
   const itemColumnWidth = 160; // Fixed width for item name
-  const remainingWidth = screenWidth - itemColumnWidth - 40; // 40 for margins
-  const columnWidth = Math.floor(remainingWidth / (numColumns - 1));
+  const percentageColumnWidth = showPercentages ? 80 : 0; // Width for percentage columns
+  const remainingWidth = screenWidth - itemColumnWidth - (percentageColumnWidth * numPercentageCols) - 40; // 40 for margins
+  const columnWidth = Math.floor(remainingWidth / (numColumns - 1 - numPercentageCols));
 
   // Calculate PowerBall size based on column width - use most of the available space
   // Scale between 50px (many columns) and 80px (few columns)
@@ -534,11 +755,65 @@ function PrasadamDashboardScreen() {
         <View style={[styles.itemNameCell, { width: itemColumnWidth }]}>
           <Text style={styles.headerText}>Item</Text>
         </View>
-        {visibleStages.map(stage => (
-          <View key={stage} style={[styles.qtyCell, { width: columnWidth }]}>
-            <Text style={styles.headerText}>{STAGE_DISPLAY_NAMES[stage]}</Text>
-          </View>
-        ))}
+        {visibleStages.map((stage, index) => {
+          const stageColor = getStageColor(stage);
+          const currentGroup = getStageGroup(stage);
+          const nextGroup = index < visibleStages.length - 1 ? getStageGroup(visibleStages[index + 1]) : currentGroup;
+          const showSeparator = nextGroup !== currentGroup;
+
+          return (
+            <View key={stage} style={[styles.qtyCell, { width: columnWidth, borderRightWidth: showSeparator ? 3 : 1, borderRightColor: showSeparator ? '#000' : '#EEE' }]}>
+              <View style={[styles.headerContent, { backgroundColor: `${stageColor}20` }]}>
+                <Text style={[styles.headerText, { color: stageColor }]}>{getStageDisplayName(stage)}</Text>
+              </View>
+            </View>
+          );
+        })}
+        {/* Percentage Columns - Only in Kitchen view */}
+        {showPercentages && (
+          <>
+            <View style={[styles.qtyCell, { width: percentageColumnWidth, borderRightWidth: 3, borderRightColor: '#000' }]}>
+              <View style={[styles.headerContent, { backgroundColor: '#E3F2FD' }]}>
+                <Text style={[styles.headerText, { color: '#1976D2', fontSize: 9 }]}>Devotees</Text>
+                <Text style={[styles.headerText, { color: '#1976D2', fontSize: 8 }]}>Remaining %</Text>
+              </View>
+            </View>
+            <View style={[styles.qtyCell, { width: percentageColumnWidth }]}>
+              <View style={[styles.headerContent, { backgroundColor: '#FFF3E0' }]}>
+                <Text style={[styles.headerText, { color: '#F57C00', fontSize: 9 }]}>Trays</Text>
+                <Text style={[styles.headerText, { color: '#F57C00', fontSize: 8 }]}>Remaining %</Text>
+              </View>
+            </View>
+          </>
+        )}
+      </View>
+    );
+  };
+
+  // Render percentage cell with color coding
+  // For "Remaining" percentages:
+  // - Devotees Remaining: High % = More to serve = RED, Low % = Almost done = GREEN
+  // - Trays Remaining: High % = Plenty available = GREEN, Low % = Running out = RED
+  const renderPercentageCell = (percentage: number, color: string, type: 'devotees' | 'trays') => {
+    let bgColor = '#F5F5F5';
+
+    if (type === 'devotees') {
+      // Devotees Remaining: Lower is better (green), Higher means need to cook more (red)
+      if (percentage <= 20) bgColor = '#C8E6C9'; // Green - most served
+      else if (percentage <= 50) bgColor = '#FFF9C4'; // Yellow
+      else if (percentage <= 80) bgColor = '#FFCCBC'; // Orange
+      else bgColor = '#FFCDD2'; // Red - lots still to serve
+    } else {
+      // Trays Remaining: Higher is better (more available), Lower means running low (red)
+      if (percentage >= 80) bgColor = '#C8E6C9'; // Green - plenty available
+      else if (percentage >= 50) bgColor = '#FFF9C4'; // Yellow
+      else if (percentage >= 20) bgColor = '#FFCCBC'; // Orange
+      else bgColor = '#FFCDD2'; // Red - running low
+    }
+
+    return (
+      <View style={[styles.percentageCell, { backgroundColor: bgColor }]}>
+        <Text style={[styles.percentageText, { color }]}>{percentage}%</Text>
       </View>
     );
   };
@@ -550,13 +825,17 @@ function PrasadamDashboardScreen() {
         <View style={[styles.itemNameCell, { width: itemColumnWidth }]}>
           <Text style={styles.itemName}>{item.name}</Text>
         </View>
-        {visibleStages.map(stage => {
+        {visibleStages.map((stage, index) => {
           const qty = getStageQuantity(item, stage);
           const isValid = MOVEMENT_RULES[stage as DashboardStage]?.length > 0;
+          const currentGroup = getStageGroup(stage);
+          const nextGroup = index < visibleStages.length - 1 ? getStageGroup(visibleStages[index + 1]) : currentGroup;
+          const showSeparator = nextGroup !== currentGroup;
+
           return (
             <TouchableOpacity
               key={stage}
-              style={[styles.qtyCell, qty > 0 && styles.qtyCellActive, { width: columnWidth }]}
+              style={[styles.qtyCell, qty > 0 && styles.qtyCellActive, { width: columnWidth, borderRightWidth: showSeparator ? 3 : 1, borderRightColor: showSeparator ? '#000' : '#EEE' }]}
               onPress={() => isValid && qty > 0 && handleCellTap(item, stage as DashboardStage)}
               onLongPress={() => qty > 0 && handleCellLongPress(item, stage as DashboardStage)}
               disabled={qty === 0 || !isValid}
@@ -569,6 +848,17 @@ function PrasadamDashboardScreen() {
             </TouchableOpacity>
           );
         })}
+        {/* Percentage Columns - Only in Kitchen view */}
+        {showPercentages && (
+          <>
+            <View style={[styles.qtyCell, { width: percentageColumnWidth, borderRightWidth: 3, borderRightColor: '#000' }]}>
+              {renderPercentageCell(item.devotees_percentage || 0, '#1976D2', 'devotees')}
+            </View>
+            <View style={[styles.qtyCell, { width: percentageColumnWidth }]}>
+              {renderPercentageCell(item.trays_percentage || 0, '#F57C00', 'trays')}
+            </View>
+          </>
+        )}
       </View>
     );
   };
@@ -645,7 +935,38 @@ function PrasadamDashboardScreen() {
           </View>
 
           {isRefreshing && <ActivityIndicator size="small" color="#2196F3" />}
+
+          <TouchableOpacity
+            style={styles.settingsBtn}
+            onPress={() => (navigation as any).navigate(Routes.MealSettings)}
+          >
+            <Ionicons name="settings-outline" size={20} color="#2196F3" />
+          </TouchableOpacity>
         </View>
+      </View>
+
+      {/* Devotees Count Bar */}
+      <View style={styles.devoteesBar}>
+        <View style={styles.devoteesInfo}>
+          <Ionicons name="people" size={18} color="#2196F3" />
+          <Text style={styles.devoteesLabel}>Devotees Scanned:</Text>
+          <Text style={styles.devoteesCount}>{devoteesScanned}</Text>
+          {expectedDevotees > 0 && (
+            <>
+              <Text style={styles.devoteesSeparator}>/</Text>
+              <Text style={styles.devoteesExpected}>{expectedDevotees}</Text>
+              <Text style={styles.devoteesPercentage}>
+                ({expectedDevotees > 0 ? Math.round((devoteesScanned / expectedDevotees) * 100) : 0}%)
+              </Text>
+            </>
+          )}
+        </View>
+        <TouchableOpacity
+          style={styles.refreshStatsBtn}
+          onPress={loadActivityStats}
+        >
+          <Ionicons name="refresh" size={16} color="#2196F3" />
+        </TouchableOpacity>
       </View>
 
       {/* Inventory Warnings */}
@@ -694,7 +1015,7 @@ function PrasadamDashboardScreen() {
           currentQty={getStageQuantity(selectedItem, selectedStage)}
           onClose={() => setShowReversePopup(false)}
           onMove={handleReverseMove}
-          transactions={[]} // TODO: Add transaction history from API
+          transactions={getItemTransactions(selectedItem.item_id, selectedStage)}
         />
       )}
 
@@ -852,6 +1173,11 @@ const styles = StyleSheet.create({
   teamViewTextActive: {
     color: '#FFF',
   },
+  settingsBtn: {
+    padding: 8,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+  },
   tableContainer: {
     flex: 1,
     backgroundColor: '#FFF',
@@ -892,9 +1218,14 @@ const styles = StyleSheet.create({
   qtyCellActive: {
     backgroundColor: '#FFF',
   },
+  headerContent: {
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderRadius: 4,
+  },
   headerText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#333',
     textAlign: 'center',
   },
@@ -927,5 +1258,59 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#F57C00',
+  },
+  devoteesBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#BBDEFB',
+    justifyContent: 'space-between',
+  },
+  devoteesInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  devoteesLabel: {
+    fontSize: 13,
+    color: '#1976D2',
+    fontWeight: '500',
+  },
+  devoteesCount: {
+    fontSize: 16,
+    color: '#1976D2',
+    fontWeight: '700',
+  },
+  devoteesSeparator: {
+    fontSize: 14,
+    color: '#1976D2',
+  },
+  devoteesExpected: {
+    fontSize: 14,
+    color: '#1565C0',
+    fontWeight: '600',
+  },
+  devoteesPercentage: {
+    fontSize: 12,
+    color: '#0D47A1',
+  },
+  refreshStatsBtn: {
+    padding: 6,
+    backgroundColor: '#BBDEFB',
+    borderRadius: 16,
+  },
+  percentageCell: {
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+    minWidth: 50,
+    alignItems: 'center',
+  },
+  percentageText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
 });
