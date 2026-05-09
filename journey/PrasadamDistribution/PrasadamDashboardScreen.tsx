@@ -127,6 +127,10 @@ function buildDashboardItems(
       ? Math.round((traysRemaining / cooked) * 100)
       : 0;
 
+    // Cooked → Stored moved: For now, initialize from stored_qty as baseline
+    // This tracks cumulative movements from Cooked to Stored (session-based for now)
+    const cookedToStoredMoved = stored; // Start with current stored as baseline
+
     items.push({
       item_id: menuItem.item_id,
       name: menuItem.name,
@@ -141,6 +145,7 @@ function buildDashboardItems(
       refill_station_3_qty: refill3,
       served_qty: served,
       left_over_qty: leftOver,
+      cooked_to_stored_moved: cookedToStoredMoved,
       devotees_percentage: devoteesPercentage,
       trays_percentage: traysPercentage,
     });
@@ -518,15 +523,28 @@ function PrasadamDashboardScreen() {
         }
 
         // Optimistically update local state - add to destination, subtract from source
+        // Special case: Cooked → Stored should NOT decrease Cooked (it's cumulative)
+        // But we DO track the cumulative moved counter
         setItems(prevItems => {
           return prevItems.map(item => {
             if (item.item_id === selectedItem.item_id) {
               const updatedItem = { ...item };
-              const sourceKey = `${selectedStage}_qty` as keyof DashboardItem;
               const destKey = `${toStage}_qty` as keyof DashboardItem;
 
-              (updatedItem[sourceKey] as number) = Math.max(0, (updatedItem[sourceKey] as number || 0) - quantity);
+              // Add to destination
               (updatedItem[destKey] as number) = (updatedItem[destKey] as number || 0) + quantity;
+
+              // Track cumulative Cooked → Stored movements
+              if (selectedStage === 'cooked' && toStage === 'stored') {
+                (updatedItem.cooked_to_stored_moved as number) =
+                  ((updatedItem.cooked_to_stored_moved as number) || 0) + quantity;
+              }
+
+              // Subtract from source (except Cooked, which is cumulative)
+              if (selectedStage !== 'cooked') {
+                const sourceKey = `${selectedStage}_qty` as keyof DashboardItem;
+                (updatedItem[sourceKey] as number) = Math.max(0, (updatedItem[sourceKey] as number || 0) - quantity);
+              }
 
               return updatedItem;
             }
@@ -870,7 +888,13 @@ function PrasadamDashboardScreen() {
               disabled={qty === 0 || !isValid}
             >
               {qty > 0 ? (
-                <PowerBall item={item} quantity={qty} size={powerBallSize} compact />
+                <PowerBall
+                  item={item}
+                  quantity={qty}
+                  size={powerBallSize}
+                  compact
+                  showStored={stage === 'cooked' ? item.cooked_to_stored_moved : undefined}
+                />
               ) : (
                 <Text style={styles.emptyCell}>—</Text>
               )}

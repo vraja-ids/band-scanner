@@ -110,6 +110,7 @@ export interface DashboardItem {
   refill_station_3_qty: number;
   served_qty: number;
   left_over_qty: number;
+  cooked_to_stored_moved?: number; // Cumulative: total trays ever moved from Cooked → Stored
   // Percentage calculations
   devotees_percentage?: number; // (Cooked / Expected Devotees) * 100
   trays_percentage?: number; // (Distributed / Cooked) * 100

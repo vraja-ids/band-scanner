@@ -4,7 +4,7 @@
  */
 
 import React, { memo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { DashboardItem, getItemColor } from '../types/dashboard.types';
 
 interface PowerBallProps {
@@ -13,14 +13,16 @@ interface PowerBallProps {
   size?: number;
   showZero?: boolean;
   compact?: boolean;
+  loading?: boolean;
+  showStored?: number; // Show small badge for quantity moved to Stored
 }
 
 export const PowerBall: React.FC<PowerBallProps> = memo(
-  ({ item, quantity, size = 60, showZero = false, compact = false }) => {
+  ({ item, quantity, size = 60, showZero = false, compact = false, loading = false, showStored }) => {
     const color = getItemColor(item);
     const isLow = quantity > 0 && quantity <= item.low_qty_threshold;
 
-    if (!showZero && quantity === 0) {
+    if (!showZero && quantity === 0 && !loading) {
       return <View style={{ width: size, height: size }} />;
     }
 
@@ -30,12 +32,27 @@ export const PowerBall: React.FC<PowerBallProps> = memo(
     const ballSize = Math.floor(compactSize * 0.8); // 80% of container
     const fontSize = Math.max(12, Math.floor(ballSize * 0.45)); // Scale font with ball size
 
+    if (loading) {
+      // Show loading spinner
+      return (
+        <View style={[styles.compactContainer, { width: compactSize, height: compactSize, borderColor: '#ddd' }]}>
+          <ActivityIndicator size="small" color="#5dbea3" />
+        </View>
+      );
+    }
+
     if (compact) {
       return (
         <View style={[styles.compactContainer, { width: compactSize, height: compactSize, borderColor: color }]}>
           <View style={[styles.compactBall, { width: ballSize, height: ballSize, borderRadius: ballSize / 2, backgroundColor: color }]}>
             <Text style={[styles.compactText, { fontSize, color: '#000' }]}>{quantity}</Text>
           </View>
+          {/* Show small badge for Stored quantity */}
+          {showStored !== undefined && showStored > 0 && (
+            <View style={styles.storedBadge}>
+              <Text style={styles.storedBadgeText}>{showStored}</Text>
+            </View>
+          )}
         </View>
       );
     }
@@ -95,5 +112,23 @@ const styles = StyleSheet.create({
   },
   compactText: {
     fontWeight: '600',
+  },
+  storedBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#5D4037',
+    minWidth: 14,
+    height: 14,
+    borderRadius: 7,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFF',
+  },
+  storedBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#FFF',
   },
 });
