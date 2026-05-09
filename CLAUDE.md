@@ -106,6 +106,19 @@ eas submit --platform android --profile production
 - All functions are backward compatible with `PrasadamSheetsService` interface
 - See `supabase/README.md` for setup instructions
 
+**Supabase Database Schema** (`supabase/migrations/`)
+- `001_initial_schema.sql` — Core tables: events, meals, menu_items, location_inventory, transfers, refill_requests, dashboard_settings
+- `002_inventory_function.sql` — RPC function `update_inventory_location` for atomic inventory updates
+- `003_populate_menu_data.sql` — Sample data for Rishikesh Kirtan Fest
+- `004_fix_location_mapping.sql` — Fix UI location names to DB column mapping (Kitchen → kitchen)
+
+**Important: Cooked → Stored Validation**
+- `ready_trays` is cumulative (total ever cooked, never decreases)
+- `kitchen_storage_moved` tracks how many trays moved from Cooked to Stored
+- Max movable trays = `ready_trays - kitchen_storage_moved`
+- When user taps Cooked → Stored with maxQty = 0, show alert: "No Trays Available"
+- This prevents double-counting the same physical tray
+
 **Backend Selection Logic:**
 1. If `EXPO_PUBLIC_FORCE_SHEETS_BACKEND=true` → Google Sheets only
 2. Else if Supabase credentials valid → Supabase with Google Sheets backup
