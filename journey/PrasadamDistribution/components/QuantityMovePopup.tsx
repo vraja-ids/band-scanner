@@ -160,7 +160,7 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
               {/* Show max limit hint when restricted */}
               {maxQuantity !== undefined && maxQuantity < currentQty && (
                 <Text style={styles.limitHint}>
-                  Max movable: {maxQuantity} (Cooked - Stored)
+                  Available: {maxQuantity} tray(s) ready to move
                 </Text>
               )}
             </View>

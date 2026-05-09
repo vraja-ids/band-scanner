@@ -28,7 +28,7 @@ import {
   getTransfers,
   recordTransfer,
   type Transfer,
-} from '../../services/PrasadamSheetsService';
+} from '../../services/PrasadamSupabaseService';
 import { QuantityMovePopup } from './components/QuantityMovePopup';
 import { QuantityMoveReversePopup } from './components/QuantityMoveReversePopup';
 import { MealSelectionModal } from './components/MealSelectionModal';
@@ -43,7 +43,7 @@ import {
 } from './types/dashboard.types';
 import { PowerBall } from './components/PowerBall';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { MenuItem, LocationInventoryItem, Meal } from '../../services/PrasadamSheetsService';
+import type { MenuItem, LocationInventoryItem, Meal } from '../../services/PrasadamSupabaseService';
 import { getDevoteesCountForMeal, getTodayDate } from '../../services/MealActivityService';
 import { getExpectedDevoteesForMeal } from '../../config/mealSchedule';
 
@@ -404,11 +404,21 @@ function PrasadamDashboardScreen() {
       if (validDestinations.length === 0) return;
 
       // Calculate max quantity for Cooked → Stored movement
-      // Cooked is cumulative, so we need to prevent moving more than Cooked - Stored
+      // Cooked is cumulative (ready_trays), kitchen_storage_moved tracks how many moved to storage
+      // Max movable = ready_trays - kitchen_storage_moved
       let maxQty: number | undefined = undefined;
       if (stage === 'cooked' && validDestinations.includes('stored')) {
-        // Max movable = Cooked - already stored
-        maxQty = Math.max(0, item.cooked_qty - item.stored_qty);
+        // Max movable = Total cooked - Already moved to storage
+        maxQty = Math.max(0, item.cooked_qty - (item.cooked_to_stored_moved || 0));
+
+        // Show alert if no trays available to move
+        if (maxQty === 0) {
+          Alert.alert(
+            'No Trays Available',
+            `${item.name}: All ${item.cooked_qty} cooked tray(s) have already moved to storage.\n\nCooked: ${item.cooked_qty}\nMoved to Storage: ${item.cooked_to_stored_moved || 0}`
+          );
+          return;
+        }
       }
 
       setSelectedItem(item);

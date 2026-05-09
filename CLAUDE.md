@@ -17,7 +17,7 @@ yarn ios
 yarn android
 yarn web
 
-# Type checking
+# Type checking (no unit tests - use manual testing)
 yarn typecheck
 
 # Fix Expo dependencies
@@ -50,7 +50,9 @@ eas submit --platform android --profile production
 - **Expo Camera** for QR/barcode scanning
 - **AsyncStorage** for local persistence
 - **Google Sheets API** for Bhoga ingredient tracking
-- **Expo Screen Orientation** — app supports portrait + landscape modes
+- **Expo Screen Orientation** — app supports portrait + landscape (all screens must handle both)
+- **Supabase** (@supabase/supabase-js) — Primary backend for Prasadam Distribution with Google Sheets fallback
+- **React Native Paper** — Material Design component library
 
 ### Directory Structure
 ```
@@ -60,12 +62,19 @@ eas submit --platform android --profile production
 │   ├── Daypass/         # Daypass scanning and redemption
 │   ├── PrasadamDistribution/  # Multi-team prasadam coordination
 │   ├── BhogaTracker/    # Ingredient/meal planning with Google Sheets
+│   ├── Meals/           # Meal scanning and related features
+│   ├── Gifts/           # Gift distribution tracking
+│   ├── Services/        # Service tracking
+│   ├── Tags/            # Tag management
+│   ├── RishikeshKirtanFest/  # Event-specific screens
 │   └── common/util/     # Shared utilities (Scanner, etc.)
 ├── services/            # Business logic and external integrations
 ├── network/             # API client, types, error handling
 ├── storage/             # Session/persistence utilities
 ├── routes/              # Navigation routes and param types
 ├── utils/               # Helper utilities
+├── supabase/            # Database migrations and types
+├── components/          # Shared UI components
 └── locales/             # i18n translation files
 ```
 
@@ -79,7 +88,7 @@ eas submit --platform android --profile production
 - Mock API support via `USE_MOCK_API` flag
 
 **Prasadam Sheets Service** (`services/PrasadamSheetsService.ts`)
-- Google Apps Script backend for Prasadam Distribution tracking
+- Google Apps Script backend for Prasadam Distribution tracking (legacy/fallback)
 - Uses `GOOGLE_APPS_SCRIPT_URL` (deployed web app) to interact with sheets
 - 5-second in-memory cache for dashboard data
 - **IMPORTANT**: When adding POST operations, avoid parameter name conflicts with `operation` field
@@ -87,6 +96,20 @@ eas submit --platform android --profile production
 - `updateLocationInventory(data: { mealId, itemId, location, quantity, action })`
 - `recordTransfer(data: { meal_id, item_id, item_name, quantity, from_location, to_location, from_user })`
 - `getTransfers(mealId)` returns transfer history for long-press display
+
+**Prasadam Supabase Service** (`services/PrasadamSupabaseService.ts`)
+- **Switchable backend** — can use Supabase OR fall back to Google Sheets based on config
+- 20x faster than Google Apps Script (50-200ms vs 1-3s)
+- Supports concurrent users without performance degradation
+- Real-time subscriptions for live updates across devices
+- Offline queue with automatic retry when connectivity returns
+- All functions are backward compatible with `PrasadamSheetsService` interface
+- See `supabase/README.md` for setup instructions
+
+**Backend Selection Logic:**
+1. If `EXPO_PUBLIC_FORCE_SHEETS_BACKEND=true` → Google Sheets only
+2. Else if Supabase credentials valid → Supabase with Google Sheets backup
+3. Else → Google Sheets fallback
 
 **Bhoga Google Sheets Service** (`services/GoogleSheetsService.ts`)
 - Direct Google Sheets API integration (OAuth2) for Bhoga ingredient tracking
@@ -99,6 +122,19 @@ eas submit --platform android --profile production
 - Stores snapshots to AsyncStorage for the Inflow Comparison chart
 - Only runs when user is logged in (has `selectedEventId`)
 - Respects app state (fetches on foreground if >30s elapsed)
+
+**Meal Activity Service** (`services/MealActivityService.ts`)
+- Fetches meal scanning statistics from the backend API
+- `getMealActivityStats()` uses the same endpoint as Daypass stats but for meal tracking
+- `getDevoteesCountForMeal()` returns number of devotees scanned for a specific meal
+- Uses public API endpoint `getDaypassActivityStats` with `activity` parameter as meal_id
+
+**Background Sheets Sync Service** (`services/BackgroundSheetsSyncService.tsx`)
+- Periodically syncs Supabase data to Google Sheets as backup (every 2 minutes)
+- Runs only when app is active and user is logged in
+- Syncs: meals, menu items, location inventory, transfers
+- Provides `useSheetsSync()` hook for React components
+- Requires `EXPO_PUBLIC_SHEETS_SYNC_FUNCTION_URL` and `EXPO_PUBLIC_PRASADAM_SPREADSHEET_ID`
 
 ### Navigation
 
@@ -115,6 +151,9 @@ Routes defined in `routes/index.ts` as const object. All screens registered in `
 - AsyncStorage for persistence via SessionManager
 - navigation.navigate() with typed params
 ```
+
+**Screen Orientation**
+The app supports portrait and both landscape orientations. All screens must handle layout changes gracefully. Use `useWindowDimensions()` hook for responsive layouts.
 
 **Scanner Flow**
 The generic `Scanner` component (`journey/common/util/Scanner.tsx`) handles QR/barcode scanning and redirects to the appropriate screen based on `ScannerParams` passed via navigation.
@@ -142,6 +181,10 @@ Movement operations update UI immediately with optimistic local state changes, t
 **Transfer History**
 Long press on quantity cells shows past 3 movements for that item. Transfers are created via `recordTransfer()` API call after successful inventory updates.
 
+**Buffet Lanes Behavior**
+- Tap: Opens popup to move quantity with auto-destination to next location in flow
+- Long press: Opens same popup with reverse options enabled (move backward in chain)
+
 **Other Feature Modules**
 - `Daypass/` — Daypass scanning and redemption flows
 - `BhogaTracker/` — Ingredient/meal planning with Google Sheets integration
@@ -163,17 +206,36 @@ import { getString, setString, Keys } from '../storage/Session';
 
 ## Environment Variables
 
-Copy `.env.example` to `.env.local` and add:
+Copy `.env.example` to `.env.local` and add your values. Key variables:
+
+### Backend Configuration
+
+**Option A: Supabase with Google Sheets Backup (Recommended - Fast)**
+```bash
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+EXPO_PUBLIC_SHEETS_SYNC_FUNCTION_URL=https://your-project.supabase.co/functions/v1/sync-to-sheets
+EXPO_PUBLIC_PRASADAM_SPREADSHEET_ID=your-sheet-id
+# Leave EXPO_PUBLIC_FORCE_SHEETS_BACKEND unset or set to 'false'
+```
+
+**Option B: Google Sheets Only (Legacy - Slower)**
+```bash
+EXPO_PUBLIC_FORCE_SHEETS_BACKEND=true
+GOOGLE_APPS_SCRIPT_URL=https://script.google.com/macros/s/...
+```
+
+### Other Variables
 - `EXPO_PUBLIC_GOOGLE_SHEETS_API_KEY` — Google Sheets API key for Bhoga tracking
 - `EXPO_PUBLIC_GOOGLE_SHEETS_ID` — Spreadsheet ID (default: Rishikesh Kirtan Fest)
 
-**Note:** `.env.local` is git-ignored. Never commit actual API keys.
+**Note:** `.env.local` is git-ignored. Never commit actual API keys. See `.env.example` for all available options.
 
 ## Build/Deployment
 
-- **iOS Bundle ID**: `com.sadhusanga.ScannerApp` (Apple Team: ST8SH8S3P4, ASC App ID: 6480351919)
+- **iOS Bundle ID**: `com.sadhusanga.ScannerApp` (Apple Team: ST8SH8S3P4, ASC App ID: 6480351919, Apple ID: loghash@gmail.com)
 - **Android Package**: `com.sadhusanga.ScannerApp`
-- **Version**: Defined in `app.json` (currently 2.2.9, iOS build 24, Android version 27)
+- **Version**: Defined in `app.json` (currently 2.2.9, iOS build 25, Android version 27)
 - **EAS Project ID**: `eedf4ca2-7f92-48aa-a4c9-2095d7f9f150`
 - **New Architecture**: Enabled for both platforms
 - **OTA Updates**: Configured via `expo-updates`
