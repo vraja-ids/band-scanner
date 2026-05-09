@@ -25,6 +25,7 @@ interface QuantityMoveReversePopupProps {
   onClose: () => void;
   onMove: (quantity: number, toStage: DashboardStage) => void;
   transactions?: Array<{ stage: string; quantity: number; timestamp: string }>;
+  filterToStages?: DashboardStage[]; // Optional filter to show only specific stages
 }
 
 const QUICK_SELECT_AMOUNTS = [2, 3, 4, 5, 10, 20];
@@ -33,25 +34,35 @@ const QUICK_SELECT_AMOUNTS = [2, 3, 4, 5, 10, 20];
 function getReverseOptions(currentStage: DashboardStage): DashboardStage[] {
   const options: DashboardStage[] = [];
 
-  // Always can send to left_over
-  options.push('left_over');
-
-  // Stage-specific reverse options
+  // Stage-specific reverse options (left_over is added separately)
   switch (currentStage) {
+    case 'cooked':
+      // Can go back to planned
+      options.push('planned');
+      break;
+    case 'stored':
+      // Can go back to cooked or left_over
+      options.push('cooked');
+      break;
     case 'staging':
-      // Can go back to kitchen (stored)
+      // Can go back to stored or left_over
       options.push('stored');
       break;
     case 'refill_station_1':
     case 'refill_station_2':
     case 'refill_station_3':
-      // Can go back to staging
-      options.push('staging');
-      break;
-    case 'served':
       // Can go back to staging or left_over
       options.push('staging');
       break;
+    case 'served':
+      // Can go back to refill stations or left_over
+      options.push('refill_station_1', 'refill_station_2', 'refill_station_3');
+      break;
+  }
+
+  // Always can send to left_over (unless already there)
+  if (currentStage !== 'left_over') {
+    options.push('left_over');
   }
 
   return options;
@@ -65,20 +76,29 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
   onClose,
   onMove,
   transactions = [],
+  filterToStages,
 }) => {
   const [quantity, setQuantity] = useState('1');
   const [selectedStage, setSelectedStage] = useState<DashboardStage | null>(null);
   const inputRef = useRef<TextInput>(null);
 
   const reverseOptions = getReverseOptions(currentStage);
+  // Apply filter if provided
+  const filteredOptions = filterToStages
+    ? reverseOptions.filter(opt => filterToStages.includes(opt))
+    : reverseOptions;
 
-  // Auto-select left_over as default
+  // Auto-select first option as default (or left_over if available in filtered options)
   useEffect(() => {
     if (visible) {
-      setSelectedStage('left_over');
+      // Prefer left_over if it's in the filtered options, otherwise use first option
+      const defaultStage = filteredOptions.includes('left_over')
+        ? 'left_over'
+        : filteredOptions[0] || null;
+      setSelectedStage(defaultStage);
       setQuantity('1');
     }
-  }, [visible]);
+  }, [visible, filteredOptions]);
 
   const handleQuickSelect = useCallback((amount: number) => {
     const current = parseInt(quantity, 10) || 0;
@@ -177,7 +197,7 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
             <View style={styles.destSection}>
               <Text style={styles.sectionTitle}>Move to:</Text>
               <View style={styles.destRow}>
-                {reverseOptions.map(dest => (
+                {filteredOptions.map(dest => (
                   <TouchableOpacity
                     key={dest}
                     style={[

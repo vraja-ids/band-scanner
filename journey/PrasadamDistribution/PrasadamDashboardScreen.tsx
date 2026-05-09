@@ -185,6 +185,7 @@ function PrasadamDashboardScreen() {
   const [selectedStage, setSelectedStage] = useState<DashboardStage | null>(null);
   const [showMovePopup, setShowMovePopup] = useState(false);
   const [showReversePopup, setShowReversePopup] = useState(false);
+  const [reverseFilterStages, setReverseFilterStages] = useState<DashboardStage[] | undefined>(undefined);
   const [maxMoveQuantity, setMaxMoveQuantity] = useState<number | undefined>(undefined);
   const [teamView, setTeamView] = useState<TeamView>('all');
   const [isPortrait, setIsPortrait] = useState(true);
@@ -390,6 +391,15 @@ function PrasadamDashboardScreen() {
       const qty = getStageQuantity(item, stage);
       if (qty <= 0) return;
 
+      // Special case: Buffet Lanes (served) - tap moves back to refill stations
+      if (stage === 'served') {
+        setSelectedItem(item);
+        setSelectedStage(stage);
+        setReverseFilterStages(['refill_station_1', 'refill_station_2', 'refill_station_3']); // Only show refill stations
+        setShowReversePopup(true);
+        return;
+      }
+
       const validDestinations = MOVEMENT_RULES[stage];
       if (validDestinations.length === 0) return;
 
@@ -569,7 +579,7 @@ function PrasadamDashboardScreen() {
     [selectedItem, selectedStage, userId, mealId, loadData]
   );
 
-  // Handle long press on quantity cell - show reverse popup
+  // Handle long press on quantity cell
   const handleCellLongPress = useCallback(
     (item: DashboardItem, stage: DashboardStage) => {
       const qty = getStageQuantity(item, stage);
@@ -577,6 +587,14 @@ function PrasadamDashboardScreen() {
 
       setSelectedItem(item);
       setSelectedStage(stage);
+
+      // Special case: Buffet Lanes (served) - long press shows only left over option
+      if (stage === 'served') {
+        setReverseFilterStages(['left_over']); // Only show left over
+      } else {
+        setReverseFilterStages(undefined); // Show all reverse options
+      }
+
       setShowReversePopup(true);
     },
     []
@@ -1070,7 +1088,11 @@ function PrasadamDashboardScreen() {
           item={selectedItem}
           currentStage={selectedStage}
           currentQty={getStageQuantity(selectedItem, selectedStage)}
-          onClose={() => setShowReversePopup(false)}
+          filterToStages={reverseFilterStages}
+          onClose={() => {
+            setShowReversePopup(false);
+            setReverseFilterStages(undefined);
+          }}
           onMove={handleReverseMove}
           transactions={getItemTransactions(selectedItem.item_id, selectedStage)}
         />
