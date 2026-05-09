@@ -859,26 +859,30 @@ function PrasadamDashboardScreen() {
   // For "Remaining" percentages:
   // - Devotees Remaining: High % = More to serve = RED, Low % = Almost done = GREEN
   // - Trays Remaining: High % = Plenty available = GREEN, Low % = Running out = RED
-  const renderPercentageCell = (percentage: number, color: string, type: 'devotees' | 'trays') => {
+  const renderPercentageCell = (percentage: number, type: 'devotees' | 'trays', item: DashboardItem) => {
+    const itemColor = getItemColor(item);
+
+    // Determine background color based on percentage and type
     let bgColor = '#F5F5F5';
+    let textColor = '#333';
 
     if (type === 'devotees') {
       // Devotees Remaining: Lower is better (green), Higher means need to cook more (red)
-      if (percentage <= 20) bgColor = '#C8E6C9'; // Green - most served
-      else if (percentage <= 50) bgColor = '#FFF9C4'; // Yellow
-      else if (percentage <= 80) bgColor = '#FFCCBC'; // Orange
-      else bgColor = '#FFCDD2'; // Red - lots still to serve
+      if (percentage <= 20) { bgColor = '#E8F5E9'; textColor = '#2E7D32'; } // Green - most served
+      else if (percentage <= 50) { bgColor = '#FFFDE7'; textColor = '#F9A825'; } // Yellow
+      else if (percentage <= 80) { bgColor = '#FFEBEE'; textColor = '#C62828'; } // Orange
+      else { bgColor = '#FFCDD2'; textColor = '#B71C1C'; } // Red - lots still to serve
     } else {
       // Trays Remaining: Higher is better (more available), Lower means running low (red)
-      if (percentage >= 80) bgColor = '#C8E6C9'; // Green - plenty available
-      else if (percentage >= 50) bgColor = '#FFF9C4'; // Yellow
-      else if (percentage >= 20) bgColor = '#FFCCBC'; // Orange
-      else bgColor = '#FFCDD2'; // Red - running low
+      if (percentage >= 80) { bgColor = '#E8F5E9'; textColor = '#2E7D32'; } // Green - plenty available
+      else if (percentage >= 50) { bgColor = '#FFFDE7'; textColor = '#F9A825'; } // Yellow
+      else if (percentage >= 20) { bgColor = '#FFEBEE'; textColor = '#C62828'; } // Orange
+      else { bgColor = '#FFCDD2'; textColor = '#B71C1C'; } // Red - running low
     }
 
     return (
-      <View style={[styles.percentageCell, { backgroundColor: bgColor }]}>
-        <Text style={[styles.percentageText, { color }]}>{percentage}%</Text>
+      <View style={[styles.percentageCell, { backgroundColor: bgColor, borderColor: itemColor }]}>
+        <Text style={[styles.percentageText, { color: textColor }]}>{percentage}%</Text>
       </View>
     );
   };
@@ -923,10 +927,10 @@ function PrasadamDashboardScreen() {
         {showPercentages && (
           <>
             <View style={[styles.qtyCell, { width: percentageColumnWidth, borderRightWidth: 3, borderRightColor: '#000' }]}>
-              {renderPercentageCell(item.devotees_percentage || 0, '#1976D2', 'devotees')}
+              {renderPercentageCell(item.devotees_percentage || 0, 'devotees', item)}
             </View>
             <View style={[styles.qtyCell, { width: percentageColumnWidth }]}>
-              {renderPercentageCell(item.trays_percentage || 0, '#F57C00', 'trays')}
+              {renderPercentageCell(item.trays_percentage || 0, 'trays', item)}
             </View>
           </>
         )}
@@ -1385,6 +1389,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 6,
     borderRadius: 4,
+    borderWidth: 2,
+    borderStyle: 'solid',
     minWidth: 50,
     alignItems: 'center',
   },
