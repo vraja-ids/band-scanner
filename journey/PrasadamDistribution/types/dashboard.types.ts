@@ -30,7 +30,7 @@ export const ALL_STAGES: DashboardStage[] = [
 
 // Movement rules - which stages can move to which
 export const MOVEMENT_RULES: Record<DashboardStage, DashboardStage[]> = {
-  planned: ['cooked'],
+  planned: [], // Planned is static reference, no movements allowed
   cooked: ['stored'],
   stored: ['staging'],
   staging: ['refill_station_1', 'refill_station_2', 'refill_station_3'],

@@ -21,6 +21,7 @@ interface QuantityMovePopupProps {
   item: DashboardItem;
   currentStage: DashboardStage;
   currentQty: number;
+  maxQuantity?: number; // Optional max quantity override (for Cooked → Stored validation)
   onClose: () => void;
   onMove: (quantity: number, toStage: DashboardStage) => void;
   mealId: string;
@@ -33,6 +34,7 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
   item,
   currentStage,
   currentQty,
+  maxQuantity,
   onClose,
   onMove,
   mealId,
@@ -44,6 +46,9 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
 
   // Get valid destinations for current stage
   const validDestinations = MOVEMENT_RULES[currentStage] || [];
+
+  // Use maxQuantity if provided, otherwise use currentQty
+  const effectiveMaxQty = maxQuantity !== undefined ? maxQuantity : currentQty;
 
   // Load last destination for staging
   useEffect(() => {
@@ -79,9 +84,9 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
 
   const handleQuickSelect = useCallback((amount: number) => {
     const current = parseInt(quantity, 10) || 0;
-    const newQty = Math.min(currentQty, current + amount);
+    const newQty = Math.min(effectiveMaxQty, current + amount);
     setQuantity(newQty.toString());
-  }, [quantity, currentQty]);
+  }, [quantity, effectiveMaxQty]);
 
   const dismissKeyboard = useCallback(() => {
     Keyboard.dismiss();
@@ -89,9 +94,9 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
 
   const adjustQuantity = useCallback((delta: number) => {
     const current = parseInt(quantity, 10) || 0;
-    const newQty = Math.max(1, Math.min(currentQty, current + delta));
+    const newQty = Math.max(1, Math.min(effectiveMaxQty, current + delta));
     setQuantity(newQty.toString());
-  }, [quantity, currentQty]);
+  }, [quantity, effectiveMaxQty]);
 
   const handleFocusInput = useCallback(() => {
     inputRef.current?.focus();
@@ -99,7 +104,7 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
 
   const handleMove = useCallback(async () => {
     const qty = parseInt(quantity, 10);
-    if (!selectedStage || isNaN(qty) || qty <= 0 || qty > currentQty) {
+    if (!selectedStage || isNaN(qty) || qty <= 0 || qty > effectiveMaxQty) {
       return;
     }
 
@@ -110,13 +115,13 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
 
     onMove(qty, selectedStage);
     onClose();
-  }, [quantity, selectedStage, currentQty, currentStage, mealId, item.item_id, onMove, onClose]);
+  }, [quantity, selectedStage, effectiveMaxQty, currentStage, mealId, item.item_id, onMove, onClose]);
 
   const isValid =
     selectedStage !== null &&
     !isNaN(parseInt(quantity, 10)) &&
     parseInt(quantity, 10) > 0 &&
-    parseInt(quantity, 10) <= currentQty;
+    parseInt(quantity, 10) <= effectiveMaxQty;
 
   // Get display name for selected or auto destination
   const destDisplay = selectedStage
@@ -152,6 +157,12 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
                 <Text style={styles.arrow}> → </Text>
                 <Text style={styles.destHighlight}>{destDisplay}</Text>
               </Text>
+              {/* Show max limit hint when restricted */}
+              {maxQuantity !== undefined && maxQuantity < currentQty && (
+                <Text style={styles.limitHint}>
+                  Max movable: {maxQuantity} (Cooked - Stored)
+                </Text>
+              )}
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
               <Text style={styles.closeBtnText}>✕</Text>
@@ -202,7 +213,7 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
                     onChangeText={setQuantity}
                     keyboardType="number-pad"
                   />
-                  <Text style={styles.maxQty}>/ {currentQty}</Text>
+                  <Text style={styles.maxQty}>/ {effectiveMaxQty}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.adjustBtn}
@@ -301,6 +312,12 @@ const styles = StyleSheet.create({
   destHighlight: {
     color: '#2196F3',
     fontWeight: '600',
+  },
+  limitHint: {
+    fontSize: 10,
+    color: '#FF9800',
+    fontStyle: 'italic',
+    marginTop: 2,
   },
   closeBtn: {
     padding: 4,

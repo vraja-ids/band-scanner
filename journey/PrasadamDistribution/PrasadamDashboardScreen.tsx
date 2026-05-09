@@ -180,6 +180,7 @@ function PrasadamDashboardScreen() {
   const [selectedStage, setSelectedStage] = useState<DashboardStage | null>(null);
   const [showMovePopup, setShowMovePopup] = useState(false);
   const [showReversePopup, setShowReversePopup] = useState(false);
+  const [maxMoveQuantity, setMaxMoveQuantity] = useState<number | undefined>(undefined);
   const [teamView, setTeamView] = useState<TeamView>('all');
   const [isPortrait, setIsPortrait] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
@@ -387,8 +388,17 @@ function PrasadamDashboardScreen() {
       const validDestinations = MOVEMENT_RULES[stage];
       if (validDestinations.length === 0) return;
 
+      // Calculate max quantity for Cooked → Stored movement
+      // Cooked is cumulative, so we need to prevent moving more than Cooked - Stored
+      let maxQty: number | undefined = undefined;
+      if (stage === 'cooked' && validDestinations.includes('stored')) {
+        // Max movable = Cooked - already stored
+        maxQty = Math.max(0, item.cooked_qty - item.stored_qty);
+      }
+
       setSelectedItem(item);
       setSelectedStage(stage);
+      setMaxMoveQuantity(maxQty);
       setShowMovePopup(true);
     },
     []
@@ -1019,7 +1029,11 @@ function PrasadamDashboardScreen() {
           item={selectedItem}
           currentStage={selectedStage}
           currentQty={getStageQuantity(selectedItem, selectedStage)}
-          onClose={() => setShowMovePopup(false)}
+          maxQuantity={maxMoveQuantity}
+          onClose={() => {
+            setShowMovePopup(false);
+            setMaxMoveQuantity(undefined);
+          }}
           onMove={handleMove}
           mealId={mealId}
         />
