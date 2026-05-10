@@ -66,7 +66,7 @@ export default function EventSelectionScreen() {
       // Map frontend event IDs to backend event IDs
       // The backend uses different IDs than what's in events.json
       const eventMapping: Record<string, string> = {
-        'SadhuSanga2026': 'USASadhuSangaRetreat2026',
+        'SadhuSanga2026': 'USASadhuSanga2026',
         'KartikParikrama2025': 'KartikParikrama2025',
         'RishikeshKirtanFest2026': 'RishikeshKirtanFest2026',
       };

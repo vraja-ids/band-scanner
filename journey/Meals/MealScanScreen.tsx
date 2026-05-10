@@ -13,17 +13,19 @@ function MealScanScreen(props: any) {
   const { navigation } = props;
   const { tag } = props.route.params;
   const { location } = props.route.params;
+  const { mealId, mealName } = props.route.params;
   const [isLoading, setLoading] = useState(true);
   const [data, setData] = useState<any>([]);
   const [isMealValid, setIsMealValid] = useState(false);
   const [curMealCount, setMealCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentMealId, setCurrentMealId] = useState<string | undefined>(mealId);
+  const [currentMealDisplayName, setCurrentMealDisplayName] = useState<string | undefined>(mealName);
   const [error, setError] = useState(false);
 
   const fetchMealDetails = useCallback((tagin: any) => {
     setLoading(true);
-    const currentMeal = getCurrMeal();
+    const currentMeal = currentMealId || 'unknown';
     const req: GetMemberMealActivityRequest = { tagId: tagin.id, activity: currentMeal, category: 'mealtracking' };
     fetchMealActivity(req)
       .then(async (json: any) => {
@@ -43,7 +45,7 @@ function MealScanScreen(props: any) {
         setLoading(false);
         setRefreshing(true);
       });
-  }, []);
+  }, [currentMealId]);
 
   useEffect(() => {
     fetchMealDetails(tag);
@@ -67,30 +69,7 @@ function MealScanScreen(props: any) {
       </TouchableOpacity>
     );
   };
-  const getCurrMeal = () => {
-    if (currentDate.getTime() <= new Date(2025, 4, 23, 23, 30).getTime() && currentDate.getTime() >= new Date(2025, 4, 2, 13, 30).getTime()) {
-      return 'friDinner';
-    } else if (currentDate.getTime() <= new Date(2025, 4, 24, 11, 30).getTime() && currentDate.getTime() >= new Date(2025, 4, 24, 1, 30).getTime()) {
-      return 'satBreakfast';
-    } else if (currentDate.getTime() <= new Date(2025, 4, 24, 16, 30).getTime() && currentDate.getTime() >= new Date(2025, 4, 24, 11, 10).getTime()) {
-      return 'satLunch';
-    } else if (currentDate.getTime() <= new Date(2025, 4, 24, 23, 30).getTime() && currentDate.getTime() >= new Date(2025, 4, 24, 17, 30).getTime()) {
-      return 'satDinner';
-    } else if (currentDate.getTime() <= new Date(2025, 4, 25, 11, 30).getTime() && currentDate.getTime() >= new Date(2025, 4, 25, 1, 30).getTime()) {
-      return 'sunBreakfast';
-    } else if (currentDate.getTime() <= new Date(2025, 4, 25, 16, 30).getTime() && currentDate.getTime() >= new Date(2025, 4, 25, 11, 10).getTime()) {
-      return 'sunLunch';
-    } else if (currentDate.getTime() <= new Date(2025, 4, 25, 23, 59).getTime() && currentDate.getTime() >= new Date(2025, 4, 25, 17, 30).getTime()) {
-      return 'sunDinner';
-    } else if (currentDate.getTime() <= new Date(2025, 4, 26, 9, 30).getTime() && currentDate.getTime() >= new Date(2025, 4, 26, 1, 30).getTime()) {
-      return 'monBreakfast';
-    } else if (currentDate.getTime() <= new Date(2025, 4, 26, 14, 30).getTime() && currentDate.getTime() >= new Date(2025, 4, 26, 9, 40).getTime()) {
-      return 'monLunch';
-    } else {
-      alert('Time is not good');
-      return 'undefined';
-    }
-  };
+
   const UpdateCurrMeal = (mealType: string, data: any) => {
     if (data && data.memberActivityDetails) {
       var mealC;
@@ -100,7 +79,7 @@ function MealScanScreen(props: any) {
   };
 
   const updateMealValidity = (mealC: any, data: any) => {
-    const currentMeal = getCurrMeal();
+    const currentMeal = currentMealId || 'unknown';
     var integerDatax = parseInt(mealC);
     setMealCount(integerDatax);
     if (Number.isInteger(integerDatax) && integerDatax == 0) {
@@ -160,8 +139,16 @@ function MealScanScreen(props: any) {
     }
   };
 
+  const handleNextScan = () => {
+    navigation.navigate(Routes.Scanner, {
+      location,
+      screen: Routes.MealScan,
+      mealId: currentMealId,
+      mealName: currentMealDisplayName,
+    });
+  };
+
   if (data.memberActivityDetails) {
-    const currentMeal = getCurrMeal();
     const item = (data as any).memberActivityDetails;
     return (
       <View>
@@ -177,7 +164,7 @@ function MealScanScreen(props: any) {
         </View>
         <View></View>
         <View style={styles.section}>
-          <GradientButton onPress={() => {}} text={`${currentMeal} ${curMealCount}`} colors={isMealValid ? ['#4CAF50', '#8BC34A'] : ['#A42536', '#FF0000']} />
+          <GradientButton onPress={() => {}} text={`${currentMealDisplayName || currentMealId || 'Meal'}: ${curMealCount}`} colors={isMealValid ? ['#4CAF50', '#8BC34A'] : ['#A42536', '#FF0000']} />
         </View>
         <LinearGradient colors={['#2193b0', '#6dd5ed']} style={styles.gradientContainer}>
           <View key={item.id}>
@@ -216,7 +203,7 @@ function MealScanScreen(props: any) {
             <ButtonSlim onPress={() => {}} text="REMOVE MEAL" colors={['#EA4C46', '#F1959B']} />
           </View>
           <View>
-            <ButtonSlim onPress={() => { addMemberActivity(currentMeal, data); }} text="ADD MEAL" colors={['#2EB62C', '#83D475']} />
+            <ButtonSlim onPress={() => { addMemberActivity(currentMealId || 'unknown', data); }} text="ADD MEAL" colors={['#2EB62C', '#83D475']} />
           </View>
           <View>
             <ButtonSlim
@@ -230,9 +217,7 @@ function MealScanScreen(props: any) {
         </View>
         <View style={styles.nextScanContainer}>
           <TouchableOpacity
-            onPress={() => {
-              props.navigation.navigate(Routes.Scanner, { location, screen: Routes.MealScan });
-            }}
+            onPress={handleNextScan}
             style={styles.nextScanButton}
           >
             <LinearGradient colors={['#3ABEF9', '#5D9CEC']} style={styles.nextScanGradient}>

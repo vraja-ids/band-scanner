@@ -983,3 +983,297 @@ function populateUSASadhuSangaRetreat2026() {
 
     return 'Successfully populated USASadhuSangaRetreat2026 data with ' + meals.length + ' meals!';
   }
+
+/**
+ * POPULATE USA SADHU SANGA RETREAT 2026 - WITH ACTUAL MENU DATA
+ *
+ * This function populates the Google Sheets with the actual menu data
+ * from COPY_PLAN_2026 tab. Run this after initializeSheet()
+ *
+ * Temperature indicators:
+ * - H = Hot (🔥) -> category: 'normal'
+ * - C = Cold (❄️) -> category: 'cold'
+ * - Room/Warm = Room Temp (🏠) -> category: 'normal'
+ */
+
+function populateUSASadhuSangaRetreat2026_ActualData() {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const eventId = 'USASadhuSangaRetreat2026';
+    const timestamp = new Date().toISOString();
+
+    // Get sheets
+    let eventsSheet = ss.getSheetByName('EVENTS');
+    let mealsSheet = ss.getSheetByName('MEALS');
+    let menuSheet = ss.getSheetByName('MENU_ITEMS');
+    let inventorySheet = ss.getSheetByName('LOCATION_INVENTORY');
+
+    if (!eventsSheet || !mealsSheet || !menuSheet || !inventorySheet) {
+        return 'Error: Some sheets are missing. Run initializeSheet() first.';
+    }
+
+    // 1. Add Event
+    eventsSheet.appendRow([
+        eventId, 'USA Sadhu Sanga Retreat 2026', '2026-05-22', '2026-05-25',
+        'New Vrindavan', 1500, 'active', timestamp
+    ]);
+
+    // 2. Add Meals
+    const meals = [
+        ['friDinner', eventId, 'Dinner', 1, 'D1', '18:00', 1500, 'planned', timestamp, timestamp],
+        ['satBreakfast', eventId, 'Breakfast', 2, 'BF1', '07:00', 1500, 'planned', timestamp, timestamp],
+        ['satLunch', eventId, 'Lunch', 2, 'L1', '12:00', 1500, 'planned', timestamp, timestamp],
+        ['satDinner', eventId, 'Dinner', 2, 'D2', '18:00', 1500, 'planned', timestamp, timestamp],
+        ['sunBreakfast', eventId, 'Breakfast', 3, 'BF2', '07:00', 1500, 'planned', timestamp, timestamp],
+        ['sunLunch', eventId, 'Lunch', 3, 'L2', '12:00', 1500, 'planned', timestamp, timestamp],
+        ['sunDinner', eventId, 'Dinner', 3, 'D3', '18:00', 1500, 'planned', timestamp, timestamp],
+        ['monBreakfast', eventId, 'Breakfast', 4, 'BF3', '07:00', 1500, 'planned', timestamp, timestamp],
+        ['monLunch', eventId, 'Lunch', 4, 'L3', '12:00', 1500, 'planned', timestamp, timestamp],
+    ];
+    meals.forEach(meal => mealsSheet.appendRow(meal));
+
+    // ============================================================================
+    // FRIDAY DINNER
+    // ============================================================================
+    const friDinnerItems = [
+        // item_id, meal_id, name, category, planned, cooked, kitchen_storage_moved, status, vegan, gluten, allergens, updated
+        ['item_fri_001', 'friDinner', 'Cauliflower Tofu Manchurian', 'normal', 140, 0, 0, 'Not Started', false, false, '', timestamp],
+        ['item_fri_002', 'friDinner', 'Stirfry Choy Sum', 'normal', 140, 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_fri_003', 'friDinner', 'Fried Rice', 'normal', 220, 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_fri_004', 'friDinner', 'Chinese Soup', 'normal', '', 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_fri_005', 'friDinner', 'Chinese Pakora', 'normal', '', 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_fri_006', 'friDinner', 'Pakora sauce', 'cold', 55, 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_fri_007', 'friDinner', 'Salad', 'cold', 45, 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_fri_008', 'friDinner', 'Almond dressing', 'cold', '', 0, 0, 'Not Started', true, false, 'Nuts', timestamp],
+        ['item_fri_009', 'friDinner', 'Mango Coconut Cheesecake', 'cold', 100, 0, 0, 'Not Started', false, true, 'Dairy,Nuts', timestamp],
+        ['item_fri_010', 'friDinner', 'Vegan cheesecake', 'cold', 10, 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_fri_011', 'friDinner', 'Lemon Mint drink', 'cold', '', 0, 0, 'Not Started', true, false, '', timestamp],
+    ];
+    friDinnerItems.forEach(item => menuSheet.appendRow(item));
+
+    // Location inventory for Friday dinner
+    const friDinnerInventory = [
+        ['inv_fri_001', 'friDinner', 'item_fri_001', 'Cauliflower Tofu Manchurian', 'normal', 140, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_fri_002', 'friDinner', 'item_fri_002', 'Stirfry Choy Sum', 'normal', 140, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_fri_003', 'friDinner', 'item_fri_003', 'Fried Rice', 'normal', 220, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_fri_004', 'friDinner', 'item_fri_004', 'Chinese Soup', 'normal', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_fri_005', 'friDinner', 'item_fri_005', 'Chinese Pakora', 'normal', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_fri_006', 'friDinner', 'item_fri_006', 'Pakora sauce', 'cold', 55, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_fri_007', 'friDinner', 'item_fri_007', 'Salad', 'cold', 45, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_fri_008', 'friDinner', 'item_fri_008', 'Almond dressing', 'cold', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_fri_009', 'friDinner', 'item_fri_009', 'Mango Coconut Cheesecake', 'cold', 100, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_fri_010', 'friDinner', 'item_fri_010', 'Vegan cheesecake', 'cold', 10, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_fri_011', 'friDinner', 'item_fri_011', 'Lemon Mint drink', 'cold', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+    ];
+    friDinnerInventory.forEach(inv => inventorySheet.appendRow(inv));
+
+    // ============================================================================
+    // SATURDAY BREAKFAST
+    // ============================================================================
+    const satBreakfastItems = [
+        ['item_sat_bf_001', 'satBreakfast', 'Sooji Upma', 'normal', 180, 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_sat_bf_002', 'satBreakfast', 'Coconut Chutney', 'cold', '', 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_sat_bf_003', 'satBreakfast', 'Granola', 'normal', 12, 0, 0, 'Not Started', true, false, 'Nuts', timestamp],
+        ['item_sat_bf_004', 'satBreakfast', 'Milk/Almond milk', 'normal', '', 0, 0, 'Not Started', true, false, 'Dairy,Nuts', timestamp],
+        ['item_sat_bf_005', 'satBreakfast', 'Yogurt', 'cold', '', 0, 0, 'Not Started', true, false, 'Dairy', timestamp],
+        ['item_sat_bf_006', 'satBreakfast', 'Pancakes, Vegan Pancakes', 'normal', 100, 0, 0, 'Not Started', false, true, 'Dairy,Eggs', timestamp],
+        ['item_sat_bf_007', 'satBreakfast', 'Syrup', 'normal', '', 0, 0, 'Not Started', true, false, '', timestamp],
+    ];
+    satBreakfastItems.forEach(item => menuSheet.appendRow(item));
+
+    const satBreakfastInventory = [
+        ['inv_sat_bf_001', 'satBreakfast', 'item_sat_bf_001', 'Sooji Upma', 'normal', 180, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_bf_002', 'satBreakfast', 'item_sat_bf_002', 'Coconut Chutney', 'cold', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_bf_003', 'satBreakfast', 'item_sat_bf_003', 'Granola', 'normal', 12, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_bf_004', 'satBreakfast', 'item_sat_bf_004', 'Milk/Almond milk', 'normal', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_bf_005', 'satBreakfast', 'item_sat_bf_005', 'Yogurt', 'cold', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_bf_006', 'satBreakfast', 'item_sat_bf_006', 'Pancakes, Vegan Pancakes', 'normal', 100, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_bf_007', 'satBreakfast', 'item_sat_bf_007', 'Syrup', 'normal', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+    ];
+    satBreakfastInventory.forEach(inv => inventorySheet.appendRow(inv));
+
+    // ============================================================================
+    // SATURDAY LUNCH
+    // ============================================================================
+    const satLunchItems = [
+        ['item_sat_lu_001', 'satLunch', 'Jeera Rice', 'normal', 220, 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_sat_lu_002', 'satLunch', 'Dal Makhani', 'normal', '', 0, 0, 'Not Started', true, false, 'Dairy', timestamp],
+        ['item_sat_lu_003', 'satLunch', 'Mutter Panir', 'normal', 140, 0, 0, 'Not Started', false, false, 'Dairy', timestamp],
+        ['item_sat_lu_004', 'satLunch', 'Spinach Cauliflower', 'normal', 140, 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_sat_lu_005', 'satLunch', 'Chapati', 'normal', '', 0, 0, 'Not Started', true, false, 'Gluten', timestamp],
+        ['item_sat_lu_006', 'satLunch', 'Spinach Roll', 'normal', 45, 0, 0, 'Not Started', true, false, 'Gluten', timestamp],
+        ['item_sat_lu_007', 'satLunch', 'Rasa Malai', 'cold', '', 0, 0, 'Not Started', false, false, 'Dairy,Nuts', timestamp],
+        ['item_sat_lu_008', 'satLunch', 'Badaam Pista Burfi', 'cold', '', 0, 0, 'Not Started', false, false, 'Dairy,Nuts', timestamp],
+        ['item_sat_lu_009', 'satLunch', 'Salad Sat Lunch', 'cold', 45, 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_sat_lu_010', 'satLunch', 'Chilli Pickle', 'cold', 24, 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_sat_lu_011', 'satLunch', 'Italian dressing', 'cold', '', 0, 0, 'Not Started', true, false, 'Dairy', timestamp],
+        ['item_sat_lu_012', 'satLunch', 'Vegan Baadam Katli', 'cold', 10, 0, 0, 'Not Started', true, false, 'Nuts', timestamp],
+    ];
+    satLunchItems.forEach(item => menuSheet.appendRow(item));
+
+    const satLunchInventory = [
+        ['inv_sat_lu_001', 'satLunch', 'item_sat_lu_001', 'Jeera Rice', 'normal', 220, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_lu_002', 'satLunch', 'item_sat_lu_002', 'Dal Makhani', 'normal', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_lu_003', 'satLunch', 'item_sat_lu_003', 'Mutter Panir', 'normal', 140, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_lu_004', 'satLunch', 'item_sat_lu_004', 'Spinach Cauliflower', 'normal', 140, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_lu_005', 'satLunch', 'item_sat_lu_005', 'Chapati', 'normal', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_lu_006', 'satLunch', 'item_sat_lu_006', 'Spinach Roll', 'normal', 45, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_lu_007', 'satLunch', 'item_sat_lu_007', 'Rasa Malai', 'cold', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_lu_008', 'satLunch', 'item_sat_lu_008', 'Badaam Pista Burfi', 'cold', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_lu_009', 'satLunch', 'item_sat_lu_009', 'Salad Sat Lunch', 'cold', 45, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_lu_010', 'satLunch', 'item_sat_lu_010', 'Chilli Pickle', 'cold', 24, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_lu_011', 'satLunch', 'item_sat_lu_011', 'Italian dressing', 'cold', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_lu_012', 'satLunch', 'item_sat_lu_012', 'Vegan Baadam Katli', 'cold', 10, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+    ];
+    satLunchInventory.forEach(inv => inventorySheet.appendRow(inv));
+
+    // ============================================================================
+    // SATURDAY DINNER
+    // ============================================================================
+    const satDinnerItems = [
+        ['item_sat_di_001', 'satDinner', 'Pasta with Vegetables', 'normal', 70, 0, 0, 'Not Started', true, false, 'Gluten', timestamp],
+        ['item_sat_di_002', 'satDinner', 'Bread Roll', 'normal', 45, 0, 0, 'Not Started', true, false, 'Gluten', timestamp],
+        ['item_sat_di_003', 'satDinner', 'Butter for Roll', 'cold', 24, 0, 0, 'Not Started', true, false, 'Dairy', timestamp],
+        ['item_sat_di_004', 'satDinner', 'Asparagus Soup', 'normal', '', 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_sat_di_005', 'satDinner', 'Cauliflower Pakora', 'normal', 55, 0, 0, 'Not Started', true, false, 'Gluten', timestamp],
+        ['item_sat_di_006', 'satDinner', 'Salad', 'cold', 45, 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_sat_di_007', 'satDinner', 'Bell Pepper Sour Cream dressing', 'cold', '', 0, 0, 'Not Started', false, false, 'Dairy', timestamp],
+        ['item_sat_di_008', 'satDinner', 'Tiramisu', 'cold', 100, 0, 0, 'Not Started', false, false, 'Dairy', timestamp],
+        ['item_sat_di_009', 'satDinner', 'Vegan Tiramisu', 'cold', 10, 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_sat_di_010', 'satDinner', 'Pineapple Peach Nectar', 'cold', '', 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_sat_di_011', 'satDinner', 'Steamed Vegetables', 'normal', 90, 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_sat_di_012', 'satDinner', 'Tahini Sauce for Veggies', 'cold', '', 0, 0, 'Not Started', true, false, 'Nuts,Sesame', timestamp],
+    ];
+    satDinnerItems.forEach(item => menuSheet.appendRow(item));
+
+    const satDinnerInventory = [
+        ['inv_sat_di_001', 'satDinner', 'item_sat_di_001', 'Pasta with Vegetables', 'normal', 70, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_di_002', 'satDinner', 'item_sat_di_002', 'Bread Roll', 'normal', 45, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_di_003', 'satDinner', 'item_sat_di_003', 'Butter for Roll', 'cold', 24, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_di_004', 'satDinner', 'item_sat_di_004', 'Asparagus Soup', 'normal', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_di_005', 'satDinner', 'item_sat_di_005', 'Cauliflower Pakora', 'normal', 55, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_di_006', 'satDinner', 'item_sat_di_006', 'Salad', 'cold', 45, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_di_007', 'satDinner', 'item_sat_di_007', 'Bell Pepper Sour Cream dressing', 'cold', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_di_008', 'satDinner', 'item_sat_di_008', 'Tiramisu', 'cold', 100, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_di_009', 'satDinner', 'item_sat_di_009', 'Vegan Tiramisu', 'cold', 10, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_di_010', 'satDinner', 'item_sat_di_010', 'Pineapple Peach Nectar', 'cold', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_di_011', 'satDinner', 'item_sat_di_011', 'Steamed Vegetables', 'normal', 90, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sat_di_012', 'satDinner', 'item_sat_di_012', 'Tahini Sauce for Veggies', 'cold', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+    ];
+    satDinnerInventory.forEach(inv => inventorySheet.appendRow(inv));
+
+    // ============================================================================
+    // SUNDAY BREAKFAST
+    // ============================================================================
+    const sunBreakfastItems = [
+        ['item_sun_bf_001', 'sunBreakfast', 'Semiya Upma', 'normal', 180, 0, 0, 'Not Started', true, false, 'Gluten', timestamp],
+        ['item_sun_bf_002', 'sunBreakfast', 'Tomato jalapeno chutney', 'cold', '', 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_sun_bf_003', 'sunBreakfast', 'Granola Sun', 'normal', 12, 0, 0, 'Not Started', true, false, 'Nuts', timestamp],
+        ['item_sun_bf_004', 'sunBreakfast', 'Milk/ Almond milk', 'normal', '', 0, 0, 'Not Started', true, false, 'Dairy,Nuts', timestamp],
+        ['item_sun_bf_005', 'sunBreakfast', 'Yogurt', 'cold', '', 0, 0, 'Not Started', true, false, 'Dairy', timestamp],
+        ['item_sun_bf_006', 'sunBreakfast', 'Cream Cheese Danish & Vegan', 'cold', 110, 0, 0, 'Not Started', false, true, 'Dairy,Eggs,Gluten,Nuts', timestamp],
+    ];
+    sunBreakfastItems.forEach(item => menuSheet.appendRow(item));
+
+    const sunBreakfastInventory = [
+        ['inv_sun_bf_001', 'sunBreakfast', 'item_sun_bf_001', 'Semiya Upma', 'normal', 180, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_bf_002', 'sunBreakfast', 'item_sun_bf_002', 'Tomato jalapeno chutney', 'cold', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_bf_003', 'sunBreakfast', 'item_sun_bf_003', 'Granola Sun', 'normal', 12, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_bf_004', 'sunBreakfast', 'item_sun_bf_004', 'Milk/ Almond milk', 'normal', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_bf_005', 'sunBreakfast', 'item_sun_bf_005', 'Yogurt', 'cold', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_bf_006', 'sunBreakfast', 'item_sun_bf_006', 'Cream Cheese Danish & Vegan', 'cold', 110, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+    ];
+    sunBreakfastInventory.forEach(inv => inventorySheet.appendRow(inv));
+
+    // ============================================================================
+    // SUNDAY LUNCH
+    // ============================================================================
+    const sunLunchItems = [
+        ['item_sun_lu_001', 'sunLunch', 'Saffron Cashew Rice', 'normal', 220, 0, 0, 'Not Started', true, false, 'Nuts', timestamp],
+        ['item_sun_lu_002', 'sunLunch', 'Mixed Dal', 'normal', '', 0, 0, 'Not Started', true, false, 'Dairy', timestamp],
+        ['item_sun_lu_003', 'sunLunch', 'Kadai Panir', 'normal', 110, 0, 0, 'Not Started', false, false, 'Dairy', timestamp],
+        ['item_sun_lu_004', 'sunLunch', 'Mixed Vegetable', 'normal', 110, 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_sun_lu_005', 'sunLunch', 'Chapati', 'normal', '', 0, 0, 'Not Started', true, false, 'Gluten', timestamp],
+        ['item_sun_lu_006', 'sunLunch', 'Dhokla', 'normal', 90, 0, 0, 'Not Started', true, false, 'Gluten', timestamp],
+        ['item_sun_lu_007', 'sunLunch', 'Green Chutney', 'cold', '', 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_sun_lu_008', 'sunLunch', 'Gulab Jamun', 'cold', '', 0, 0, 'Not Started', false, false, 'Dairy', timestamp],
+        ['item_sun_lu_009', 'sunLunch', 'Dilkush', 'cold', '', 0, 0, 'Not Started', false, false, 'Dairy,Nuts', timestamp],
+        ['item_sun_lu_010', 'sunLunch', 'Salad Sun lunch', 'cold', 45, 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_sun_lu_011', 'sunLunch', 'Chilli Pickle', 'cold', '', 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_sun_lu_012', 'sunLunch', 'Italian dressing', 'cold', '', 0, 0, 'Not Started', true, false, 'Dairy', timestamp],
+        ['item_sun_lu_013', 'sunLunch', 'Vegan Coconut Burfi', 'cold', 10, 0, 0, 'Not Started', true, false, 'Nuts', timestamp],
+    ];
+    sunLunchItems.forEach(item => menuSheet.appendRow(item));
+
+    const sunLunchInventory = [
+        ['inv_sun_lu_001', 'sunLunch', 'item_sun_lu_001', 'Saffron Cashew Rice', 'normal', 220, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_lu_002', 'sunLunch', 'item_sun_lu_002', 'Mixed Dal', 'normal', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_lu_003', 'sunLunch', 'item_sun_lu_003', 'Kadai Panir', 'normal', 110, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_lu_004', 'sunLunch', 'item_sun_lu_004', 'Mixed Vegetable', 'normal', 110, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_lu_005', 'sunLunch', 'item_sun_lu_005', 'Chapati', 'normal', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_lu_006', 'sunLunch', 'item_sun_lu_006', 'Dhokla', 'normal', 90, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_lu_007', 'sunLunch', 'item_sun_lu_007', 'Green Chutney', 'cold', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_lu_008', 'sunLunch', 'item_sun_lu_008', 'Gulab Jamun', 'cold', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_lu_009', 'sunLunch', 'item_sun_lu_009', 'Dilkush', 'cold', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_lu_010', 'sunLunch', 'item_sun_lu_010', 'Salad Sun lunch', 'cold', 45, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_lu_011', 'sunLunch', 'item_sun_lu_011', 'Chilli Pickle', 'cold', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_lu_012', 'sunLunch', 'item_sun_lu_012', 'Italian dressing', 'cold', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_lu_013', 'sunLunch', 'item_sun_lu_013', 'Vegan Coconut Burfi', 'cold', 10, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+    ];
+    sunLunchInventory.forEach(inv => inventorySheet.appendRow(inv));
+
+    // ============================================================================
+    // SUNDAY DINNER
+    // ============================================================================
+    const sunDinnerItems = [
+        ['item_sun_di_001', 'sunDinner', 'Shepard Pie', 'normal', 175, 0, 0, 'Not Started', false, false, 'Dairy', timestamp],
+        ['item_sun_di_002', 'sunDinner', 'Gravy', 'normal', '', 0, 0, 'Not Started', false, false, 'Dairy', timestamp],
+        ['item_sun_di_003', 'sunDinner', 'Butternut Squash Soup', 'normal', '', 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_sun_di_004', 'sunDinner', 'Sweet Potato Pakora', 'normal', 55, 0, 0, 'Not Started', true, false, 'Gluten', timestamp],
+        ['item_sun_di_005', 'sunDinner', 'Southern Syle Biscuits & Vegan biscuits', 'normal', 45, 0, 0, 'Not Started', false, true, 'Dairy,Eggs,Gluten', timestamp],
+        ['item_sun_di_006', 'sunDinner', 'Butter for Biscuits', 'cold', 24, 0, 0, 'Not Started', true, false, 'Dairy', timestamp],
+        ['item_sun_di_007', 'sunDinner', 'Salad', 'cold', 45, 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_sun_di_008', 'sunDinner', 'Tahini Dressing', 'cold', '', 0, 0, 'Not Started', true, false, 'Nuts,Sesame', timestamp],
+        ['item_sun_di_009', 'sunDinner', 'Fruit Cocktail Drink', 'cold', '', 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_sun_di_010', 'sunDinner', 'Flan with Berries', 'cold', 100, 0, 0, 'Not Started', false, false, 'Dairy,Eggs', timestamp],
+        ['item_sun_di_011', 'sunDinner', 'Vegan Flan with Berries', 'cold', 10, 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_sun_di_012', 'sunDinner', 'Stir Fry Green Beans', 'normal', 90, 0, 0, 'Not Started', true, false, '', timestamp],
+    ];
+    sunDinnerItems.forEach(item => menuSheet.appendRow(item));
+
+    const sunDinnerInventory = [
+        ['inv_sun_di_001', 'sunDinner', 'item_sun_di_001', 'Shepard Pie', 'normal', 175, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_di_002', 'sunDinner', 'item_sun_di_002', 'Gravy', 'normal', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_di_003', 'sunDinner', 'item_sun_di_003', 'Butternut Squash Soup', 'normal', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_di_004', 'sunDinner', 'item_sun_di_004', 'Sweet Potato Pakora', 'normal', 55, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_di_005', 'sunDinner', 'item_sun_di_005', 'Southern Syle Biscuits & Vegan biscuits', 'normal', 45, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_di_006', 'sunDinner', 'item_sun_di_006', 'Butter for Biscuits', 'cold', 24, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_di_007', 'sunDinner', 'item_sun_di_007', 'Salad', 'cold', 45, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_di_008', 'sunDinner', 'item_sun_di_008', 'Tahini Dressing', 'cold', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_di_009', 'sunDinner', 'item_sun_di_009', 'Fruit Cocktail Drink', 'cold', '', 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_di_010', 'sunDinner', 'item_sun_di_010', 'Flan with Berries', 'cold', 100, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_di_011', 'sunDinner', 'item_sun_di_011', 'Vegan Flan with Berries', 'cold', 10, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_sun_di_012', 'sunDinner', 'item_sun_di_012', 'Stir Fry Green Beans', 'normal', 90, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+    ];
+    sunDinnerInventory.forEach(inv => inventorySheet.appendRow(inv));
+
+    // ============================================================================
+    // MONDAY BREAKFAST
+    // ============================================================================
+    const monBreakfastItems = [
+        ['item_mon_bf_001', 'monBreakfast', 'Khichidi', 'normal', 220, 0, 0, 'Not Started', true, false, '', timestamp],
+        ['item_mon_bf_002', 'monBreakfast', 'Apple Raita', 'cold', 55, 0, 0, 'Not Started', true, false, 'Dairy', timestamp],
+        ['item_mon_bf_003', 'monBreakfast', 'Blueberry Halwa', 'normal', 45, 0, 0, 'Not Started', true, false, 'Dairy', timestamp],
+    ];
+    monBreakfastItems.forEach(item => menuSheet.appendRow(item));
+
+    const monBreakfastInventory = [
+        ['inv_mon_bf_001', 'monBreakfast', 'item_mon_bf_001', 'Khichidi', 'normal', 220, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_mon_bf_002', 'monBreakfast', 'item_mon_bf_002', 'Apple Raita', 'cold', 55, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+        ['inv_mon_bf_003', 'monBreakfast', 'item_mon_bf_003', 'Blueberry Halwa', 'normal', 45, 0, 0, 0, 0, 0, 0, 0, 0, timestamp],
+    ];
+    monBreakfastInventory.forEach(inv => inventorySheet.appendRow(inv));
+
+    return 'Successfully populated USA Sadhu Sanga Retreat 2026 with actual menu data from COPY_PLAN_2026! ' +
+           'Total meals: 9, Total menu items: ~75';
+}
+

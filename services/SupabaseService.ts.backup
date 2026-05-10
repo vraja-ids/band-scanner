@@ -1,0 +1,703 @@
+/**
+ * Supabase Client Service
+ * Primary backend service for Prasadam Distribution
+ * Provides fast, reliable data access with real-time subscriptions
+ */
+
+import { createClient } from '@supabase/supabase-js';
+import type {
+  Event,
+  EventInsert,
+  Meal,
+  MealInsert,
+  MenuItem,
+  MenuItemInsert,
+  LocationInventory,
+  LocationInventoryInsert,
+  LocationInventoryUpdate,
+  Transfer,
+  TransferInsert,
+  RefillRequest,
+  RefillRequestInsert,
+  DashboardSetting,
+  DashboardSettingInsert,
+  DashboardSummaryData,
+  RealtimePayload,
+  RealtimeChannel,
+} from '../supabase/types';
+
+// ============================================================================
+// Configuration
+// ============================================================================
+
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.warn('[SupabaseService] Missing credentials. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in .env.local');
+}
+
+// Create Supabase client (only if configured, otherwise provide a dummy client)
+export const supabase = SUPABASE_URL && SUPABASE_ANON_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession: false, // We manage session separately via AsyncStorage
+      },
+      db: {
+        schema: 'public',
+      },
+      realtime: {
+        params: {
+          eventsPerSecond: 10,
+        },
+      },
+    })
+  : null;
+
+// ============================================================================
+// Generic Query Helpers
+// ============================================================================
+
+type QueryResult<T> = {
+  data: T | null;
+  error: Error | null;
+};
+
+function mapQueryResult<T>(result: QueryResult<T>): T | null {
+  if (result.error) {
+    console.error('[SupabaseService] Query error:', result.error);
+    return null;
+  }
+  return result.data;
+}
+
+async function handleQuery<T>(
+  query: Promise<QueryResult<T>>
+): Promise<T | null> {
+  try {
+    const result = await query;
+    return mapQueryResult(result);
+  } catch (error) {
+    console.error('[SupabaseService] Query exception:', error);
+    return null;
+  }
+}
+
+// Helper to check if Supabase is available
+export function isSupabaseAvailable(): boolean {
+  return supabase !== null;
+}
+
+// ============================================================================
+// Events
+// ============================================================================
+
+export async function getEvents(): Promise<Event[]> {
+  if (!supabase) {
+    console.warn('[SupabaseService] Supabase not configured, returning empty events');
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('events')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('[SupabaseService] getEvents error:', error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function getEvent(eventId: string): Promise<Event | null> {
+  return handleQuery(
+    supabase.from('events').select('*').eq('event_id', eventId).single()
+  );
+}
+
+export async function createEvent(event: EventInsert): Promise<boolean> {
+  const { error } = await supabase.from('events').insert(event);
+  return !error;
+}
+
+// ============================================================================
+// Meals
+// ============================================================================
+
+export async function getMeals(eventId: string): Promise<Meal[]> {
+  const { data, error } = await supabase
+    .from('meals')
+    .select('*')
+    .eq('event_id', eventId)
+    .order('day_number', { ascending: true })
+    .order('serving_start_time', { ascending: true });
+
+  if (error) {
+    console.error('[SupabaseService] getMeals error:', error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function getMeal(mealId: string): Promise<Meal | null> {
+  return handleQuery(
+    supabase.from('meals').select('*').eq('meal_id', mealId).single()
+  );
+}
+
+export async function createMeal(meal: MealInsert): Promise<boolean> {
+  const { error } = await supabase.from('meals').insert(meal);
+  return !error;
+}
+
+export async function updateMealDevotees(
+  mealId: string,
+  expectedDevotees: number
+): Promise<boolean> {
+  const { error } = await supabase
+    .from('meals')
+    .update({ expected_devotees: expectedDevotees })
+    .eq('meal_id', mealId);
+  return !error;
+}
+
+// ============================================================================
+// Menu Items
+// ============================================================================
+
+export async function getMenuItems(mealId: string): Promise<MenuItem[]> {
+  const { data, error } = await supabase
+    .from('menu_items')
+    .select('*')
+    .eq('meal_id', mealId)
+    .order('category', { ascending: true })
+    .order('name', { ascending: true });
+
+  if (error) {
+    console.error('[SupabaseService] getMenuItems error:', error);
+    return [];
+  }
+  // Log one item to see the structure
+  if (data && data.length > 0) {
+    console.log('[SupabaseService] getMenuItems sample item:', {
+      item_id: data[0].item_id,
+      name: data[0].name,
+      ready_trays: data[0].ready_trays,
+      planned_trays: data[0].planned_trays,
+    });
+  }
+  return data || [];
+}
+
+export async function createMenuItem(item: MenuItemInsert): Promise<boolean> {
+  const { error } = await supabase.from('menu_items').insert(item);
+  return !error;
+}
+
+export async function updateMenuItem(
+  itemId: string,
+  updates: Partial<MenuItemInsert>
+): Promise<boolean> {
+  console.log('[SupabaseService] updateMenuItem:', itemId, updates);
+  const { error, data } = await supabase
+    .from('menu_items')
+    .update(updates)
+    .eq('item_id', itemId)
+    .select();
+  if (error) {
+    console.error('[SupabaseService] updateMenuItem error:', error);
+  } else {
+    console.log('[SupabaseService] updateMenuItem success, updated data:', data);
+  }
+  return !error;
+}
+
+export async function updateCookingStatus(
+  itemId: string,
+  status: string
+): Promise<boolean> {
+  const { error } = await supabase
+    .from('menu_items')
+    .update({ cooking_status: status })
+    .eq('item_id', itemId);
+  return !error;
+}
+
+export async function updateTrayCount(
+  itemId: string,
+  adjustment: number
+): Promise<boolean> {
+  // First get current value, then update
+  const { data } = await supabase
+    .from('menu_items')
+    .select('ready_trays')
+    .eq('item_id', itemId)
+    .single();
+
+  if (!data) return false;
+
+  const newCount = Math.max(0, (data.ready_trays || 0) + adjustment);
+
+  const { error } = await supabase
+    .from('menu_items')
+    .update({ ready_trays: newCount })
+    .eq('item_id', itemId);
+  return !error;
+}
+
+// ============================================================================
+// Location Inventory
+// ============================================================================
+
+export async function getLocationInventory(
+  mealId: string
+): Promise<LocationInventory[]> {
+  const { data, error } = await supabase
+    .from('location_inventory')
+    .select('*')
+    .eq('meal_id', mealId)
+    .order('category', { ascending: true })
+    .order('item_name', { ascending: true });
+
+  if (error) {
+    console.error('[SupabaseService] getLocationInventory error:', error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function getLocationInventoryItem(
+  mealId: string,
+  itemId: string
+): Promise<LocationInventory | null> {
+  console.log('[SupabaseService] getLocationInventoryItem:', mealId, itemId);
+  const result = await supabase
+    .from('location_inventory')
+    .select('*')
+    .eq('meal_id', mealId)
+    .eq('item_id', itemId)
+    .maybeSingle();  // Use maybeSingle() instead of single() to avoid error when not found
+  console.log('[SupabaseService] getLocationInventoryItem result data:', result.data, 'error:', result.error);
+  if (result.error) {
+    console.error('[SupabaseService] getLocationInventoryItem error:', result.error);
+    return null;
+  }
+  return result.data;
+}
+
+/**
+ * Update location inventory with atomic operation
+ * Uses PostgreSQL's built-in atomic operations for consistency
+ */
+export async function updateLocationInventory(
+  data: LocationInventoryUpdate
+): Promise<boolean> {
+  const { meal_id, item_id, location, quantity, action } = data;
+
+  // Build the update expression based on action
+  const operator = action === 'add' ? '+' : '-';
+
+  const { error } = await supabase.rpc('update_inventory_location', {
+    p_meal_id: meal_id,
+    p_item_id: item_id,
+    p_location: location,
+    p_quantity: quantity,
+    p_action: action,
+  });
+
+  if (error) {
+    console.error('[SupabaseService] updateLocationInventory error:', error);
+    // Fallback: try direct query if RPC doesn't exist
+    return fallbackUpdateLocationInventory(data);
+  }
+
+  return true;
+}
+
+// Fallback implementation for when RPC function doesn't exist
+async function fallbackUpdateLocationInventory(
+  data: LocationInventoryUpdate
+): Promise<boolean> {
+  const { meal_id, item_id, location, quantity, action } = data;
+  console.log('[SupabaseService] fallbackUpdateLocationInventory:', { meal_id, item_id, location, quantity, action });
+
+  // Map UI location names to database column names
+  const locationColumnMap: Record<string, string> = {
+    'Kitchen': 'kitchen',
+    'Staging': 'staging',
+    'Refill 1': 'refill_1',
+    'Refill 2': 'refill_2',
+    'Refill 3': 'refill_3',
+    'Served': 'served',
+    'Left Over': 'left_over',
+  };
+  const dbLocation = locationColumnMap[location] || location.toLowerCase();
+
+  // Get current value
+  const current = await getLocationInventoryItem(meal_id, item_id);
+  console.log('[SupabaseService] fallbackUpdateLocationInventory current:', current);
+  if (!current) {
+    console.error('[SupabaseService] fallbackUpdateLocationInventory: current is null');
+    return false;
+  }
+
+  const currentValue = (current as any)[dbLocation] || 0;
+  const newValue = action === 'add'
+    ? currentValue + quantity
+    : Math.max(0, currentValue - quantity);
+  console.log('[SupabaseService] fallbackUpdateLocationInventory updating:', dbLocation, currentValue, '->', newValue);
+
+  const { error, data: updatedData } = await supabase
+    .from('location_inventory')
+    .update({ [dbLocation]: newValue })
+    .eq('meal_id', meal_id)
+    .eq('item_id', item_id);
+
+  console.log('[SupabaseService] fallbackUpdateLocationInventory update result:', { error, updatedData });
+  return !error;
+}
+
+export async function upsertLocationInventory(
+  item: LocationInventoryInsert
+): Promise<boolean> {
+  const { error } = await supabase
+    .from('location_inventory')
+    .upsert(item, { onConflict: 'meal_id,item_id' });
+  return !error;
+}
+
+// ============================================================================
+// Transfers
+// ============================================================================
+
+export async function getTransfers(mealId: string): Promise<Transfer[]> {
+  const { data, error } = await supabase
+    .from('transfers')
+    .select('*')
+    .eq('meal_id', mealId)
+    .order('timestamp_sent', { ascending: false });
+
+  if (error) {
+    console.error('[SupabaseService] getTransfers error:', error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function getRecentTransfers(
+  mealId: string,
+  itemId: string,
+  limit: number = 3
+): Promise<Transfer[]> {
+  const { data, error } = await supabase
+    .from('transfers')
+    .select('*')
+    .eq('meal_id', mealId)
+    .eq('item_id', itemId)
+    .order('timestamp_sent', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('[SupabaseService] getRecentTransfers error:', error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function getPendingTransfers(
+  toLocation: string
+): Promise<Transfer[]> {
+  const { data, error } = await supabase
+    .from('transfers')
+    .select('*')
+    .eq('to_location', toLocation)
+    .eq('status', 'sent')
+    .order('timestamp_sent', { ascending: true });
+
+  if (error) {
+    console.error('[SupabaseService] getPendingTransfers error:', error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function createTransfer(transfer: TransferInsert): Promise<string | null> {
+  const transfer_id = transfer.transfer_id || `tr_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+  const { error } = await supabase.from('transfers').insert({
+    ...transfer,
+    transfer_id,
+  });
+
+  if (error) {
+    console.error('[SupabaseService] createTransfer error:', error);
+    return null;
+  }
+
+  return transfer_id;
+}
+
+export async function recordTransfer(transfer: TransferInsert): Promise<string | null> {
+  // Alias for createTransfer - same operation
+  return createTransfer(transfer);
+}
+
+export async function receiveTransfer(
+  transferId: string
+): Promise<boolean> {
+  const { error } = await supabase
+    .from('transfers')
+    .update({
+      status: 'received',
+      timestamp_received: new Date().toISOString(),
+    })
+    .eq('transfer_id', transferId);
+
+  return !error;
+}
+
+// ============================================================================
+// Refill Requests
+// ============================================================================
+
+export async function getRefillRequests(mealId: string): Promise<RefillRequest[]> {
+  const { data, error } = await supabase
+    .from('refill_requests')
+    .select('*')
+    .eq('meal_id', mealId)
+    .order('timestamp', { ascending: false });
+
+  if (error) {
+    console.error('[SupabaseService] getRefillRequests error:', error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function getPendingRefillRequests(
+  refillStation: string
+): Promise<RefillRequest[]> {
+  const { data, error } = await supabase
+    .from('refill_requests')
+    .select('*')
+    .eq('refill_station', refillStation)
+    .eq('status', 'pending')
+    .order('timestamp', { ascending: true });
+
+  if (error) {
+    console.error('[SupabaseService] getPendingRefillRequests error:', error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function createRefillRequest(
+  request: RefillRequestInsert
+): Promise<string | null> {
+  const request_id = request.request_id || `rr_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+  const { error } = await supabase.from('refill_requests').insert({
+    ...request,
+    request_id,
+  });
+
+  if (error) {
+    console.error('[SupabaseService] createRefillRequest error:', error);
+    return null;
+  }
+
+  return request_id;
+}
+
+export async function fulfillRefillRequest(
+  requestId: string
+): Promise<boolean> {
+  const { error } = await supabase
+    .from('refill_requests')
+    .update({
+      status: 'fulfilled',
+      fulfilled_at: new Date().toISOString(),
+    })
+    .eq('request_id', requestId);
+
+  return !error;
+}
+
+// ============================================================================
+// Dashboard Settings
+// ============================================================================
+
+export async function getDashboardSettings(
+  eventId: string
+): Promise<DashboardSetting[]> {
+  const { data, error } = await supabase
+    .from('dashboard_settings')
+    .select('*')
+    .eq('event_id', eventId);
+
+  if (error) {
+    console.error('[SupabaseService] getDashboardSettings error:', error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function saveDashboardSettings(
+  settings: DashboardSettingInsert[]
+): Promise<boolean> {
+  // Delete existing settings for this event
+  const eventId = settings[0]?.event_id;
+  if (!eventId) return false;
+
+  // Use a transaction-like operation
+  const { error: deleteError } = await supabase
+    .from('dashboard_settings')
+    .delete()
+    .eq('event_id', eventId);
+
+  if (deleteError) {
+    console.error('[SupabaseService] saveDashboardSettings delete error:', deleteError);
+    return false;
+  }
+
+  // Insert new settings
+  const { error: insertError } = await supabase
+    .from('dashboard_settings')
+    .insert(settings);
+
+  if (insertError) {
+    console.error('[SupabaseService] saveDashboardSettings insert error:', insertError);
+    return false;
+  }
+
+  return true;
+}
+
+// ============================================================================
+// Dashboard Summary
+// ============================================================================
+
+export async function getDashboardSummary(
+  mealId: string
+): Promise<DashboardSummaryData | null> {
+  // Query menu items and inventory in parallel
+  const [menuItems, inventory, transfersData, refillRequestsData] = await Promise.all([
+    getMenuItems(mealId),
+    getLocationInventory(mealId),
+    supabase.from('transfers').select('*').eq('meal_id', mealId).eq('status', 'sent'),
+    supabase.from('refill_requests').select('*').eq('meal_id', mealId).eq('status', 'pending'),
+  ]);
+
+  const pendingTransfersCount = transfersData.data?.length || 0;
+  const pendingRequestsCount = refillRequestsData.data?.length || 0;
+
+  return {
+    menu: menuItems,
+    inventory: inventory,
+    pendingTransfersCount,
+    pendingRequestsCount,
+  };
+}
+
+// ============================================================================
+// Real-time Subscriptions
+// ============================================================================
+
+type SubscriptionCallback<T> = (payload: RealtimePayload<T>) => void;
+
+export function subscribeToTable<T>(
+  table: RealtimeChannel,
+  filter: { column: string; value: string } | null,
+  callback: SubscriptionCallback<T>
+): (() => void) {
+  let query = supabase.channel(`${table}_changes`).on(
+    'postgres_changes',
+    {
+      event: '*',
+      schema: 'public',
+      table: table,
+      filter: filter ? `${table}.${filter.column}=eq.${filter.value}` : undefined,
+    },
+    (payload) => callback(payload as RealtimePayload<T>)
+  );
+
+  query.subscribe();
+
+  // Return unsubscribe function
+  return () => {
+    supabase.removeChannel(query);
+  };
+}
+
+export function subscribeToMealInventory(
+  mealId: string,
+  callback: (inventory: LocationInventory[]) => void
+): (() => void) {
+  const channel = supabase
+    .channel(`meal_${mealId}_inventory`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'location_inventory',
+        filter: `location_inventory.meal_id=eq.${mealId}`,
+      },
+      async () => {
+        // Refetch inventory on changes
+        const inventory = await getLocationInventory(mealId);
+        callback(inventory);
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+export function subscribeToPendingTransfers(
+  toLocation: string,
+  callback: (transfers: Transfer[]) => void
+): (() => void) {
+  const channel = supabase
+    .channel(`transfers_${toLocation}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'transfers',
+        filter: `transfers.to_location=eq.${toLocation}`,
+      },
+      async () => {
+        const transfers = await getPendingTransfers(toLocation);
+        callback(transfers);
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+// ============================================================================
+// Connection Status
+// ============================================================================
+
+export function subscribeToConnectionStatus(
+  callback: (connected: boolean) => void
+): (() => void) {
+  const channel = supabase.channel('connection_status');
+
+  channel
+    .subscribe((status) => {
+      callback(status === 'SUBSCRIBED');
+    });
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}

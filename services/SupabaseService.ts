@@ -37,19 +37,32 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.warn('[SupabaseService] Missing credentials. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in .env.local');
 }
 
-// Create Supabase client
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    persistSession: false, // We manage session separately via AsyncStorage
-  },
-  db: {
-    schema: 'public',
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10,
-    },
-  },
+// Create Supabase client (only if configured)
+const _supabaseClient = SUPABASE_URL && SUPABASE_ANON_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession: false, // We manage session separately via AsyncStorage
+      },
+      db: {
+        schema: 'public',
+      },
+      realtime: {
+        params: {
+          eventsPerSecond: 10,
+        },
+      },
+    })
+  : null;
+
+// Export a proxy that handles null case safely
+export const supabase = new Proxy({} as any, {
+  get(target, prop) {
+    if (_supabaseClient && typeof _supabaseClient[prop as keyof typeof _supabaseClient] === 'function') {
+      return _supabaseClient[prop as keyof typeof _supabaseClient];
+    }
+    // Return a no-op function that returns empty data when not configured
+    return () => ({ data: null, error: null });
+  }
 });
 
 // ============================================================================
@@ -81,11 +94,21 @@ async function handleQuery<T>(
   }
 }
 
+// Helper to check if Supabase is available
+export function isSupabaseAvailable(): boolean {
+  return _supabaseClient !== null;
+}
+
 // ============================================================================
 // Events
 // ============================================================================
 
 export async function getEvents(): Promise<Event[]> {
+  if (!supabase) {
+    console.warn('[SupabaseService] Supabase not configured, returning empty events');
+    return [];
+  }
+
   const { data, error } = await supabase
     .from('events')
     .select('*')

@@ -13,6 +13,10 @@ import { getString, Keys, setString } from '../../storage/Session';
 import { useBaseScreen } from '../common/util/useBaseScreen';
 import { updateCount } from '../Daypass/DaypassViewModel';
 import type { UpdateCountRequest } from '../Daypass/models/api';
+import { MealSelectionModal } from '../PrasadamDistribution/components/MealSelectionModal';
+import { getMeals, type Meal, initializePrasadamService } from '../../services/PrasadamSupabaseService';
+import { MealPickerModal } from '../Meals/components';
+import { getAllMealsForEvent, getCurrentMeal, type MealTimeSlot } from '../../config/mealSchedule';
 
 const HomeScreen = () => {
   const { logAction, logError } = useBaseScreen({ screenName: 'HomeScreen' });
@@ -33,7 +37,13 @@ const HomeScreen = () => {
   const [isUpdatingBusCount, setIsUpdatingBusCount] = useState(false);
   const [isUpdatingPrasadamCount, setIsUpdatingPrasadamCount] = useState(false);
   const [showBusModal, setShowBusModal] = useState(false);
+  const [showMealModal, setShowMealModal] = useState(false);
+  const [availableMeals, setAvailableMeals] = useState<Meal[]>([]);
+  const [isLoadingMeals, setIsLoadingMeals] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [showMealPicker, setShowMealPicker] = useState(false);
+  const [availableEventMeals, setAvailableEventMeals] = useState<MealTimeSlot[]>([]);
+  const [selectedEventMeal, setSelectedEventMeal] = useState<MealTimeSlot | null>(null);
   const route: any = useRoute();
 
   useEffect(() => {
@@ -41,6 +51,17 @@ const HomeScreen = () => {
     loadUserName();
     loadEventData();
   }, []);
+
+  useEffect(() => {
+    if (selectedEventId) {
+      try {
+        loadEventMeals(selectedEventId);
+      } catch (error) {
+        console.error('Error loading event meals:', error);
+        logError(error, 'loadEventMeals');
+      }
+    }
+  }, [selectedEventId]);
 
   useEffect(() => {
     if (route?.params?.tag?.id) {
@@ -79,6 +100,11 @@ const HomeScreen = () => {
       }
       if (eventId) {
         setSelectedEventId(eventId);
+        // Initialize Prasadam service with the selected event (fire and forget, don't await)
+        initializePrasadamService(eventId).catch((err) => {
+          console.error('Failed to initialize Prasadam service:', err);
+          logError(err, 'initializePrasadamService');
+        });
       }
       if (busNumber) {
         setSelectedBusNumber(busNumber);
@@ -195,7 +221,33 @@ const HomeScreen = () => {
   };
 
   const navigateToMealScanner = () => {
-    navigation.navigate(Routes.Scanner, { location: selectedLane, screen: Routes.MealScan });
+    // Show meal picker before navigating
+    setShowMealPicker(true);
+  };
+
+  const loadEventMeals = (eventId: string) => {
+    try {
+      const meals = getAllMealsForEvent(eventId);
+      const currentMeal = getCurrentMeal(eventId);
+      setAvailableEventMeals(meals);
+      setSelectedEventMeal(currentMeal);
+    } catch (error) {
+      console.error('Error loading event meals:', error);
+      logError(error, 'loadEventMeals');
+      // Set empty defaults to prevent crashes
+      setAvailableEventMeals([]);
+      setSelectedEventMeal(null);
+    }
+  };
+
+  const handleEventMealSelect = (meal: MealTimeSlot) => {
+    setShowMealPicker(false);
+    navigation.navigate(Routes.Scanner, {
+      location: selectedLane,
+      screen: Routes.MealScan,
+      mealId: meal.mealId,
+      mealName: meal.name,
+    });
   };
 
   const navigateToRegisterTag = () => {
@@ -310,7 +362,79 @@ const HomeScreen = () => {
     (navigation as any).navigate(Routes.RishikeshKirtanActivityStats);
   };
 
-  const isCheckMealDisabled = selectedLane === null;
+  const navigateToPrasadamDashboard = async () => {
+    logAction('Navigating to Prasadam Dashboard');
+    // Get meals for the current event
+    try {
+      const eventId = selectedEventId || await getString('selectedEventId');
+      if (!eventId) {
+        Alert.alert('Error', 'No event selected');
+        return;
+      }
+
+      setIsLoadingMeals(true);
+      const meals = await getMeals(eventId);
+      setIsLoadingMeals(false);
+
+      if (meals && meals.length > 0) {
+        setAvailableMeals(meals);
+
+        // Check if there's a previously selected meal for this event
+        const lastMealId = await AsyncStorage.getItem(`lastMealId_${eventId}`);
+        const lastMealName = await AsyncStorage.getItem(`lastMealName_${eventId}`);
+
+        // Validate that the saved meal still exists in the available meals
+        const mealStillExists = lastMealId && meals.some(m => m.meal_id === lastMealId);
+
+        if (lastMealId && lastMealName && mealStillExists) {
+          // Auto-navigate to the last selected meal
+          logAction('Using last selected meal', { eventId, mealId: lastMealId, mealName: lastMealName });
+          (navigation as any).navigate(Routes.PrasadamDashboard, {
+            mealId: lastMealId,
+            mealName: lastMealName,
+          });
+        } else {
+          // No previous selection or saved meal no longer exists, show meal picker
+          if (lastMealId && !mealStillExists) {
+            console.log('[HomeScreen] Saved meal no longer exists, clearing and showing picker');
+            await AsyncStorage.removeItem(`lastMealId_${eventId}`);
+            await AsyncStorage.removeItem(`lastMealName_${eventId}`);
+          }
+          setShowMealModal(true);
+        }
+      } else {
+        Alert.alert('No meals found', 'No meals configured for this event. Please contact admin.');
+      }
+    } catch (error) {
+      setIsLoadingMeals(false);
+      logError(error, 'navigateToPrasadamDashboard');
+      Alert.alert('Error', 'Failed to load meals: ' + (error as Error).message);
+    }
+  };
+
+  const handleMealSelect = async (meal: Meal) => {
+    setShowMealModal(false);
+    const eventId = selectedEventId || await getString('selectedEventId');
+
+    // Build display name with day and meal type
+    const dayNames = ['', 'Friday', 'Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
+    const dayName = meal.day_number ? dayNames[meal.day_number] || `Day ${meal.day_number}` : '';
+    const mealType = meal.meal_type || 'Meal';
+    const mealName = meal.meal_name || `${dayName} ${mealType}`.trim() || mealType;
+
+    if (eventId) {
+      // Store the selected meal for this event
+      await AsyncStorage.setItem(`lastMealId_${eventId}`, meal.meal_id);
+      await AsyncStorage.setItem(`lastMealName_${eventId}`, mealName);
+      logAction('Meal selection saved', { eventId, mealId: meal.meal_id, mealName });
+    }
+    (navigation as any).navigate(Routes.PrasadamDashboard, {
+      mealId: meal.meal_id,
+      mealName,
+    });
+  };
+
+  const isCheckMealDisabled = !selectedLane;
 
   const handleGiftScan = (tagId: string) => {
     navigation.navigate('GiftApproval', {
@@ -390,6 +514,34 @@ const HomeScreen = () => {
       );
     }
 
+    // Show Activity Stats if user has permission
+    if (SessionManager.hasPermission('canViewActivityStats')) {
+      buttons.push(
+        <TouchableOpacity
+          key="activity-stats"
+          style={styles.button}
+          onPress={navigateToActivityStats}
+        >
+          <Ionicons name="stats-chart-outline" size={24} color="#fff" />
+          <Text style={styles.buttonText}>Activity Stats</Text>
+        </TouchableOpacity>
+      );
+    }
+
+    // Show Prasadam Dashboard if user has permission
+    if (SessionManager.hasPermission('canViewPrasadamStats')) {
+      buttons.push(
+        <TouchableOpacity
+          key="prasadam-dashboard"
+          style={[styles.button, { backgroundColor: '#5dbea3' }]}
+          onPress={navigateToPrasadamDashboard}
+        >
+          <Ionicons name="restaurant-outline" size={24} color="#fff" />
+          <Text style={styles.buttonText}>Prasadam Dashboard</Text>
+        </TouchableOpacity>
+      );
+    }
+
     // Show separate redeem buttons if daypass is available
     if (!scansInThisEvent.includes('Meals') && !scansInThisEvent.includes('Gifts') && !scansInThisEvent.includes('RegistrationTag')) {
       if (scansInThisEvent.includes('Daypass')) {
@@ -444,27 +596,6 @@ const HomeScreen = () => {
           </View>
           {userName ? <Text style={styles.welcomeText}>{t('home.welcome')} {userName}</Text> : null}
           {selectedEventName ? <Text style={styles.eventText}>{t('home.event')}: {selectedEventName}</Text> : null}
-
-        {/* Show lane picker only for meal scanning */}
-        {scansInThisEvent.includes('Meals') && (
-          <View style={styles.pickerContainer}>
-            <Text style={styles.pickerLabel}>{t('home.selectLane')}:</Text>
-            <Picker selectedValue={selectedLane} onValueChange={handleLaneSelect} style={styles.picker}>
-              <Picker.Item label={t('home.selectLane')} value={null} />
-              <Picker.Item label="Lane 1" value="1" />
-              <Picker.Item label="Lane 2" value="2" />
-              <Picker.Item label="Lane 3" value="3" />
-              <Picker.Item label="Lane 4" value="4" />
-              <Picker.Item label="Lane 5" value="5" />
-              <Picker.Item label="Lane 6" value="6" />
-              <Picker.Item label="Elders & Kids" value="7" />
-              <Picker.Item label="Outdoor Lane" value="8" />
-              <Picker.Item label="Vegan Lane" value="9" />
-              <Picker.Item label="VIP Lane" value="10" />
-              <Picker.Item label="Fast Lane" value="11" />
-            </Picker>
-          </View>
-        )}
 
         {/* Count Update Buttons for Daypass */}
         
@@ -534,14 +665,6 @@ const HomeScreen = () => {
         {/* Render buttons based on event type */}
         <View style={styles.buttonsContainer}>
           {renderEventButtons()}
-          
-          {/* Always show activity stats if user has permission */}
-          {false && SessionManager.hasPermission('canViewActivityStats') && (
-            <TouchableOpacity style={styles.button} onPress={navigateToActivityStats}>
-              <Ionicons name="stats-chart-outline" size={24} color="#fff" />
-              <Text style={styles.buttonText}>Activity Stats</Text>
-            </TouchableOpacity>
-          )}
 
           {/* Daypass Activity Stats */}
           {scansInThisEvent.includes('Daypass') &&
@@ -552,9 +675,54 @@ const HomeScreen = () => {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Show lane picker only for meal scanning - moved below buttons to avoid overlap */}
+        {scansInThisEvent.includes('Meals') && (
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={selectedLane || ''}
+              onValueChange={handleLaneSelect}
+              style={styles.picker}
+              itemStyle={styles.pickerItem}
+              mode="dropdown"
+            >
+              <Picker.Item label="-- Select Lane --" value="" />
+              <Picker.Item label="Lane 1" value="1" />
+              <Picker.Item label="Lane 2" value="2" />
+              <Picker.Item label="Lane 3" value="3" />
+              <Picker.Item label="Lane 4" value="4" />
+              <Picker.Item label="Lane 5" value="5" />
+              <Picker.Item label="Lane 6" value="6" />
+              <Picker.Item label="Elders & Kids" value="7" />
+              <Picker.Item label="Outdoor Lane" value="8" />
+              <Picker.Item label="Vegan Lane" value="9" />
+              <Picker.Item label="VIP Lane" value="10" />
+              <Picker.Item label="Fast Lane" value="11" />
+            </Picker>
+          </View>
+        )}
         </View>
       </ScrollView>
       )}
+
+      {/* Meal Selection Modal for Prasadam Dashboard */}
+      <MealSelectionModal
+        visible={showMealModal}
+        meals={availableMeals}
+        loading={isLoadingMeals}
+        onSelect={handleMealSelect}
+        onClose={() => setShowMealModal(false)}
+      />
+
+      {/* Meal Picker Modal for Meal Scanning */}
+      <MealPickerModal
+        visible={showMealPicker}
+        meals={availableEventMeals}
+        currentMeal={selectedEventMeal}
+        loading={false}
+        onSelect={handleEventMealSelect}
+        onClose={() => setShowMealPicker(false)}
+      />
     </View>
   );
 };
@@ -571,9 +739,10 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     paddingTop: 20,
+    paddingBottom: 40,
   },
   welcomeText: {
     fontSize: 20,
@@ -657,20 +826,22 @@ const styles = StyleSheet.create({
     shadowRadius: 2.22,
   },
   pickerContainer: {
-    width: '80%',
-    marginBottom: 30,
+    width: '90%',
+    marginBottom: 20,
     marginTop: 20,
-  },
-  pickerLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
-    textAlign: 'center',
+    alignSelf: 'center',
   },
   picker: {
     height: 50,
     width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#5dbea3',
+  },
+  pickerItem: {
+    fontSize: 16,
+    color: '#333',
   },
   dropdownContainer: {
     width: '80%',

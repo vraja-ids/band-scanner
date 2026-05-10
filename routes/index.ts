@@ -22,6 +22,9 @@ export const Routes = {
   RishikeshKirtanRedeemSuccess: 'RishikeshKirtanRedeemSuccess',
   RishikeshKirtanActivityStats: 'RishikeshKirtanActivityStats',
   InflowComparison: 'InflowComparison',
+  // Prasadam Distribution
+  PrasadamDashboard: 'PrasadamDashboard',
+  MealSettings: 'MealSettings',
 } as const;
 
 export type RouteName = typeof Routes[keyof typeof Routes];
@@ -48,6 +51,8 @@ export interface RegisterTagParams {
 export interface MealScanParams {
   tag: { id: string };
   location?: string | number | Array<string | number>;
+  mealId?: string;
+  mealName?: string;
 }
 
 export interface GiftApprovalParams {
@@ -64,6 +69,10 @@ export interface ActivityStatsParams {
 
 export interface DaypassParams {
   dayPassNumber: string;
+}
+
+export interface PrasadamDashboardParams {
+  mealId: string;
 }
 
 export default Routes;

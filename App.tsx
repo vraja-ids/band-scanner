@@ -25,6 +25,9 @@ import RishikeshKirtanRedeemSuccessScreen from './journey/RishikeshKirtanFest/Ri
 import RishikeshKirtanActivityStatsScreen from './journey/RishikeshKirtanFest/RishikeshKirtanActivityStatsScreen';
 import InflowComparisonScreen from './journey/RishikeshKirtanFest/InflowComparisonScreen';
 import BackgroundStatsService from './services/BackgroundStatsService';
+import { initializePrasadamService } from './services/PrasadamSupabaseService';
+import PrasadamDashboardScreen from './journey/PrasadamDistribution/PrasadamDashboardScreen';
+import MealSettingsScreen from './journey/PrasadamDistribution/MealSettingsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -134,6 +137,16 @@ export default function App() {
         <Stack.Screen
           name={Routes.InflowComparison}
           component={InflowComparisonScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name={Routes.PrasadamDashboard}
+          component={PrasadamDashboardScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name={Routes.MealSettings}
+          component={MealSettingsScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

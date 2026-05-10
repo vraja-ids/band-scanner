@@ -14,7 +14,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import type { Meal } from '../../../services/PrasadamSheetsService';
+import type { Meal } from '../../../services/PrasadamSupabaseService';
 
 interface MealSelectionModalProps {
   visible: boolean;
@@ -75,7 +75,13 @@ export const MealSelectionModal: React.FC<MealSelectionModalProps> = ({
               meals.map((meal, index) => {
                 // Ensure meal_id exists, use index as fallback
                 const mealKey = meal.meal_id || `meal-${index}`;
-                const displayName = meal.meal_name || meal.meal_type || `Meal ${String(meal.meal_id || '').slice(-6) || index}`;
+
+                // Build display name with day and meal type
+                const dayNames = ['', 'Friday', 'Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
+                const dayName = meal.day_number ? dayNames[meal.day_number] || `Day ${meal.day_number}` : '';
+                const mealType = meal.meal_type || 'Meal';
+                const displayName = meal.meal_name || `${dayName} ${mealType}`.trim() || mealType;
+
                 const timeDisplay = meal.serving_start_time || meal.date || '';
                 const typeDisplay = meal.meal_type || 'Meal';
 
@@ -89,7 +95,7 @@ export const MealSelectionModal: React.FC<MealSelectionModalProps> = ({
                       <Text style={styles.mealName}>{displayName}</Text>
                       <View style={styles.mealMeta}>
                         {timeDisplay ? <Text style={styles.mealDate}>{timeDisplay}</Text> : null}
-                        <Text style={styles.mealType}>{typeDisplay}</Text>
+                        {dayName && <Text style={styles.mealDay}>{dayName}</Text>}
                       </View>
                     </View>
                     <Text style={styles.arrow}>→</Text>
@@ -188,6 +194,11 @@ const styles = StyleSheet.create({
   mealDate: {
     fontSize: 12,
     color: '#666',
+  },
+  mealDay: {
+    fontSize: 12,
+    color: '#2196F3',
+    fontWeight: '500',
   },
   mealType: {
     fontSize: 12,

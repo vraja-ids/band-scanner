@@ -1,4 +1,4 @@
-import { requestAsApiResponse, getPublic, putPublic } from '../../network/api';
+import { requestAsApiResponse, getPublic, putPublic, postPublic } from '../../network/api';
 import type { RegisterTagRequest, RegistrationStatusRequest } from './models/api';
 
 export const fetchRegistrationStatus = async (req: RegistrationStatusRequest) => {
@@ -7,6 +7,10 @@ export const fetchRegistrationStatus = async (req: RegistrationStatusRequest) =>
 
 export const registerTag = async (payload: RegisterTagRequest) => {
   return requestAsApiResponse(() => putPublic('registerTag', payload as any));
+};
+
+export const unregisterTag = async (tagId: string) => {
+  return requestAsApiResponse(() => putPublic('registerTag', { tagId, memberId: '0', apiVersion: '3.10' }));
 };
 
 

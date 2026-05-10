@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, StatusBar, TextInput, TouchableOpacity, Text, ScrollView } from 'react-native';
+import { StyleSheet, View, StatusBar, TextInput, TouchableOpacity, Text, ScrollView, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { fetchRegistrationStatus, registerTag } from './TagsViewModel';
+import { fetchRegistrationStatus, registerTag, unregisterTag } from './TagsViewModel';
 import Routes from '../../routes/index';
 
 function RegisterTagScreen({ route }: any) {
@@ -17,7 +17,9 @@ function RegisterTagScreen({ route }: any) {
     setLoading(true);
     fetchRegistrationStatus({ tagId: tag.id })
       .then((json: any) => {
-        setMemberActivityDetails(json.memberActivityDetails);
+        console.log('[RegisterTag] Initial fetch response:', JSON.stringify(json, null, 2));
+        // Response is nested: { status, data: { memberActivityDetails } }
+        setMemberActivityDetails(json.data?.memberActivityDetails || json.memberActivityDetails);
         setError(false);
       })
       .catch((error: any) => {
@@ -43,19 +45,72 @@ function RegisterTagScreen({ route }: any) {
     } else if (memberActivityDetails) {
       return (
         <View style={styles.section}>
-          <Text style={{ fontSize: 20, fontWeight: 'bold', fontFamily: 'Avenir', paddingLeft: 10 }}>TAG IS CURRENTLY ASSIGNED TO: </Text>
-          <Text style={{ fontSize: 20, fontWeight: 'bold', fontFamily: 'Avenir', paddingLeft: 10 }}>{memberActivityDetails.legalName}</Text>
-          {errorMessage && <Text>{errorMessage}</Text>}
+          <Text style={{ fontSize: 18, fontWeight: 'bold', fontFamily: 'Avenir', paddingLeft: 10 }}>TAG IS CURRENTLY ASSIGNED TO:</Text>
+          <View style={{ paddingLeft: 10, marginTop: 5 }}>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', fontFamily: 'Avenir' }}>{memberActivityDetails.legalName}</Text>
+            {memberActivityDetails.spiritualName && <Text style={{ fontSize: 16, fontFamily: 'Avenir', marginTop: 2 }}>Spiritual Name: {memberActivityDetails.spiritualName}</Text>}
+            <Text style={{ fontSize: 16, fontFamily: 'Avenir', marginTop: 2 }}>Member ID: {memberActivityDetails.memberId}</Text>
+            <Text style={{ fontSize: 16, fontFamily: 'Avenir', marginTop: 2 }}>Registration: {memberActivityDetails.registrationType}</Text>
+            <Text style={{ fontSize: 16, fontFamily: 'Avenir', marginTop: 2 }}>Meal Option: {memberActivityDetails.mealOption}</Text>
+            <Text style={{ fontSize: 16, fontFamily: 'Avenir', marginTop: 2 }}>SP Disciple: {memberActivityDetails.isSPDisciple === 'Y' ? 'Yes' : 'No'}</Text>
+          </View>
+          {errorMessage && <Text style={{ fontSize: 16, fontWeight: 'bold', fontFamily: 'Avenir', paddingLeft: 10, color: 'red', marginTop: 10 }}>{errorMessage}</Text>}
+          <TouchableOpacity
+            style={[styles.unregisterButton, isLoading && styles.disabledButton]}
+            onPress={handleUnregister}
+            disabled={isLoading}
+          >
+            <Text style={styles.unregisterButtonText}>{isLoading ? 'Processing...' : 'UNREGISTER TAG (Coming Soon)'}</Text>
+          </TouchableOpacity>
         </View>
       );
     } else {
       return (
         <View style={styles.roundedGreen}>
           <Text style={styles.sectionLabel}>TAG IS NOT ASSIGNED YET</Text>
-          {errorMessage && <Text>{errorMessage}</Text>}
+          {errorMessage && <Text style={{ fontSize: 16, fontWeight: 'bold', fontFamily: 'Avenir', paddingLeft: 10, color: 'red' }}>{errorMessage}</Text>}
         </View>
       );
     }
+  };
+
+  const handleUnregister = () => {
+    if (!memberActivityDetails || isLoading) {
+      return;
+    }
+
+    Alert.alert(
+      'Unregister Tag',
+      `Are you sure you want to unregister this tag from ${memberActivityDetails.legalName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unregister',
+          style: 'destructive',
+          onPress: () => {
+            setLoading(true);
+            unregisterTag(tag.id)
+              .then((response: any) => {
+                console.log('[UnregisterTag] Response:', JSON.stringify(response, null, 2));
+                if (response.status === 'success' || response.data?.status === 'success') {
+                  alert('Tag unregistered successfully!');
+                  setMemberActivityDetails(null);
+                  setErrorMessage('');
+                } else {
+                  alert(response.displayMessage || response.errorMessage || 'Failed to unregister tag');
+                }
+                // Fetch fresh status
+                fetchMealDetails(tag);
+              })
+              .catch((error: any) => {
+                console.error('[UnregisterTag] Error:', error);
+                alert('Failed to unregister tag. Please try again.');
+              })
+              .finally(() => setLoading(false));
+          },
+        },
+      ]
+    );
   };
 
   const handleSubmit = () => {
@@ -73,9 +128,17 @@ function RegisterTagScreen({ route }: any) {
     }
     setLoading(true);
     registerTag(tagdata)
-      .then((tagdata: any) => {
-        if (tagdata.errorMessage) {
-          alert(tagdata.errorMessage);
+      .then((response: any) => {
+        console.log('[RegisterTag] Full response:', JSON.stringify(response, null, 2));
+        const errorMsg = response.errorMessage || response.displayMessage;
+        if (errorMsg) {
+          alert(errorMsg);
+          // Still show the member details if available
+          if (response.memberActivityDetails) {
+            setMemberActivityDetails(response.memberActivityDetails);
+            setErrorMessage(errorMsg);
+            setError(false);
+          }
         } else {
           fetchMealDetails(tag);
         }
@@ -174,7 +237,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: 'lightcoral',
     marginBottom: 15,
-    height: 80,
+    minHeight: 150,
   },
   roundedGreen: {
     height: 40,
@@ -196,6 +259,23 @@ const styles = StyleSheet.create({
   goToScannerText: {
     fontSize: 16,
     fontWeight: 'bold',
+    color: '#fff',
+  },
+  unregisterButton: {
+    alignItems: 'center',
+    backgroundColor: '#FF5252',
+    padding: 12,
+    alignSelf: 'center',
+    borderRadius: 15,
+    justifyContent: 'center',
+    marginTop: 10,
+    borderWidth: 3,
+    borderColor: '#000',
+  },
+  unregisterButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontFamily: 'Avenir',
     color: '#fff',
   },
 });
