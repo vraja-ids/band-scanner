@@ -28,6 +28,13 @@ import BackgroundStatsService from './services/BackgroundStatsService';
 import { initializePrasadamService } from './services/PrasadamSupabaseService';
 import PrasadamDashboardScreen from './journey/PrasadamDistribution/PrasadamDashboardScreen';
 import MealSettingsScreen from './journey/PrasadamDistribution/MealSettingsScreen';
+import BhogaHomeScreen from './journey/BhogaTracker/BhogaHomeScreen';
+import BhogaAlertsScreen from './journey/BhogaTracker/BhogaAlertsScreen';
+import BhogaAdminScreen from './journey/BhogaTracker/BhogaAdminScreen';
+import BhogaMealScreen from './journey/BhogaTracker/BhogaMealScreen';
+import BhogaStorageScreen from './journey/BhogaTracker/BhogaStorageScreen';
+import BhogaDeliveryScreen from './journey/BhogaTracker/BhogaDeliveryScreen';
+import BhogaStorageMoveScreen from './journey/BhogaTracker/BhogaStorageMoveScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -147,6 +154,41 @@ export default function App() {
         <Stack.Screen
           name={Routes.MealSettings}
           component={MealSettingsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name={Routes.BhogaHome}
+          component={BhogaHomeScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name={Routes.BhogaAlerts}
+          component={BhogaAlertsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name={Routes.BhogaAdmin}
+          component={BhogaAdminScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name={Routes.BhogaMeal}
+          component={BhogaMealScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name={Routes.BhogaStorage}
+          component={BhogaStorageScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name={Routes.BhogaDelivery}
+          component={BhogaDeliveryScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name={Routes.BhogaStorageMove}
+          component={BhogaStorageMoveScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

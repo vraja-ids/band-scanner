@@ -197,6 +197,12 @@ async function apiGet<T>(
       method: 'GET',
     });
 
+    // Check if response is HTML (deployment error)
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('text/html')) {
+      throw new Error('Google Apps Script deployment may need refreshing. Redeploy the web app.');
+    }
+
     const result: ApiResponse<T> = await response.json();
     console.log(`[PrasadamSheetsService] API GET ${operation} response:`, result);
 
@@ -209,6 +215,21 @@ async function apiGet<T>(
     return result;
   } catch (error) {
     console.error(`API GET failed for ${operation}:`, error);
+
+    // Check for JSON parse error (likely HTML response from GAS)
+    if (error instanceof Error && error.message.includes('JSON')) {
+      console.error('[PrasadamSheetsService] JSON parse error - GAS deployment may need refresh');
+      // Try to load from persistent cache on error
+      const persistentCache = await loadFromPersistentCache<ApiResponse<T>>(cacheKey);
+      if (persistentCache) {
+        console.log('[PrasadamSheetsService] Using cached data due to API error');
+        return persistentCache;
+      }
+      return {
+        status: 'error',
+        message: 'Google Apps Script returned invalid data. Try redeploying the web app.',
+      };
+    }
 
     // Try to load from persistent cache on error
     const persistentCache = await loadFromPersistentCache<ApiResponse<T>>(cacheKey);
@@ -242,6 +263,12 @@ async function apiPost<T>(
       }),
     });
 
+    // Check if response is HTML (deployment error)
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('text/html')) {
+      throw new Error('Google Apps Script deployment may need refreshing. Redeploy the web app.');
+    }
+
     const result: ApiResponse<T> = await response.json();
 
     // Clear relevant caches on successful write
@@ -252,6 +279,14 @@ async function apiPost<T>(
     return result;
   } catch (error) {
     console.error(`API POST failed for ${operation}:`, error);
+
+    // Check for JSON parse error (likely HTML response from GAS)
+    if (error instanceof Error && error.message.includes('JSON')) {
+      return {
+        status: 'error',
+        message: 'Google Apps Script returned invalid data. Try redeploying the web app.',
+      };
+    }
     return {
       status: 'error',
       message: error instanceof Error ? error.message : 'Unknown error',

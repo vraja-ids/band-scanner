@@ -9,10 +9,11 @@ import {
   Alert,
   TextInput,
   Modal,
+  SafeAreaView,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
-import { googleSheetsService, StorageLocation, Ingredient } from '../../services/GoogleSheetsService';
+import { bhogaSheetsService, StorageLocation, Ingredient } from '../../services/BhogaSheetsService';
 import { Routes } from '../../routes';
 
 type BhogaAdminScreenNavigationProp = StackNavigationProp<any, any>;
@@ -73,8 +74,8 @@ const BhogaAdminScreen: FC<Props> = ({ navigation }) => {
     try {
       setIsLoading(true);
       const [locs, ingData] = await Promise.all([
-        googleSheetsService.getStorageLocations(),
-        googleSheetsService.getIngredientData(),
+        bhogaSheetsService.getStorageLocations(),
+        bhogaSheetsService.getIngredientList(),
       ]);
 
       setLocations(locs);
@@ -98,7 +99,7 @@ const BhogaAdminScreen: FC<Props> = ({ navigation }) => {
     try {
       setIsLoading(true);
 
-      await googleSheetsService.updateStorageLocation(
+      await bhogaSheetsService.updateStorageLocation(
         editingLocation.ingredientName,
         editingLocation.room,
         editingLocation.sublocation,
@@ -146,7 +147,7 @@ const BhogaAdminScreen: FC<Props> = ({ navigation }) => {
           onPress: async () => {
             try {
               // For now, we'll set stock to 0 as a soft delete
-              await googleSheetsService.updateStorageLocation(
+              await bhogaSheetsService.updateStorageLocation(
                 location.ingredientName,
                 location.room,
                 location.sublocation,
@@ -194,15 +195,17 @@ const BhogaAdminScreen: FC<Props> = ({ navigation }) => {
   if (editingLocation) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => setEditingLocation(null)} style={styles.backButton}>
-            <Ionicons name="close" size={24} color="#5dbea3" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>
-            {editingLocation.isNew ? 'Add Location' : 'Edit Location'}
-          </Text>
-          <View style={{ width: 24 }} />
-        </View>
+        <SafeAreaView>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => setEditingLocation(null)} style={styles.backButton}>
+              <Ionicons name="close" size={24} color="#5dbea3" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>
+              {editingLocation.isNew ? 'Add Location' : 'Edit Location'}
+            </Text>
+            <View style={{ width: 24 }} />
+          </View>
+        </SafeAreaView>
 
         <ScrollView style={styles.content}>
           <View style={styles.formSection}>
@@ -289,8 +292,16 @@ const BhogaAdminScreen: FC<Props> = ({ navigation }) => {
         </ScrollView>
 
         <Modal visible={showRoomPicker} transparent animationType="slide">
-          <View style={styles.pickerModal}>
-            <View style={styles.pickerContent}>
+          <TouchableOpacity
+            style={styles.pickerModal}
+            activeOpacity={1}
+            onPress={() => setShowRoomPicker(false)}
+          >
+            <TouchableOpacity
+              style={styles.pickerContent}
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+            >
               <Text style={styles.pickerTitle}>Select Room</Text>
               <ScrollView>
                 {ROOM_OPTIONS.map(room => (
@@ -315,13 +326,21 @@ const BhogaAdminScreen: FC<Props> = ({ navigation }) => {
               >
                 <Text style={styles.pickerCloseButtonText}>Cancel</Text>
               </TouchableOpacity>
-            </View>
-          </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
         </Modal>
 
         <Modal visible={showSublocationPicker} transparent animationType="slide">
-          <View style={styles.pickerModal}>
-            <View style={styles.pickerContent}>
+          <TouchableOpacity
+            style={styles.pickerModal}
+            activeOpacity={1}
+            onPress={() => setShowSublocationPicker(false)}
+          >
+            <TouchableOpacity
+              style={styles.pickerContent}
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+            >
               <Text style={styles.pickerTitle}>Select Sublocation</Text>
               <ScrollView>
                 {SUBLOCATION_OPTIONS.map(option => (
@@ -337,8 +356,14 @@ const BhogaAdminScreen: FC<Props> = ({ navigation }) => {
                   </TouchableOpacity>
                 ))}
               </ScrollView>
-            </View>
-          </View>
+              <TouchableOpacity
+                style={styles.pickerCloseButton}
+                onPress={() => setShowSublocationPicker(false)}
+              >
+                <Text style={styles.pickerCloseButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </TouchableOpacity>
         </Modal>
       </View>
     );
@@ -346,15 +371,17 @@ const BhogaAdminScreen: FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#5dbea3" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Storage Setup</Text>
-        <TouchableOpacity onPress={handleAddNew} style={styles.addButton}>
-          <Ionicons name="add" size={24} color="#5dbea3" />
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#5dbea3" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Storage Setup</Text>
+          <TouchableOpacity onPress={handleAddNew} style={styles.addButton}>
+            <Ionicons name="add" size={24} color="#5dbea3" />
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
 
       <ScrollView style={styles.content}>
         {Object.keys(groupedLocations).length === 0 ? (

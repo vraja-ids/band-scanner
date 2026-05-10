@@ -76,14 +76,13 @@ function MealSettingsScreen() {
     try {
       // Update each meal's expected_devotees
       for (const meal of meals) {
-        if (meal.expected_devotees !== undefined) {
-          const success = await updateMealDevotees({
-            meal_id: meal.meal_id,
-            expected_devotees: meal.expected_devotees,
-          });
-          if (!success) {
-            throw new Error(`Failed to update ${meal.meal_name || meal.meal_type}`);
-          }
+        // Always update (0 is a valid value)
+        const success = await updateMealDevotees({
+          meal_id: meal.meal_id,
+          expected_devotees: meal.expected_devotees ?? 0,
+        });
+        if (!success) {
+          throw new Error(`Failed to update ${meal.meal_name || meal.meal_type}`);
         }
       }
 
@@ -166,7 +165,7 @@ function MealSettingsScreen() {
                     <TextInput
                       style={styles.input}
                       keyboardType="number-pad"
-                      value={meal.expected_devotees?.toString() || ''}
+                      value={meal.expected_devotees == null ? '' : meal.expected_devotees.toString()}
                       onChangeText={(value) => handleDevoteesChange(meal.meal_id, value)}
                       placeholder="0"
                     />

@@ -7,10 +7,12 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  SafeAreaView,
+  Platform,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
-import { googleSheetsService, StorageLocation, Ingredient } from '../../services/GoogleSheetsService';
+import { bhogaSheetsService, StorageLocation, Ingredient } from '../../services/BhogaSheetsService';
 import { Routes } from '../../routes';
 
 type BhogaStorageScreenNavigationProp = StackNavigationProp<any, any>;
@@ -45,8 +47,8 @@ const BhogaStorageScreen: FC<Props> = ({ navigation }) => {
     try {
       setIsLoading(true);
       const [locations, ingredientData] = await Promise.all([
-        googleSheetsService.getStorageLocations(),
-        googleSheetsService.getIngredientData(),
+        bhogaSheetsService.getStorageLocations(),
+        bhogaSheetsService.getIngredientList(),
       ]);
 
       setStorageLocations(locations);
@@ -108,15 +110,17 @@ const BhogaStorageScreen: FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#5dbea3" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Storage Locations</Text>
-        <TouchableOpacity onPress={loadData} style={styles.refreshButton}>
-          <Ionicons name="refresh-outline" size={24} color="#5dbea3" />
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#5dbea3" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Storage Locations</Text>
+          <TouchableOpacity onPress={loadData} style={styles.refreshButton}>
+            <Ionicons name="refresh-outline" size={24} color="#5dbea3" />
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
 
       <ScrollView style={styles.content}>
         {rooms.length === 0 ? (

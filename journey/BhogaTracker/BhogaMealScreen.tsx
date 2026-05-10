@@ -7,12 +7,13 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  SafeAreaView,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { googleSheetsService, StorageLocation, StockTransaction } from '../../services/GoogleSheetsService';
+import { bhogaSheetsService, StorageLocation, StockTransaction } from '../../services/BhogaSheetsService';
 import { Routes, BhogaMealParams } from '../../routes';
 
 type BhogaMealScreenNavigationProp = StackNavigationProp<any, Routes.BhogaMeal>;
@@ -61,7 +62,7 @@ const BhogaMealScreen: FC<Props> = ({ navigation, route }) => {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const locations = await googleSheetsService.getStorageLocations();
+      const locations = await bhogaSheetsService.getStorageLocations();
       setStorageLocations(locations);
 
       const locationMap = new Map(locations.map(l => [l.ingredientName, l]));
@@ -121,12 +122,12 @@ const BhogaMealScreen: FC<Props> = ({ navigation, route }) => {
                 userId,
               };
 
-              await googleSheetsService.recordStockTransaction(transaction);
+              await bhogaSheetsService.recordStockTransaction(transaction);
 
               // Update stock location if exists
               if (ingredient.location) {
                 const newStock = Math.max(0, ingredient.location.currentStock - ingredient.quantity);
-                await googleSheetsService.updateStorageLocation(
+                await bhogaSheetsService.updateStorageLocation(
                   ingredient.name,
                   ingredient.location.room,
                   ingredient.location.sublocation,
@@ -191,18 +192,20 @@ const BhogaMealScreen: FC<Props> = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#5dbea3" />
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>{mealName}</Text>
-          <Text style={styles.headerSubtitle}>
-            {getPendingCount()} / {getTotalIngredients()} pending
-          </Text>
+      <SafeAreaView>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#5dbea3" />
+          </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>{mealName}</Text>
+            <Text style={styles.headerSubtitle}>
+              {getPendingCount()} / {getTotalIngredients()} pending
+            </Text>
+          </View>
+          <View style={{ width: 24 }} />
         </View>
-        <View style={{ width: 24 }} />
-      </View>
+      </SafeAreaView>
 
       <ScrollView style={styles.content}>
         {menuItems.map((item, itemIndex) => (

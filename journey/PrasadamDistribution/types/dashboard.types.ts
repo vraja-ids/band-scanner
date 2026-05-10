@@ -57,7 +57,7 @@ export const REVERSE_MOVEMENT_RULES: Record<DashboardStage, DashboardStage[]> = 
 // Display names for stages
 export const STAGE_DISPLAY_NAMES: Record<DashboardStage, string> = {
   planned: 'Planned',
-  cooked: 'Cooked',
+  cooked: 'Kitchen', // Changed from 'Cooked' to 'Kitchen'
   stored: 'Stored',
   staging: 'Staging',
   refill_station_1: 'Refill Stn 1',
@@ -68,18 +68,19 @@ export const STAGE_DISPLAY_NAMES: Record<DashboardStage, string> = {
 };
 
 // Team view configurations
-export type TeamView = 'all' | 'team1_kitchen' | 'team2_staging' | 'team3_serving';
+export type TeamView = 'all' | 'stats' | 'team2_staging' | 'team3_serving';
 
-export const TEAM_VIEW_CONFIGS: Record<TeamView, { name: string; shortName: string; stages: DashboardStage[] }> = {
+export const TEAM_VIEW_CONFIGS: Record<TeamView, { name: string; shortName: string; stages: DashboardStage[]; readonly?: boolean }> = {
   all: {
     name: 'All Stages',
     shortName: 'All',
-    stages: ALL_STAGES,
+    stages: ['cooked', 'stored', 'staging', 'refill_station_1', 'refill_station_2', 'refill_station_3', 'served', 'left_over'], // Removed 'planned'
   },
-  team1_kitchen: {
-    name: 'Team 1 (Kitchen)',
-    shortName: 'Kitchen',
-    stages: ['planned', 'cooked', 'served', 'left_over'], // Kitchen view shows 'served' as "Distributed"
+  stats: {
+    name: 'Stats',
+    shortName: 'Stats',
+    stages: ['planned', 'cooked', 'served', 'left_over'], // Stats view shows 'served' as "Distributed", 'cooked' as "Cooked"
+    readonly: true, // No movements allowed in stats view
   },
   team2_staging: {
     name: 'Team 2 (Staging)',

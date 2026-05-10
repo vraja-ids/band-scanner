@@ -39,7 +39,7 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
   onMove,
   mealId,
 }) => {
-  const [quantity, setQuantity] = useState('1');
+  const [quantity, setQuantity] = useState('0');
   const [selectedStage, setSelectedStage] = useState<DashboardStage | null>(null);
   const [lastDestination, setLastDestination] = useState<DashboardStage | null>(null);
   const inputRef = useRef<TextInput>(null);
@@ -77,7 +77,7 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
   // Reset state when popup closes
   useEffect(() => {
     if (!visible) {
-      setQuantity('1');
+      setQuantity('0');
       setSelectedStage(null);
     }
   }, [visible]);
@@ -94,7 +94,7 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
 
   const adjustQuantity = useCallback((delta: number) => {
     const current = parseInt(quantity, 10) || 0;
-    const newQty = Math.max(1, Math.min(effectiveMaxQty, current + delta));
+    const newQty = Math.max(0, Math.min(effectiveMaxQty, current + delta));
     setQuantity(newQty.toString());
   }, [quantity, effectiveMaxQty]);
 
@@ -153,7 +153,7 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
             <View style={styles.headerLeft}>
               <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
               <Text style={styles.headerText}>
-                <Text style={styles.label}>From:</Text> {STAGE_DISPLAY_NAMES[currentStage]} ({currentQty})
+                <Text style={styles.label}>From:</Text> {STAGE_DISPLAY_NAMES[currentStage]}
                 <Text style={styles.arrow}> → </Text>
                 <Text style={styles.destHighlight}>{destDisplay}</Text>
               </Text>

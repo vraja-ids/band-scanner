@@ -24,6 +24,7 @@ interface QuantityMoveReversePopupProps {
   currentQty: number;
   onClose: () => void;
   onMove: (quantity: number, toStage: DashboardStage) => void;
+  onEdit?: (quantity: number) => void; // New callback for direct quantity edit (Cooked stage)
   transactions?: Array<{ stage: string; quantity: number; timestamp: string }>;
   filterToStages?: DashboardStage[]; // Optional filter to show only specific stages
 }
@@ -37,7 +38,8 @@ function getReverseOptions(currentStage: DashboardStage): DashboardStage[] {
   // Stage-specific reverse options (left_over is added separately)
   switch (currentStage) {
     case 'cooked':
-      // No reverse options - you can't "uncook" back to planned
+      // Cooked can send to left_over for spoilage/correction
+      options.push('left_over');
       break;
     case 'stored':
       // Can go back to cooked or left_over
@@ -59,11 +61,6 @@ function getReverseOptions(currentStage: DashboardStage): DashboardStage[] {
       break;
   }
 
-  // Always can send to left_over (unless already there)
-  if (currentStage !== 'left_over') {
-    options.push('left_over');
-  }
-
   return options;
 }
 
@@ -74,11 +71,13 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
   currentQty,
   onClose,
   onMove,
+  onEdit,
   transactions = [],
   filterToStages,
 }) => {
-  const [quantity, setQuantity] = useState('1');
+  const [quantity, setQuantity] = useState('0');
   const [selectedStage, setSelectedStage] = useState<DashboardStage | null>(null);
+  const [isEditingDirect, setIsEditingDirect] = useState(false); // true when user wants to edit Cooked directly
   const inputRef = useRef<TextInput>(null);
   const initializedRef = useRef(false);
 
@@ -88,26 +87,41 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
     ? reverseOptions.filter(opt => filterToStages.includes(opt))
     : reverseOptions;
 
+  // Cooked has both edit capability and reverse options (left_over)
+  const isCookedStage = currentStage === 'cooked';
+  const showEditSection = isCookedStage; // Show edit controls for Cooked
+  const showDestOptions = filteredOptions.length > 0; // Show destination options if available
+
   // Auto-select first non-left_over option as default (only on initial open)
   useEffect(() => {
     if (visible && !initializedRef.current) {
       initializedRef.current = true;
-      // Prefer the first non-left_over option (more common reverse movement)
-      // Only select left_over if it's the only option or if filtered to only show left_over
-      const defaultStage = filteredOptions.find(opt => opt !== 'left_over') || filteredOptions[0] || null;
-      setSelectedStage(defaultStage);
-      setQuantity('1');
+      if (isCookedStage) {
+        // Cooked: start with current quantity for editing, no destination pre-selected
+        setQuantity(currentQty.toString());
+        setIsEditingDirect(true);
+      } else {
+        // Other stages: reverse mode - start with 1 and select first destination
+        const defaultStage = filteredOptions.find(opt => opt !== 'left_over') || filteredOptions[0] || null;
+        setSelectedStage(defaultStage);
+        setQuantity('1');
+        setIsEditingDirect(false);
+      }
     } else if (!visible) {
       // Reset when closed so next open re-initializes
       initializedRef.current = false;
+      setIsEditingDirect(false);
     }
-  }, [visible, filteredOptions]);
+  }, [visible, filteredOptions, isCookedStage, currentQty]);
 
   const handleQuickSelect = useCallback((amount: number) => {
     const current = parseInt(quantity, 10) || 0;
-    const newQty = Math.min(currentQty, current + amount);
+    // For Cooked in edit mode, don't limit to currentQty (can add more than current)
+    const newQty = (isCookedStage && isEditingDirect)
+      ? current + amount
+      : Math.min(currentQty, current + amount);
     setQuantity(newQty.toString());
-  }, [quantity, currentQty]);
+  }, [quantity, currentQty, isCookedStage, isEditingDirect]);
 
   const dismissKeyboard = useCallback(() => {
     Keyboard.dismiss();
@@ -115,9 +129,16 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
 
   const adjustQuantity = useCallback((delta: number) => {
     const current = parseInt(quantity, 10) || 0;
-    const newQty = Math.max(1, Math.min(currentQty, current + delta));
-    setQuantity(newQty.toString());
-  }, [quantity, currentQty]);
+    if (isCookedStage) {
+      // Cooked: allow any positive value (no max limit for editing)
+      const newQty = Math.max(0, current + delta);
+      setQuantity(newQty.toString());
+    } else {
+      // Reverse mode: limit to current quantity
+      const newQty = Math.max(1, Math.min(currentQty, current + delta));
+      setQuantity(newQty.toString());
+    }
+  }, [quantity, currentQty, isCookedStage]);
 
   const handleFocusInput = useCallback(() => {
     inputRef.current?.focus();
@@ -125,19 +146,40 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
 
   const handleMove = useCallback(async () => {
     const qty = parseInt(quantity, 10);
-    if (!selectedStage || isNaN(qty) || qty <= 0 || qty > currentQty) {
-      return;
+
+    if (isCookedStage) {
+      // Cooked stage: can either edit directly OR move to Left Over
+      if (isEditingDirect) {
+        // Direct edit mode
+        if (isNaN(qty) || qty < 0) return;
+        onEdit?.(qty);
+        onClose();
+      } else {
+        // Move to Left Over
+        if (!selectedStage || isNaN(qty) || qty <= 0 || qty > currentQty) {
+          return;
+        }
+        onMove(qty, selectedStage);
+        onClose();
+      }
+    } else {
+      // Other stages: reverse move only
+      if (!selectedStage || isNaN(qty) || qty <= 0 || qty > currentQty) {
+        return;
+      }
+      onMove(qty, selectedStage);
+      onClose();
     }
+  }, [quantity, selectedStage, currentQty, onMove, onEdit, onClose, isCookedStage, isEditingDirect]);
 
-    onMove(qty, selectedStage);
-    onClose();
-  }, [quantity, selectedStage, currentQty, onMove, onClose]);
-
-  const isValid =
-    selectedStage !== null &&
-    !isNaN(parseInt(quantity, 10)) &&
-    parseInt(quantity, 10) > 0 &&
-    parseInt(quantity, 10) <= currentQty;
+  const isValid = isCookedStage
+    ? isEditingDirect
+      ? !isNaN(parseInt(quantity, 10)) && parseInt(quantity, 10) >= 0
+      : selectedStage !== null && !isNaN(parseInt(quantity, 10)) && parseInt(quantity, 10) > 0 && parseInt(quantity, 10) <= currentQty
+    : selectedStage !== null &&
+      !isNaN(parseInt(quantity, 10)) &&
+      parseInt(quantity, 10) > 0 &&
+      parseInt(quantity, 10) <= currentQty;
 
   // Get display name for selected destination
   const destDisplay = selectedStage
@@ -170,9 +212,15 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
             <View style={styles.headerLeft}>
               <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
               <Text style={styles.headerText}>
-                <Text style={styles.label}>From:</Text> {STAGE_DISPLAY_NAMES[currentStage]} ({currentQty})
-                <Text style={styles.arrow}> ← </Text>
-                <Text style={styles.destHighlight}>{destDisplay}</Text>
+                {isCookedStage ? (
+                  <Text style={styles.label}>Edit: {STAGE_DISPLAY_NAMES[currentStage]}</Text>
+                ) : (
+                  <>
+                    <Text style={styles.label}>From:</Text> {STAGE_DISPLAY_NAMES[currentStage]}
+                    <Text style={styles.arrow}> ← </Text>
+                    <Text style={styles.destHighlight}>{destDisplay}</Text>
+                  </>
+                )}
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
@@ -181,8 +229,8 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
           </View>
 
           <ScrollView style={styles.content}>
-            {/* Recent Transactions */}
-            {recentTransactions.length > 0 && (
+            {/* Recent Transactions - only show for non-Cooked stages */}
+            {!isCookedStage && recentTransactions.length > 0 && (
               <View style={styles.historySection}>
                 <Text style={styles.sectionTitle}>Recent Activity:</Text>
                 {recentTransactions.map((tx, index) => (
@@ -196,37 +244,20 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
               </View>
             )}
 
-            {/* Reverse Options */}
-            <View style={styles.destSection}>
-              <Text style={styles.sectionTitle}>Move to:</Text>
-              <View style={styles.destRow}>
-                {filteredOptions.map(dest => (
-                  <TouchableOpacity
-                    key={dest}
-                    style={[
-                      styles.destBtn,
-                      selectedStage === dest && styles.selectedBtn,
-                      dest === 'left_over' && styles.leftOverBtn
-                    ]}
-                    onPress={() => setSelectedStage(dest)}
-                  >
-                    <Text
-                      style={[
-                        styles.destText,
-                        selectedStage === dest && styles.selectedText,
-                        dest === 'left_over' && styles.leftOverText
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {STAGE_DISPLAY_NAMES[dest]}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+            {/* Edit Info for Cooked - shown at top */}
+            {isCookedStage && (
+              <View style={styles.editInfoSection}>
+                <Text style={styles.editInfoText}>
+                  Trays cooked is cumulative (total ever cooked). Use the buttons below to edit or move to Left Over.
+                </Text>
               </View>
-            </View>
+            )}
 
-            {/* Quantity Section */}
+            {/* Quantity Section - shown at top for Cooked */}
             <View style={styles.qtySection}>
+              <Text style={styles.sectionTitle}>
+                {isCookedStage ? (isEditingDirect ? 'Set Trays Cooked To:' : 'Trays to Move to Left Over:') : 'Quantity to Move:'}
+              </Text>
               <View style={styles.qtyRow}>
                 <TouchableOpacity
                   style={styles.adjustBtn}
@@ -246,7 +277,7 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
                     onChangeText={setQuantity}
                     keyboardType="number-pad"
                   />
-                  <Text style={styles.maxQty}>/ {currentQty}</Text>
+                  {isCookedStage && isEditingDirect ? null : <Text style={styles.maxQty}>/ {currentQty}</Text>}
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.adjustBtn}
@@ -275,6 +306,58 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
                 ))}
               </View>
             </View>
+
+            {/* Cooked: Action Mode Selection (Edit vs Move) */}
+            {isCookedStage && (
+              <View style={styles.destSection}>
+                <Text style={styles.sectionTitle}>Action:</Text>
+                <View style={styles.destRow}>
+                  <TouchableOpacity
+                    style={[styles.destBtn, isEditingDirect && styles.selectedBtn]}
+                    onPress={() => setIsEditingDirect(true)}
+                  >
+                    <Text style={[styles.destText, isEditingDirect && styles.selectedText]}>Edit Trays</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.destBtn, !isEditingDirect && styles.selectedBtn]}
+                    onPress={() => setIsEditingDirect(false)}
+                  >
+                    <Text style={[styles.destText, !isEditingDirect && styles.selectedText]}>Move to Left Over</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Reverse Options - shown below quantity for non-Cooked stages */}
+            {!isCookedStage && filteredOptions.length > 0 && (
+              <View style={styles.destSection}>
+                <Text style={styles.sectionTitle}>Move to:</Text>
+                <View style={styles.destRow}>
+                  {filteredOptions.map(dest => (
+                    <TouchableOpacity
+                      key={dest}
+                      style={[
+                        styles.destBtn,
+                        selectedStage === dest && styles.selectedBtn,
+                        dest === 'left_over' && styles.leftOverBtn
+                      ]}
+                      onPress={() => setSelectedStage(dest)}
+                    >
+                      <Text
+                        style={[
+                          styles.destText,
+                          selectedStage === dest && styles.selectedText,
+                          dest === 'left_over' && styles.leftOverText
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {STAGE_DISPLAY_NAMES[dest]}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
           </ScrollView>
 
           {/* Action Buttons */}
@@ -287,7 +370,12 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
               onPress={handleMove}
               disabled={!isValid}
             >
-              <Text style={styles.moveBtnText}>Move Back {quantity}</Text>
+              <Text style={styles.moveBtnText}>
+                {isCookedStage
+                  ? (isEditingDirect ? `Set to ${quantity}` : `Move ${quantity} to Left Over`)
+                  : `Move ${quantity}`
+                }
+              </Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -388,6 +476,19 @@ const styles = StyleSheet.create({
   historyTime: {
     fontSize: 11,
     color: '#999',
+  },
+  editInfoSection: {
+    marginBottom: 12,
+    padding: 10,
+    backgroundColor: '#E3F2FD',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BBDEFB',
+  },
+  editInfoText: {
+    fontSize: 12,
+    color: '#1976D2',
+    lineHeight: 16,
   },
   destSection: {
     marginBottom: 12,

@@ -76,11 +76,12 @@ export const MealSelectionModal: React.FC<MealSelectionModalProps> = ({
                 // Ensure meal_id exists, use index as fallback
                 const mealKey = meal.meal_id || `meal-${index}`;
 
-                // Build display name with day and meal type
+                // Build display name with day and meal type - always construct full name
                 const dayNames = ['', 'Friday', 'Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
                 const dayName = meal.day_number ? dayNames[meal.day_number] || `Day ${meal.day_number}` : '';
                 const mealType = meal.meal_type || 'Meal';
-                const displayName = meal.meal_name || `${dayName} ${mealType}`.trim() || mealType;
+                // Always construct full name (Day + Type) instead of using meal_name which might be partial
+                const displayName = dayName ? `${dayName} ${mealType}`.trim() : (meal.meal_name || mealType);
 
                 const timeDisplay = meal.serving_start_time || meal.date || '';
                 const typeDisplay = meal.meal_type || 'Meal';

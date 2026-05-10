@@ -25,6 +25,14 @@ export const Routes = {
   // Prasadam Distribution
   PrasadamDashboard: 'PrasadamDashboard',
   MealSettings: 'MealSettings',
+  // Bhoga Tracker
+  BhogaHome: 'BhogaHome',
+  BhogaAlerts: 'BhogaAlerts',
+  BhogaAdmin: 'BhogaAdmin',
+  BhogaMeal: 'BhogaMeal',
+  BhogaStorage: 'BhogaStorage',
+  BhogaDelivery: 'BhogaDelivery',
+  BhogaStorageMove: 'BhogaStorageMove',
 } as const;
 
 export type RouteName = typeof Routes[keyof typeof Routes];

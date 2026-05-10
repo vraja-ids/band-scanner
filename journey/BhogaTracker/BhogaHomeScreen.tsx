@@ -9,11 +9,12 @@ import {
   Alert,
   Modal,
   Platform,
+  SafeAreaView,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { googleSheetsService, Ingredient, StorageLocation } from '../../services/GoogleSheetsService';
+import { bhogaSheetsService, Ingredient, StorageLocation } from '../../services/BhogaSheetsService';
 import { Routes } from '../../routes';
 
 // Use a simple date input for now (can be upgraded to a proper picker later)
@@ -42,13 +43,11 @@ interface Props {
 
 const BhogaHomeScreen: FC<Props> = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [retreatStartDate, setRetreatStartDate] = useState(new Date(2025, 4, 2));
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [meals, setMeals] = useState<Record<string, any>>({});
   const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
   const [alertsCount, setAlertsCount] = useState(0);
-  const [canManageStorage, setCanManageStorage] = useState(false);
 
   useEffect(() => {
     initializeScreen();
@@ -56,21 +55,12 @@ const BhogaHomeScreen: FC<Props> = ({ navigation }) => {
 
   const initializeScreen = async () => {
     try {
-      await googleSheetsService.oauth.loadStoredTokens();
-      const authenticated = googleSheetsService.oauth.isAuthenticated();
-      setIsAuthenticated(authenticated);
-
       const storedDate = await AsyncStorage.getItem(RETREAT_START_DATE_KEY);
       if (storedDate) {
         setRetreatStartDate(new Date(storedDate));
       }
 
-      const canManage = await AsyncStorage.getItem('canManageBhogaStorage');
-      setCanManageStorage(canManage === 'true');
-
-      if (authenticated) {
-        await loadData();
-      }
+      await loadData();
     } catch (error) {
       console.error('Error initializing:', error);
       Alert.alert('Error', 'Failed to initialize. Please try again.');
@@ -83,8 +73,8 @@ const BhogaHomeScreen: FC<Props> = ({ navigation }) => {
     try {
       setIsLoading(true);
       const [ingredientData, locations] = await Promise.all([
-        googleSheetsService.getIngredientData(),
-        googleSheetsService.getStorageLocations(),
+        bhogaSheetsService.getIngredientList(),
+        bhogaSheetsService.getStorageLocations(),
       ]);
 
       setMeals(ingredientData.meals);
@@ -125,33 +115,6 @@ const BhogaHomeScreen: FC<Props> = ({ navigation }) => {
     return alerts;
   };
 
-  const handleSignIn = async () => {
-    try {
-      const result = await googleSheetsService.oauth.signIn();
-      if (result.success) {
-        setIsAuthenticated(true);
-        await loadData();
-      } else {
-        Alert.alert('Sign In Failed', result.error || 'Please try again.');
-      }
-    } catch (error) {
-      console.error('Sign in error:', error);
-      Alert.alert('Error', 'Failed to sign in. Please try again.');
-    }
-  };
-
-  const handleSignOut = async () => {
-    try {
-      await googleSheetsService.oauth.signOut();
-      setIsAuthenticated(false);
-      setMeals({});
-      setStorageLocations([]);
-      setAlertsCount(0);
-    } catch (error) {
-      console.error('Sign out error:', error);
-    }
-  };
-
   const handleDateChange = (date: Date) => {
     setRetreatStartDate(date);
     AsyncStorage.setItem(RETREAT_START_DATE_KEY, date.toISOString());
@@ -159,21 +122,9 @@ const BhogaHomeScreen: FC<Props> = ({ navigation }) => {
   };
 
   const getMealKey = (prefix: string, type: string): string => {
-    const mealMap: Record<string, string> = {
-      'Fri-Breakfast': 'FriBreak',
-      'Fri-Lunch': 'FriLunch',
-      'Fri-Dinner': 'FriDin',
-      'Sat-Breakfast': 'SatBreak',
-      'Sat-Lunch': 'SatLunch',
-      'Sat-Dinner': 'SatDin',
-      'Sun-Breakfast': 'SunBreak',
-      'Sun-Lunch': 'SunLunch',
-      'Sun-Dinner': 'SunDin',
-      'Mon-Breakfast': 'MonBreak',
-      'Mon-Lunch': 'MonLunch',
-      'Mon-Dinner': 'MonDin',
-    };
-    return mealMap[`${prefix}-${type}`] || `${prefix}${type}`;
+    // Match Prasadam Distribution meal IDs: friDinner, satBreakfast, etc.
+    const day = prefix.charAt(0).toLowerCase() + prefix.slice(1); // Fri -> fri
+    return `${day}${type}`; // fri + Breakfast = friBreakfast
   };
 
   const getMealItems = (prefix: string, type: string) => {
@@ -196,7 +147,7 @@ const BhogaHomeScreen: FC<Props> = ({ navigation }) => {
     return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
   };
 
-  if (isLoading && !isAuthenticated) {
+  if (isLoading) {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color="#5dbea3" />
@@ -204,40 +155,27 @@ const BhogaHomeScreen: FC<Props> = ({ navigation }) => {
     );
   }
 
-  if (!isAuthenticated) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.authContainer}>
-          <Ionicons name="restaurant-outline" size={80} color="#5dbea3" />
-          <Text style={styles.authTitle}>Bhoga Tracker</Text>
-          <Text style={styles.authSubtitle}>Track ingredients for retreat meals</Text>
-          <TouchableOpacity style={styles.signInButton} onPress={handleSignIn}>
-            <Text style={styles.signInButtonText}>Sign in with Google</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleSignOut} style={styles.signOutButton}>
-          <Ionicons name="log-out-outline" size={24} color="#5dbea3" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Bhoga Tracker</Text>
-        <TouchableOpacity
-          onPress={() => navigation.navigate(Routes.BhogaAlerts)}
-          style={styles.alertsButton}
-        >
-          <Ionicons name="warning-outline" size={24} color={alertsCount > 0 ? '#ff6b6b' : '#5dbea3'} />
-          {alertsCount > 0 && (
-            <View style={styles.alertsBadge}>
-              <Text style={styles.alertsBadgeText}>{alertsCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#5dbea3" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Bhoga Tracker</Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate(Routes.BhogaAlerts)}
+            style={styles.alertsButton}
+          >
+            <Ionicons name="warning-outline" size={24} color={alertsCount > 0 ? '#ff6b6b' : '#5dbea3'} />
+            {alertsCount > 0 && (
+              <View style={styles.alertsBadge}>
+                <Text style={styles.alertsBadgeText}>{alertsCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
 
       <ScrollView style={styles.content}>
         <TouchableOpacity
@@ -302,6 +240,24 @@ const BhogaHomeScreen: FC<Props> = ({ navigation }) => {
           </View>
         ))}
 
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigation.navigate(Routes.BhogaDelivery)}
+          >
+            <Ionicons name="cube-outline" size={24} color="#5dbea3" />
+            <Text style={styles.actionButtonText}>Delivery</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigation.navigate(Routes.BhogaStorageMove)}
+          >
+            <Ionicons name="move" size={24} color="#5dbea3" />
+            <Text style={styles.actionButtonText}>Move to Storage</Text>
+          </TouchableOpacity>
+        </View>
+
         <TouchableOpacity
           style={styles.storageButton}
           onPress={() => navigation.navigate(Routes.BhogaStorage)}
@@ -310,44 +266,58 @@ const BhogaHomeScreen: FC<Props> = ({ navigation }) => {
           <Text style={styles.storageButtonText}>View Storage Locations</Text>
         </TouchableOpacity>
 
-        {canManageStorage && (
-          <TouchableOpacity
-            style={styles.adminButton}
-            onPress={() => navigation.navigate(Routes.BhogaAdmin)}
-          >
-            <Ionicons name="settings-outline" size={24} color="#fff" />
-            <Text style={styles.adminButtonText}>Storage Setup</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={styles.adminButton}
+          onPress={() => navigation.navigate(Routes.BhogaAdmin)}
+        >
+          <Ionicons name="settings-outline" size={24} color="#fff" />
+          <Text style={styles.adminButtonText}>Storage Setup</Text>
+        </TouchableOpacity>
       </ScrollView>
 
-      <Modal visible={showDatePicker} transparent animationType="slide">
-        <View style={styles.datePickerModal}>
-          <View style={styles.datePickerContent}>
-            <Text style={styles.datePickerTitle}>Select Retreat Start Date</Text>
-            {Platform.OS === 'ios' ? (
-              <View>
-                {/* @ts-ignore - DatePickerIOS types are incomplete */}
-                <DatePickerIOSBase
-                  date={retreatStartDate}
-                  onDateChange={handleDateChange}
-                  mode="date"
-                />
-              </View>
-            ) : (
-              <Text style={styles.datePickerNote}>
-                Date picker for Android coming soon. Please use iOS for now.
-              </Text>
-            )}
+      {Platform.OS === 'ios' ? (
+        <Modal visible={showDatePicker} transparent animationType="slide">
+          <TouchableOpacity
+            style={styles.datePickerModal}
+            activeOpacity={1}
+            onPress={() => setShowDatePicker(false)}
+          >
             <TouchableOpacity
-              style={styles.datePickerButton}
-              onPress={() => setShowDatePicker(false)}
+              style={styles.datePickerContent}
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
             >
-              <Text style={styles.datePickerButtonText}>Done</Text>
+              <Text style={styles.datePickerTitle}>Select Retreat Start Date</Text>
+              <DateTimePicker
+                value={retreatStartDate}
+                mode="date"
+                display="spinner"
+                onChange={(event: DateTimePickerEvent, date?: Date) => {
+                  if (date) handleDateChange(date);
+                }}
+              />
+              <TouchableOpacity
+                style={styles.datePickerButton}
+                onPress={() => setShowDatePicker(false)}
+              >
+                <Text style={styles.datePickerButtonText}>Done</Text>
+              </TouchableOpacity>
             </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+          </TouchableOpacity>
+        </Modal>
+      ) : (
+        showDatePicker && (
+          <DateTimePicker
+            value={retreatStartDate}
+            mode="date"
+            display="default"
+            onChange={(event: DateTimePickerEvent, date?: Date) => {
+              setShowDatePicker(false);
+              if (date) handleDateChange(date);
+            }}
+          />
+        )
+      )}
     </View>
   );
 };
@@ -356,36 +326,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-  },
-  authContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  authTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  authSubtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 30,
-    textAlign: 'center',
-  },
-  signInButton: {
-    backgroundColor: '#5dbea3',
-    paddingHorizontal: 40,
-    paddingVertical: 15,
-    borderRadius: 25,
-  },
-  signInButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   header: {
     flexDirection: 'row',
@@ -396,13 +336,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
+  backButton: {
+    padding: 8,
+  },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
-  },
-  signOutButton: {
-    padding: 8,
   },
   alertsButton: {
     padding: 8,
@@ -494,6 +434,28 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#e65100',
     fontWeight: '600',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#5dbea3',
+  },
+  actionButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#5dbea3',
+    marginLeft: 10,
   },
   storageButton: {
     flexDirection: 'row',

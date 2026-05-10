@@ -7,10 +7,11 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  SafeAreaView,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
-import { googleSheetsService, Ingredient, StorageLocation, StockAlert } from '../../services/GoogleSheetsService';
+import { bhogaSheetsService, Ingredient, StorageLocation, StockAlert } from '../../services/BhogaSheetsService';
 import { Routes } from '../../routes';
 
 type BhogaAlertsScreenNavigationProp = StackNavigationProp<any, any>;
@@ -40,8 +41,8 @@ const BhogaAlertsScreen: FC<Props> = ({ navigation }) => {
     try {
       setIsLoading(true);
       const [locations, ingredientData] = await Promise.all([
-        googleSheetsService.getStorageLocations(),
-        googleSheetsService.getIngredientData(),
+        bhogaSheetsService.getStorageLocations(),
+        bhogaSheetsService.getIngredientList(),
       ]);
 
       const locationMap = new Map(locations.map(l => [l.ingredientName, l]));
@@ -127,15 +128,17 @@ const BhogaAlertsScreen: FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#5dbea3" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Stock Alerts</Text>
-        <TouchableOpacity onPress={loadAlerts} style={styles.refreshButton}>
-          <Ionicons name="refresh-outline" size={24} color="#5dbea3" />
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#5dbea3" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Stock Alerts</Text>
+          <TouchableOpacity onPress={loadAlerts} style={styles.refreshButton}>
+            <Ionicons name="refresh-outline" size={24} color="#5dbea3" />
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
 
       <ScrollView style={styles.content}>
         {!hasAlerts ? (

@@ -542,6 +542,20 @@ const HomeScreen = () => {
       );
     }
 
+    // Show Bhoga Tracker if user has permission
+    if (SessionManager.hasPermission('canTrackBhoga')) {
+      buttons.push(
+        <TouchableOpacity
+          key="bhoga-tracker"
+          style={[styles.button, { backgroundColor: '#FF9800' }]}
+          onPress={() => (navigation as any).navigate(Routes.BhogaHome)}
+        >
+          <Ionicons name="leaf-outline" size={24} color="#fff" />
+          <Text style={styles.buttonText}>Bhoga Tracker</Text>
+        </TouchableOpacity>
+      );
+    }
+
     // Show separate redeem buttons if daypass is available
     if (!scansInThisEvent.includes('Meals') && !scansInThisEvent.includes('Gifts') && !scansInThisEvent.includes('RegistrationTag')) {
       if (scansInThisEvent.includes('Daypass')) {

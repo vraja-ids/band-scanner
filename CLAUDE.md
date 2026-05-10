@@ -74,6 +74,7 @@ eas submit --platform android --profile production
 ├── routes/              # Navigation routes and param types
 ├── utils/               # Helper utilities
 ├── supabase/            # Database migrations and types
+├── config/              # Event and meal schedule configuration
 ├── components/          # Shared UI components
 └── locales/             # i18n translation files
 ```
@@ -124,11 +125,21 @@ eas submit --platform android --profile production
 2. Else if Supabase credentials valid → Supabase with Google Sheets backup
 3. Else → Google Sheets fallback
 
-**Bhoga Google Sheets Service** (`services/GoogleSheetsService.ts`)
-- Direct Google Sheets API integration (OAuth2) for Bhoga ingredient tracking
+**Bhoga Google Sheets Service** (`services/BhogaSheetsService.ts`)
+- Backend-authenticated Google Sheets integration for Bhoga ingredient tracking
+- Uses shared Google Apps Script backend (`GOOGLE_APPS_SCRIPT_URL`)
 - Reads from "Ingredient List", "Storage Locations", "Stock Transactions" tabs
-- Singleton instance exported as `googleSheetsService`
-- Separate OAuth flow from Prasadam service (uses different spreadsheet)
+- Singleton instance exported as `bhogaSheetsService`
+- Operations: `getIngredientList()`, `getStorageLocations()`, `getDeliveries()`, `recordDelivery()`, `getDeliveredItems()`, `moveToStorage()`
+
+**BhogaTracker Screens**
+- `BhogaHomeScreen` — Main dashboard with meal cards (Fri-Sun, Breakfast/Lunch/Dinner), retreat date picker, alerts badge
+- `BhogaMealScreen` — Meal detail showing items and ingredient status (pending/delivered/used)
+- `BhogaAlertsScreen` — Shows ingredients with current stock below pending need
+- `BhogaAdminScreen` — Storage location setup (room, sublocation, initial stock)
+- `BhogaStorageScreen` — View all storage locations with current stock levels
+- `BhogaDeliveryScreen` — Mark ingredient deliveries with editable qty (can exceed expected)
+- `BhogaStorageMoveScreen` — Move delivered items to storage with room picker (Kitchen, Pantry, Walk-in Fridge, Dry Storage, Cold Room)
 
 **Background Stats Service** (`services/BackgroundStatsService.tsx`)
 - App-level component that fetches activity stats every 1 minute when app is active
@@ -148,6 +159,12 @@ eas submit --platform android --profile production
 - Syncs: meals, menu items, location inventory, transfers
 - Provides `useSheetsSync()` hook for React components
 - Requires `EXPO_PUBLIC_SHEETS_SYNC_FUNCTION_URL` and `EXPO_PUBLIC_PRASADAM_SPREADSHEET_ID`
+
+**Meal Picker** (`config/mealSchedule.ts`, `journey/Meals/components/MealPickerModal.tsx`)
+- Time-based auto-selection of current meal before scanning
+- `getCurrentMeal(eventId)` returns meal based on current time within defined windows
+- Meal IDs match both scan activity tracking (`activity` parameter) and Prasadam Distribution sheets
+- Shows confirmation alert if user selects different meal than suggested
 
 ### Navigation
 
@@ -172,35 +189,36 @@ The app supports portrait and both landscape orientations. All screens must hand
 The generic `Scanner` component (`journey/common/util/Scanner.tsx`) handles QR/barcode scanning and redirects to the appropriate screen based on `ScannerParams` passed via navigation.
 
 **Prasadam Distribution Architecture**
-Multi-team workflow with 4 teams:
-- Team 0 (Planning + Cooking): `PrasadamPlanCookScreen`
-- Team 1 (Kitchen → Staging): `PrasadamKitchenDashboard`, `PrasadamKitchenSendScreen`
-- Team 2 (Staging Management): `PrasadamStagingDashboard`, `PrasadamTransferQueue`
-- Team 3 (Refill Stations): `PrasadamRefillRequest`, `PrasadamRefillReceive`, `PrasadamBuffetRefillTracker`
+Unified dashboard with view-based access controls:
+- **All View**: Shows all stages except Planned (Cooked → Stored → Staging → Refill Stations → Buffet Lanes → Left Over)
+- **Stats View** (read-only): Shows Planned, Kitchen (Cooked), Distributed (Served), Left Over with percentages
+- **Staging View**: Stored → Staging → Refill Stations
+- **Serving View**: Refill Stations → Buffet Lanes → Left Over
+
+**Movement & Editing**
+- Tap on quantity cell: Opens forward movement popup (default qty: 0)
+- Long press on quantity cell: Opens reverse/edit popup
+  - Cooked: Edit mode (direct quantity setting - cumulative)
+  - Other stages: Reverse movement options
+- Movements update UI immediately (optimistic), sync silently in background
 
 **Dashboard Color Groups**
-Stage headers are color-coded with bold separators between groups:
+Stage headers are color-coded with bold separators:
 - Planning (Planned): Gray
-- Production (Cooked, Stored): Orange/Brown
+- Production (Kitchen/Cooked, Stored): Orange/Brown
 - Tracking (Distributed): Blue
 - Staging: Amber
 - Refill Stations (1, 2, 3): Greens
 - Buffet Lanes: Purple
 - Left Over: Red
 
-**Optimistic Updates**
-Movement operations update UI immediately with optimistic local state changes, then sync silently with server via background refresh. No loading spinners on cells.
-
-**Transfer History**
-Long press on quantity cells shows past 3 movements for that item. Transfers are created via `recordTransfer()` API call after successful inventory updates.
-
-**Buffet Lanes Behavior**
-- Tap: Opens popup to move quantity with auto-destination to next location in flow
-- Long press: Opens same popup with reverse options enabled (move backward in chain)
+**Display Name Context**
+- "Stats" view: Cooked displays as "Kitchen", Served displays as "Distributed"
+- Other views: Standard names (Cooked, Stored, etc.)
 
 **Other Feature Modules**
 - `Daypass/` — Daypass scanning and redemption flows
-- `BhogaTracker/` — Ingredient/meal planning with Google Sheets integration
+- `BhogaTracker/` — Ingredient/meal planning: Home (meal grid), Delivery (mark receipts), Storage Move (put away), Alerts (low stock), Admin (setup), Meal (ingredient status)
 - `RishikeshKirtanFest/` — Event-specific screens
 - `Gifts/`, `Meals/`, `Services/`, `Tags/` — Additional operational features
 
@@ -248,7 +266,7 @@ GOOGLE_APPS_SCRIPT_URL=https://script.google.com/macros/s/...
 
 - **iOS Bundle ID**: `com.sadhusanga.ScannerApp` (Apple Team: ST8SH8S3P4, ASC App ID: 6480351919, Apple ID: loghash@gmail.com)
 - **Android Package**: `com.sadhusanga.ScannerApp`
-- **Version**: Defined in `app.json` (currently 2.2.9, iOS build 25, Android version 27)
+- **Version**: Defined in `app.json` (currently 2.2.9, iOS build 28, Android version 27)
 - **EAS Project ID**: `eedf4ca2-7f92-48aa-a4c9-2095d7f9f150`
 - **New Architecture**: Enabled for both platforms
 - **OTA Updates**: Configured via `expo-updates`
@@ -259,19 +277,27 @@ GOOGLE_APPS_SCRIPT_URL=https://script.google.com/macros/s/...
 
 ## Google Apps Script Integration
 
-The `GoogleAppsScript.code.js` file contains the backend API for Prasadam Distribution tracking.
+The `GoogleAppsScript.code.js` file contains the backend API for both Prasadam Distribution and Bhoga Tracker.
 
 **Deployment:**
 1. Open Google Sheet → Extensions → Apps Script
 2. Replace ALL code with contents of `GoogleAppsScript.code.js`
 3. Deploy as Web App (Execute as: Me, Access: Anyone)
-4. Update `GOOGLE_APPS_SCRIPT_URL` in `services/PrasadamSheetsService.ts`
+4. Update `EXPO_PUBLIC_GOOGLE_APPS_SCRIPT_URL` in `.env.local`
 
-**Key Functions:**
+**Key Functions (Prasadam Distribution):**
 - `getDashboardSummary(mealId)` — Returns menu + inventory + transfers for a meal
 - `updateLocationInventory(mealId, itemId, location, quantity, action)` — Add/subtract from locations
 - `recordTransfer(data)` — Creates transfer history records
 - `getTransfers(mealId)` — Returns all transfers for a meal
+
+**Key Functions (Bhoga Tracker):**
+- `bhogaGetIngredientList()` — Returns meals and ingredients with planned quantities
+- `bhogaGetStorageLocations()` — Returns all configured storage locations
+- `bhogaGetDeliveries()` — Returns delivery records with expected/delivered qty
+- `bhogaRecordDelivery(data)` — Records ingredient delivery
+- `bhogaGetDeliveredItems()` — Returns items pending storage (status='delivered')
+- `bhogaMoveToStorage(data)` — Moves item to storage, updates status to 'stored'
 
 **Important Notes:**
 - `action` parameter uses `'add'|'subtract'` (NOT `'operation'` to avoid conflict with API wrapper)

@@ -20,6 +20,27 @@ function doGet(e) {
       case 'getEvents':
         return getEvents();
 
+      case 'bhogaGetIngredientList':
+        return bhogaGetIngredientList();
+
+      case 'bhogaGetStorageLocations':
+        return bhogaGetStorageLocations();
+
+      case 'bhogaGetStockTransactions':
+        return bhogaGetStockTransactions();
+
+      case 'bhogaGetDeliveries':
+        return bhogaGetDeliveries();
+
+      case 'bhogaRecordDelivery':
+        return bhogaRecordDelivery(data);
+
+      case 'bhogaMoveToStorage':
+        return bhogaMoveToStorage(data);
+
+      case 'bhogaGetDeliveredItems':
+        return bhogaGetDeliveredItems();
+
       case 'getMeals':
         const eventId = e.parameter.eventId;
         return getMeals(eventId);
@@ -80,6 +101,21 @@ function doPost(e) {
 
       case 'updateLocationInventory':
         return updateLocationInventory(data);
+
+      case 'bhogaRecordStockTransaction':
+        return bhogaRecordStockTransaction(data);
+
+      case 'bhogaUpdateStorageLocation':
+        return bhogaUpdateStorageLocation(data);
+
+      case 'bhogaRecordDelivery':
+        return bhogaRecordDelivery(data);
+
+      case 'bhogaMoveToStorage':
+        return bhogaMoveToStorage(data);
+
+      case 'bhogaInitializeSheet':
+        return bhogaInitializeSheet();
 
       case 'initializeSheet':
         return initializeSheet();
@@ -1276,4 +1312,440 @@ function populateUSASadhuSangaRetreat2026_ActualData() {
     return 'Successfully populated USA Sadhu Sanga Retreat 2026 with actual menu data from COPY_PLAN_2026! ' +
            'Total meals: 9, Total menu items: ~75';
 }
+
+// ============ BHOGA TRACKER OPERATIONS ============
+
+// Get ingredient list with meal groupings
+// Parses IDs like "SunBreak01", "SunLunch02", "FriDinner03" and groups by meal
+function bhogaGetIngredientList() {
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Ingredient List');
+    if (!sheet || sheet.getLastRow() <= 1) {
+      return createResponse('success', { meals: {}, ingredients: [] });
+    }
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    const idIdx = headers.indexOf('ID');
+    const menuItemIdx = headers.indexOf('MenuItem');
+    const ingredientIdx = headers.indexOf('Ingredients');
+    const quantityIdx = headers.indexOf('Quantity');
+    const unitsIdx = headers.indexOf('Units');
+    const categoryIdx = headers.indexOf('Category');
+
+    const meals = {};
+    const ingredientsMap = {};
+
+    // Map meal abbreviations to full names
+    const mealAbbrevMap = {
+      'Break': 'Breakfast',
+      'Lunch': 'Lunch',
+      'Din': 'Dinner',
+      'Breakfast': 'Breakfast',
+      'Lunch': 'Lunch',
+      'Dinner': 'Dinner'
+    };
+
+    rows.forEach(row => {
+      const rawId = row[idIdx];
+      const menuItem = row[menuItemIdx];
+      const ingredient = row[ingredientIdx];
+      const quantity = parseFloat(row[quantityIdx]) || 0;
+      const unit = row[unitsIdx] || '';
+      const category = row[categoryIdx] || 'Uncategorized';
+
+      if (!rawId || !ingredient) return;
+
+      // Parse ID like "SunBreak01" → day="Sun", mealAbbrev="Break", itemNum="01"
+      // Extract day (first 3 chars: Fri, Sat, Sun, Mon)
+      const day = rawId.substring(0, 3); // Fri, Sat, Sun, Mon
+      const rest = rawId.substring(3); // Break01, Lunch02, Din03
+
+      // Extract meal abbreviation (Break, Lunch, Din) and item number
+      let mealAbbrev = '';
+      let itemNumber = '';
+      for (let i = 0; i < rest.length; i++) {
+        const char = rest.charAt(i);
+        if (char.match(/[A-Za-z]/)) {
+          mealAbbrev += char;
+        } else {
+          itemNumber = rest.substring(i);
+          break;
+        }
+      }
+
+      // Map to full meal name and create meal key (e.g., "sunBreakfast")
+      const fullMealName = mealAbbrevMap[mealAbbrev] || mealAbbrev;
+      const mealKey = day.toLowerCase() + fullMealName; // e.g., "sunBreakfast"
+
+      // Initialize meal
+      if (!meals[mealKey]) {
+        meals[mealKey] = { id: mealKey, items: {} };
+      }
+
+      // Initialize menu item (use raw ID + item name as unique key)
+      const menuItemKey = menuItem || rawId;
+      if (!meals[mealKey].items[menuItemKey]) {
+        meals[mealKey].items[menuItemKey] = { name: menuItem || rawId, ingredients: [] };
+      }
+
+      // Add ingredient
+      meals[mealKey].items[menuItemKey].ingredients.push({
+        name: ingredient,
+        quantity,
+        unit,
+        category,
+        status: 'pending'
+      });
+
+      // Track ingredient totals
+      if (!ingredientsMap[ingredient]) {
+        ingredientsMap[ingredient] = {
+          name: ingredient,
+          category,
+          unit,
+          totalPlanned: 0,
+          meals: []
+        };
+      }
+
+      const ingr = ingredientsMap[ingredient];
+      ingr.totalPlanned += quantity;
+
+      const existingMeal = ingr.meals.find(m => m.mealId === mealKey && m.menuItem === menuItemKey);
+      if (existingMeal) {
+        existingMeal.plannedQuantity += quantity;
+      } else {
+        ingr.meals.push({
+          mealId: mealKey,
+          menuItem: menuItemKey,
+          plannedQuantity: quantity,
+          status: 'pending'
+        });
+      }
+    });
+
+    return createResponse('success', {
+      meals,
+      ingredients: Object.values(ingredientsMap)
+    });
+  } catch (error) {
+    return createResponse('error', null, 'Error in bhogaGetIngredientList: ' + error.toString());
+  }
+}
+
+// Get storage locations
+function bhogaGetStorageLocations() {
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Storage Locations');
+    if (!sheet || sheet.getLastRow() <= 1) {
+      return createResponse('success', []);
+    }
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    const ingredientIdx = headers.indexOf('Ingredient');
+    const roomIdx = headers.indexOf('Room');
+    const sublocationIdx = headers.indexOf('Sublocation');
+    const initialIdx = headers.indexOf('InitialStock');
+    const currentIdx = headers.indexOf('CurrentStock');
+    const unitIdx = headers.indexOf('Unit');
+
+    const locations = [];
+    rows.forEach(row => {
+      const ingredientName = row[ingredientIdx];
+      if (!ingredientName) return;
+
+      locations.push({
+        ingredientName,
+        room: row[roomIdx],
+        sublocation: row[sublocationIdx],
+        initialStock: parseFloat(row[initialIdx]) || 0,
+        currentStock: parseFloat(row[currentIdx]) || 0,
+        unit: row[unitIdx] || ''
+      });
+    });
+
+    return createResponse('success', locations);
+  } catch (error) {
+    return createResponse('error', null, 'Error in bhogaGetStorageLocations: ' + error.toString());
+  }
+}
+
+// Get stock transactions
+function bhogaGetStockTransactions() {
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Stock Transactions');
+    if (!sheet || sheet.getLastRow() <= 1) {
+      return createResponse('success', []);
+    }
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    const timestampIdx = headers.indexOf('Timestamp');
+    const mealIdIdx = headers.indexOf('MealID');
+    const menuItemIdx = headers.indexOf('MenuItem');
+    const ingredientIdx = headers.indexOf('Ingredient');
+    const usedIdx = headers.indexOf('UsedQuantity');
+    const unitIdx = headers.indexOf('Unit');
+    const remainingIdx = headers.indexOf('RemainingStock');
+    const userIdx = headers.indexOf('UserID');
+
+    const transactions = [];
+    rows.forEach(row => {
+      const ingredientName = row[ingredientIdx];
+      if (!ingredientName) return;
+
+      transactions.push({
+        timestamp: row[timestampIdx],
+        mealId: row[mealIdIdx],
+        menuItem: row[menuItemIdx],
+        ingredientName,
+        usedQuantity: parseFloat(row[usedIdx]) || 0,
+        unit: row[unitIdx] || '',
+        remainingStock: row[remainingIdx] ? parseFloat(row[remainingIdx]) : undefined,
+        userId: row[userIdx]
+      });
+    });
+
+    return createResponse('success', transactions);
+  } catch (error) {
+    return createResponse('error', null, 'Error in bhogaGetStockTransactions: ' + error.toString());
+  }
+}
+
+// Record stock transaction
+function bhogaRecordStockTransaction(data) {
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Stock Transactions');
+    if (!sheet) {
+      return createResponse('error', null, 'Stock Transactions sheet not found. Run initializeSheet() first.');
+    }
+
+    const now = new Date().toISOString();
+    sheet.appendRow([
+      now,
+      data.mealId,
+      data.menuItem,
+      data.ingredientName,
+      data.usedQuantity,
+      data.unit,
+      data.remainingStock || '',
+      data.userId || ''
+    ]);
+
+    return createResponse('success', null, 'Stock transaction recorded');
+  } catch (error) {
+    return createResponse('error', null, 'Error in bhogaRecordStockTransaction: ' + error.toString());
+  }
+}
+
+// Update storage location
+function bhogaUpdateStorageLocation(data) {
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Storage Locations');
+    if (!sheet) {
+      return createResponse('error', null, 'Storage Locations sheet not found. Run initializeSheet() first.');
+    }
+
+    // Append new entry (create history trail)
+    sheet.appendRow([
+      data.ingredientName,
+      data.room,
+      data.sublocation || '',
+      data.stock,
+      data.unit || ''
+    ]);
+
+    return createResponse('success', null, 'Storage location updated');
+  } catch (error) {
+    return createResponse('error', null, 'Error in bhogaUpdateStorageLocation: ' + error.toString());
+  }
+}
+
+// Initialize Bhoga sheets separately from Prasadam Distribution
+function bhogaInitializeSheet() {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const bhogaSheetConfigs = {
+      'Ingredient List': ['ID', 'MenuItem', 'Ingredients', 'Quantity', 'Units', 'Category'],
+      'Storage Locations': ['Ingredient', 'Room', 'Sublocation', 'InitialStock', 'CurrentStock', 'Unit'],
+      'Stock Transactions': ['Timestamp', 'MealID', 'MenuItem', 'Ingredient', 'UsedQuantity', 'Unit', 'RemainingStock', 'UserID'],
+      'Deliveries': ['Timestamp', 'Ingredient', 'Category', 'ExpectedQty', 'DeliveredQty', 'Unit', 'Status', 'UserID']
+    };
+
+    Object.keys(bhogaSheetConfigs).forEach(sheetName => {
+      let sheet = ss.getSheetByName(sheetName);
+      if (!sheet) {
+        sheet = ss.insertSheet(sheetName);
+        sheet.getRange(1, 1, 1, bhogaSheetConfigs[sheetName].length).setValues([bhogaSheetConfigs[sheetName]]);
+      }
+    });
+
+    return createResponse('success', null, 'Bhoga sheets initialized successfully');
+  } catch (error) {
+    return createResponse('error', null, 'Error in bhogaInitializeSheet: ' + error.toString());
+  }
+}
+
+// ============ BHOGA DELIVERY & STORAGE MOVE OPERATIONS ============
+
+// Get all deliveries grouped by ingredient
+function bhogaGetDeliveries() {
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Deliveries');
+    if (!sheet || sheet.getLastRow() <= 1) {
+      return createResponse('success', []);
+    }
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    const timestampIdx = headers.indexOf('Timestamp');
+    const ingredientIdx = headers.indexOf('Ingredient');
+    const categoryIdx = headers.indexOf('Category');
+    const expectedIdx = headers.indexOf('ExpectedQty');
+    const deliveredIdx = headers.indexOf('DeliveredQty');
+    const unitIdx = headers.indexOf('Unit');
+    const statusIdx = headers.indexOf('Status');
+
+    const deliveries = [];
+    rows.forEach(row => {
+      deliveries.push({
+        timestamp: row[timestampIdx],
+        ingredient: row[ingredientIdx],
+        category: row[categoryIdx],
+        expectedQty: parseFloat(row[expectedIdx]) || 0,
+        deliveredQty: parseFloat(row[deliveredIdx]) || 0,
+        unit: row[unitIdx],
+        status: row[statusIdx] || 'pending'
+      });
+    });
+
+    return createResponse('success', deliveries);
+  } catch (error) {
+    return createResponse('error', null, 'Error in bhogaGetDeliveries: ' + error.toString());
+  }
+}
+
+// Record a delivery (ingredient delivered)
+function bhogaRecordDelivery(data) {
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Deliveries');
+    if (!sheet) {
+      return createResponse('error', null, 'Deliveries sheet not found. Run bhogaInitializeSheet() first.');
+    }
+
+    const now = new Date().toISOString();
+    sheet.appendRow([
+      now,
+      data.ingredient,
+      data.category,
+      data.expectedQty,
+      data.deliveredQty,
+      data.unit,
+      'delivered',
+      data.userId || ''
+    ]);
+
+    return createResponse('success', null, 'Delivery recorded');
+  } catch (error) {
+    return createResponse('error', null, 'Error in bhogaRecordDelivery: ' + error.toString());
+  }
+}
+
+// Get delivered items (items ready to move to storage)
+function bhogaGetDeliveredItems() {
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Deliveries');
+    if (!sheet || sheet.getLastRow() <= 1) {
+      return createResponse('success', []);
+    }
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    const ingredientIdx = headers.indexOf('Ingredient');
+    const categoryIdx = headers.indexOf('Category');
+    const deliveredIdx = headers.indexOf('DeliveredQty');
+    const unitIdx = headers.indexOf('Unit');
+    const statusIdx = headers.indexOf('Status');
+    const timestampIdx = headers.indexOf('Timestamp');
+
+    const deliveredItems = [];
+    rows.forEach(row => {
+      // Only include items that are delivered and not yet moved to storage
+      if (row[statusIdx] === 'delivered') {
+        deliveredItems.push({
+          timestamp: row[timestampIdx],
+          ingredient: row[ingredientIdx],
+          category: row[categoryIdx],
+          quantity: parseFloat(row[deliveredIdx]) || 0,
+          unit: row[unitIdx],
+          status: row[statusIdx]
+        });
+      }
+    });
+
+    return createResponse('success', deliveredItems);
+  } catch (error) {
+    return createResponse('error', null, 'Error in bhogaGetDeliveredItems: ' + error.toString());
+  }
+}
+
+// Move delivered item to storage location
+function bhogaMoveToStorage(data) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+
+    // 1. Add to Storage Locations sheet
+    const storageSheet = ss.getSheetByName('Storage Locations');
+    if (!storageSheet) {
+      return createResponse('error', null, 'Storage Locations sheet not found. Run bhogaInitializeSheet() first.');
+    }
+
+    const now = new Date().toISOString();
+    storageSheet.appendRow([
+      data.ingredient,
+      data.room,
+      data.sublocation || '',
+      data.quantity,
+      data.unit
+    ]);
+
+    // 2. Update delivery status to 'stored'
+    const deliveriesSheet = ss.getSheetByName('Deliveries');
+    if (!deliveriesSheet) {
+      return createResponse('error', null, 'Deliveries sheet not found.');
+    }
+
+    const deliveryData = deliveriesSheet.getDataRange().getValues();
+    const statusIdx = deliveryData[0].indexOf('Status');
+    const timestampIdx = deliveryData[0].indexOf('Timestamp');
+    const ingredientIdx = deliveryData[0].indexOf('Ingredient');
+
+    // Find the delivery record and update status
+    for (let i = 1; i < deliveryData.length; i++) {
+      if (deliveryData[i][statusIdx] === 'delivered' &&
+          String(deliveryData[i][ingredientIdx]) === String(data.ingredient)) {
+        deliveriesSheet.getRange(i + 1, statusIdx + 1).setValue('stored');
+        deliveriesSheet.getRange(i + 1, timestampIdx + 1).setValue(now); // Update timestamp
+        break; // Update only the first matching record
+      }
+    }
+
+    return createResponse('success', null, 'Item moved to storage');
+  } catch (error) {
+    return createResponse('error', null, 'Error in bhogaMoveToStorage: ' + error.toString());
+  }
+}
+
 

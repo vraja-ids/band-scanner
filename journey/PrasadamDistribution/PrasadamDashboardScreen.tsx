@@ -14,6 +14,7 @@ import {
   StatusBar,
   Alert,
   ActivityIndicator,
+  SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRoute, useNavigation } from '@react-navigation/native';
@@ -602,7 +603,8 @@ function PrasadamDashboardScreen() {
   const handleCellLongPress = useCallback(
     (item: DashboardItem, stage: DashboardStage) => {
       const qty = getStageQuantity(item, stage);
-      if (qty <= 0) return;
+      // Allow Cooked editing even when qty is 0, but require qty > 0 for other stages
+      if (stage !== 'cooked' && qty <= 0) return;
 
       setSelectedItem(item);
       setSelectedStage(stage);
@@ -719,6 +721,78 @@ function PrasadamDashboardScreen() {
     [selectedItem, selectedStage, userId, mealId, loadData]
   );
 
+  // Handle direct edit of Cooked quantity (Team 0 - correction/addition)
+  const handleEditCooked = useCallback(
+    async (newQuantity: number) => {
+      if (!selectedItem || !userId) return;
+
+      // Set flag to prevent auto-refresh during movement
+      movementInProgressRef.current = true;
+
+      try {
+        const currentQty = selectedItem.cooked_qty || 0;
+        const difference = newQuantity - currentQty;
+
+        console.log('[EDIT COOKED] Direct edit', {
+          item: selectedItem.name,
+          current: currentQty,
+          new: newQuantity,
+          difference,
+        });
+
+        // Update MenuItem.ready_trays directly (not location inventory)
+        if (difference !== 0) {
+          const success = await updateMenuItem({
+            itemId: selectedItem.item_id,
+            updates: {
+              ready_trays: newQuantity,
+            },
+          });
+
+          if (!success) throw new Error('Failed to update cooked quantity');
+
+          // Record the edit for audit trail
+          await recordTransfer({
+            meal_id: mealId,
+            item_id: selectedItem.item_id,
+            item_name: selectedItem.name,
+            quantity: Math.abs(difference),
+            from_location: difference > 0 ? 'manual_add' : 'manual_subtract',
+            to_location: 'cooked',
+            from_user: userId,
+          });
+        }
+
+        // Optimistically update local state
+        setItems(prevItems =>
+          prevItems.map(item => {
+            if (item.item_id === selectedItem.item_id) {
+              return {
+                ...item,
+                cooked_qty: newQuantity,
+              };
+            }
+            return item;
+          })
+        );
+
+        setShowReversePopup(false);
+        setSelectedItem(null);
+        setSelectedStage(null);
+
+        // Refresh to get server state
+        await loadData(true);
+      } catch (error) {
+        console.error('Failed to edit cooked quantity:', error);
+        Alert.alert('Error', `Failed to update: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      } finally {
+        // Clear flag to allow auto-refresh again
+        movementInProgressRef.current = false;
+      }
+    },
+    [selectedItem, userId, mealId, loadData]
+  );
+
   // Open meal switcher
   const handleOpenMealSwitcher = useCallback(async () => {
     if (!eventId) {
@@ -741,20 +815,24 @@ function PrasadamDashboardScreen() {
   const handleMealSwitch = useCallback(async (meal: Meal) => {
     setShowMealModal(false);
 
-    // Store the selected meal for this event
-    const mealName = meal.meal_name || meal.meal_type || 'Meal';
+    // Build display name with day and meal type - same logic as MealSelectionModal
+    const dayNames = ['', 'Friday', 'Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
+    const dayName = meal.day_number ? dayNames[meal.day_number] || `Day ${meal.day_number}` : '';
+    const mealType = meal.meal_type || 'Meal';
+    const fullMealName = dayName ? `${dayName} ${mealType}`.trim() : (meal.meal_name || mealType);
+
     if (eventId) {
       await AsyncStorage.setItem(`lastMealId_${eventId}`, meal.meal_id);
-      await AsyncStorage.setItem(`lastMealName_${eventId}`, mealName);
+      await AsyncStorage.setItem(`lastMealName_${eventId}`, fullMealName);
     }
 
     // Reset data and reload with new meal
     setItems([]);
-    setMealName(mealName);
+    setMealName(fullMealName);
     // Update route params
     (navigation as any).setParams({
       mealId: meal.meal_id,
-      mealName,
+      mealName: fullMealName,
     });
     // Reload data will happen automatically due to mealId change in route
   }, [navigation, eventId]);
@@ -762,11 +840,12 @@ function PrasadamDashboardScreen() {
   // Get current stages based on team view
   const visibleStages = TEAM_VIEW_CONFIGS[teamView].stages;
 
-  // Get display name for a stage (context-aware for Kitchen view)
+  // Get display name for a stage (context-aware for Stats view)
   const getStageDisplayName = (stage: DashboardStage): string => {
-    // In Kitchen view, show 'served' as "Distributed" (same data, different label)
-    if (teamView === 'team1_kitchen' && stage === 'served') {
-      return 'Distributed';
+    // In Stats view, show 'cooked' as "Cooked" (not Kitchen) and 'served' as "Distributed"
+    if (teamView === 'stats') {
+      if (stage === 'cooked') return 'Cooked';
+      if (stage === 'served') return 'Distributed';
     }
     return STAGE_DISPLAY_NAMES[stage];
   };
@@ -774,7 +853,7 @@ function PrasadamDashboardScreen() {
   // Stage color groups for headers
   const getStageColor = (stage: DashboardStage): string => {
     // In Kitchen view, 'served' displays as "Distributed" - use blue color
-    if (teamView === 'team1_kitchen' && stage === 'served') {
+    if (teamView === 'stats' && stage === 'served') {
       return '#1565C0'; // Dark Blue - Distributed
     }
 
@@ -810,7 +889,7 @@ function PrasadamDashboardScreen() {
 
   // Calculate dynamic column width based on number of visible stages
   // +1 for item name, +2 for percentage columns (only in Kitchen view)
-  const showPercentages = teamView === 'team1_kitchen';
+  const showPercentages = teamView === 'stats';
   const numPercentageCols = showPercentages ? 2 : 0;
   const numColumns = visibleStages.length + 1 + numPercentageCols;
   const screenWidth = Dimensions.get('window').width;
@@ -900,9 +979,9 @@ function PrasadamDashboardScreen() {
             <TouchableOpacity
               key={stage}
               style={[styles.qtyCell, qty > 0 && styles.qtyCellActive, { width: columnWidth, borderRightWidth: showSeparator ? 3 : 1, borderRightColor: showSeparator ? '#000' : '#EEE' }]}
-              onPress={() => isValid && qty > 0 && handleCellTap(item, stage as DashboardStage)}
-              onLongPress={() => qty > 0 && handleCellLongPress(item, stage as DashboardStage)}
-              disabled={qty === 0 || !isValid}
+              onPress={() => isValid && qty > 0 && !TEAM_VIEW_CONFIGS[teamView].readonly && handleCellTap(item, stage as DashboardStage)}
+              onLongPress={() => (stage === 'cooked' || qty > 0) && !TEAM_VIEW_CONFIGS[teamView].readonly && handleCellLongPress(item, stage as DashboardStage)}
+              disabled={(stage !== 'cooked' && qty === 0) || !isValid || TEAM_VIEW_CONFIGS[teamView].readonly}
             >
               {qty > 0 ? (
                 <PowerBall
@@ -910,7 +989,6 @@ function PrasadamDashboardScreen() {
                   quantity={qty}
                   size={powerBallSize}
                   compact
-                  showStored={stage === 'cooked' ? item.cooked_to_stored_moved : undefined}
                 />
               ) : (
                 <Text style={styles.emptyCell}>—</Text>
@@ -993,7 +1071,8 @@ function PrasadamDashboardScreen() {
       <StatusBar barStyle="dark-content" />
 
       {/* Header */}
-      <View style={styles.topBar}>
+      <SafeAreaView>
+        <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
           <TouchableOpacity style={styles.mealSelector} onPress={handleOpenMealSwitcher}>
             <Ionicons name="restaurant-outline" size={16} color="#2196F3" />
@@ -1004,7 +1083,7 @@ function PrasadamDashboardScreen() {
 
         <View style={styles.topBarRight}>
           <View style={styles.teamViewSelector}>
-            {(['all', 'team1_kitchen', 'team2_staging', 'team3_serving'] as TeamView[]).map(view => (
+            {(['all', 'stats', 'team2_staging', 'team3_serving'] as TeamView[]).map(view => (
               <TouchableOpacity
                 key={view}
                 style={[styles.teamViewBtn, teamView === view && styles.teamViewBtnActive]}
@@ -1022,8 +1101,6 @@ function PrasadamDashboardScreen() {
             ))}
           </View>
 
-          {isRefreshing && <ActivityIndicator size="small" color="#2196F3" />}
-
           <TouchableOpacity
             style={styles.settingsBtn}
             onPress={() => (navigation as any).navigate(Routes.MealSettings)}
@@ -1031,7 +1108,8 @@ function PrasadamDashboardScreen() {
             <Ionicons name="settings-outline" size={20} color="#2196F3" />
           </TouchableOpacity>
         </View>
-      </View>
+        </View>
+      </SafeAreaView>
 
       {/* Devotees Count Bar */}
       <View style={styles.devoteesBar}>
@@ -1111,6 +1189,7 @@ function PrasadamDashboardScreen() {
             setReverseFilterStages(undefined);
           }}
           onMove={handleReverseMove}
+          onEdit={handleEditCooked}
           transactions={getItemTransactions(selectedItem.item_id, selectedStage)}
         />
       )}
