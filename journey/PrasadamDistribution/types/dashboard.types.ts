@@ -68,29 +68,34 @@ export const STAGE_DISPLAY_NAMES: Record<DashboardStage, string> = {
 };
 
 // Team view configurations
-export type TeamView = 'all' | 'stats' | 'team2_staging' | 'team3_serving';
+export type TeamView = 'stats' | 'team1_kitchen' | 'team2_staging' | 'team3_serving' | 'all';
 
 export const TEAM_VIEW_CONFIGS: Record<TeamView, { name: string; shortName: string; stages: DashboardStage[]; readonly?: boolean }> = {
-  all: {
-    name: 'All Stages',
-    shortName: 'All',
-    stages: ['cooked', 'stored', 'staging', 'refill_station_1', 'refill_station_2', 'refill_station_3', 'served'],
-  },
   stats: {
     name: 'Stats',
     shortName: 'Stats',
     stages: ['planned', 'cooked', 'served', 'left_over'], // Stats view shows 'served' as "Distributed", 'cooked' as "Cooked"
     readonly: true, // No movements allowed in stats view
   },
+  team1_kitchen: {
+    name: 'Team 1 (Kitchen)',
+    shortName: 'Team 1',
+    stages: ['cooked', 'stored', 'staging'],
+  },
   team2_staging: {
     name: 'Team 2 (Staging)',
-    shortName: 'Staging',
+    shortName: 'Team 2',
     stages: ['stored', 'staging', 'refill_station_1', 'refill_station_2', 'refill_station_3'],
   },
   team3_serving: {
     name: 'Team 3 (Serving)',
-    shortName: 'Serving',
+    shortName: 'Team 3',
     stages: ['refill_station_1', 'refill_station_2', 'refill_station_3', 'served', 'left_over'],
+  },
+  all: {
+    name: 'All Stages',
+    shortName: 'All',
+    stages: ['cooked', 'stored', 'staging', 'refill_station_1', 'refill_station_2', 'refill_station_3', 'served'],
   },
 };
 
@@ -140,14 +145,30 @@ function generateColorFromString(str: string): string {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
   }
 
+  // Expanded color palette with more variety to reduce collisions
   const colors = [
-    '#FF9800', '#FFB74D', '#FFA726', '#FFC107',
-    '#8D6E63', '#A1887F', '#D4A574', '#C9956C',
-    '#66BB6A', '#81C784', '#9CCC65', '#AED581',
-    '#42A5F5', '#64B5F6', '#90CAF9', '#9FA8DA',
-    '#9FA8DA', '#B39DDB', '#CE93D8', '#BA68C8',
-    '#F06292', '#F48FB1', '#26A69A', '#80CBC4',
-    '#5C6BC0', '#7986CB',
+    // Oranges
+    '#FF9800', '#FFB74D', '#FFA726', '#FFC107', '#FF6F00',
+    // Browns/Tans
+    '#8D6E63', '#A1887F', '#D4A574', '#C9956C', '#BCAAA4',
+    // Greens
+    '#66BB6A', '#81C784', '#9CCC65', '#AED581', '#4CAF50', '#8BC34A',
+    // Blues
+    '#42A5F5', '#64B5F6', '#90CAF9', '#9FA8DA', '#2196F3', '#1976D2',
+    // Purples
+    '#9FA8DA', '#B39DDB', '#CE93D8', '#BA68C8', '#7E57C2',
+    // Pinks
+    '#F06292', '#F48FB1', '#EC407A', '#D81B60', '#F48FB1',
+    // Teals
+    '#26A69A', '#80CBC4', '#009688', '#4DB6AC',
+    // Indigos
+    '#5C6BC0', '#7986CB', '#3F51B5', '#5C6BC0',
+    // Yellows
+    '#FDD835', '#FFEE58', '#FBC02D',
+    // Reds
+    '#EF5350', '#E57373', '#FF5252',
+    // Deep colors for more contrast
+    '#E64A19', '#455A64', '#00695C', '#AD1457', '#4A148C',
   ];
 
   return colors[Math.abs(hash) % colors.length];
@@ -155,13 +176,43 @@ function generateColorFromString(str: string): string {
 
 // Predefined colors for common items
 export const ITEM_COLORS: Record<string, string> = {
+  // Indian dishes
   'dal': '#FF9800',
   'rice': '#8D6E63',
   'chapati': '#D4A574',
   'curry': '#FFB74D',
+  'halwa': '#F06292',
+  'kheer': '#F48FB1',
+  'sabzi': '#81C784',
+  'panir': '#FFA726',
+  // Chinese dishes
+  'manchurian': '#FF6F00',
+  'tofu': '#D4A574',
+  'fried': '#FFC107',
+  'soup': '#FFB74D',
+  'noodle': '#8D6E63',
+  'stirfry': '#66BB6A',
+  'choy': '#81C784',
+  'pakora': '#FF9800',
+  // Salads & dressings
   'salad': '#66BB6A',
-  'sweet': '#F06292',
+  'dressing': '#9CCC65',
+  'almond': '#D4A574',
+  // Drinks
   'juice': '#42A5F5',
+  'drink': '#64B5F6',
+  'mint': '#26A69A',
+  'lemon': '#FFEE58',
+  // Desserts
+  'sweet': '#F06292',
+  'cheesecake': '#F48FB1',
+  'flan': '#CE93D8',
+  'burfi': '#F06292',
+  // Misc
+  'breakfast': '#FFC107',
+  'pasta': '#E64A19',
+  'bread': '#A1887F',
+  'butter': '#FFEE58',
 };
 
 // Get item color

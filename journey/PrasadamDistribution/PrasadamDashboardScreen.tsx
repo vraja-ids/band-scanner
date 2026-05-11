@@ -208,6 +208,7 @@ function PrasadamDashboardScreen() {
 
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
   const movementInProgressRef = useRef(false); // Prevent refresh during movement
+  const skipNextRefreshRef = useRef(false); // Skip one refresh cycle after movement completes
 
   // Load user ID
   useEffect(() => {
@@ -259,14 +260,24 @@ function PrasadamDashboardScreen() {
 
   // Load dashboard data
   const loadData = useCallback(async (isBackground = false) => {
+    const loadStartTime = Date.now();
+    console.log('[loadData] ========== START ==========', { isBackground, mealId });
+
     // Skip background refresh if a movement is in progress to avoid race conditions
     if (isBackground && movementInProgressRef.current) {
-      console.log('[loadData] Skipping refresh, movement in progress');
+      console.log('[loadData] SKIPPING: movement in progress');
+      return;
+    }
+
+    // Skip one refresh cycle after movement completes to avoid immediate refresh delay
+    if (isBackground && skipNextRefreshRef.current) {
+      console.log('[loadData] SKIPPING: post-movement refresh skip');
+      skipNextRefreshRef.current = false;
       return;
     }
 
     if (!mealId) {
-      console.warn('No mealId provided, skipping load');
+      console.warn('[loadData] No mealId provided, skipping load');
       if (!isBackground) {
         setIsLoading(false);
         setLoadError('No meal ID provided');
@@ -282,9 +293,10 @@ function PrasadamDashboardScreen() {
     }
 
     try {
-      console.log('Loading dashboard data for mealId:', mealId);
+      console.log('[loadData] Calling getDashboardSummary...');
+      const apiStart = Date.now();
       const data = await getDashboardSummary(mealId, isBackground);
-      console.log('Dashboard data received:', data);
+      console.log('[loadData] getDashboardSummary returned, elapsed:', Date.now() - apiStart, 'ms');
 
       if (data) {
         // mealId is now the same as schedule meal ID (e.g., 'friDinner', 'satBreakfast')
@@ -307,11 +319,13 @@ function PrasadamDashboardScreen() {
         }
 
         const dashboardItems = buildDashboardItems(data.menu, data.inventory, expected, scanned);
-        console.log('Dashboard items built:', dashboardItems.length);
+        console.log('[loadData] Dashboard items built:', dashboardItems.length, 'elapsed:', Date.now() - loadStartTime, 'ms');
         setItems(dashboardItems);
 
         // Load transfers for long-press history
+        const transferStart = Date.now();
         const transferData = await getTransfers(mealId);
+        console.log('[loadData] getTransfers elapsed:', Date.now() - transferStart, 'ms');
         setTransfers(transferData);
 
         // Check for inventory warnings (tracked inventory > cooked)
@@ -331,12 +345,15 @@ function PrasadamDashboardScreen() {
         setLoadError('No data available for this meal');
       }
     } catch (error) {
-      console.error('Failed to load dashboard data:', error);
+      const elapsed = Date.now() - loadStartTime;
+      console.error('[loadData] ERROR, elapsed:', elapsed, 'ms', error);
       setLoadError(error instanceof Error ? error.message : 'Failed to load dashboard data');
       if (!isBackground) {
         Alert.alert('Error', 'Failed to load dashboard data');
       }
     } finally {
+      const totalElapsed = Date.now() - loadStartTime;
+      console.log('[loadData] ========== END, total elapsed:', totalElapsed, 'ms ==========');
       setIsLoading(false);
       setIsRefreshing(false);
     }
@@ -435,21 +452,25 @@ function PrasadamDashboardScreen() {
     async (quantity: number, toStage: DashboardStage) => {
       if (!selectedItem || !selectedStage || !userId) return;
 
+      const moveStartTime = Date.now();
+      console.log('[MOVE] ========== START ==========');
+      console.log('[MOVE] Moving quantity:', {
+        item: selectedItem.name,
+        itemId: selectedItem.item_id,
+        from: selectedStage,
+        to: toStage,
+        quantity,
+      });
+
       // Set flag to prevent auto-refresh during movement
       movementInProgressRef.current = true;
 
       try {
-        console.log('[MOVE] Moving quantity:', {
-          item: selectedItem.name,
-          itemId: selectedItem.item_id,
-          from: selectedStage,
-          to: toStage,
-          quantity,
-        });
-
         // Case 1: Planned -> Cooked (only updates MenuItem.ready_trays, planned_trays is static)
         if (selectedStage === 'planned' && toStage === 'cooked') {
           console.log('[MOVE] Case 1: Planned -> Cooked, only updating ready_trays');
+          const step1Start = Date.now();
+
           const success = await updateMenuItem({
             itemId: selectedItem.item_id,
             updates: {
@@ -457,10 +478,11 @@ function PrasadamDashboardScreen() {
               ready_trays: selectedItem.cooked_qty + quantity,
             },
           });
-          console.log('[MOVE] updateMenuItem result:', success);
+          console.log('[MOVE] updateMenuItem result:', success, 'elapsed:', Date.now() - step1Start, 'ms');
           if (!success) throw new Error('Failed to update tray count');
 
           // Create transfer record for cooking
+          const step2Start = Date.now();
           await recordTransfer({
             meal_id: mealId,
             item_id: selectedItem.item_id,
@@ -470,12 +492,15 @@ function PrasadamDashboardScreen() {
             to_location: 'Cooked',
             from_user: userId,
           });
+          console.log('[MOVE] recordTransfer elapsed:', Date.now() - step2Start, 'ms');
         }
         // Case 2: Cooked -> Stored (moves to kitchen storage, does NOT reduce ready_trays)
         // ready_trays tracks TOTAL cooked (cumulative), should never decrease
         else if (selectedStage === 'cooked' && toStage === 'stored') {
           console.log('[MOVE] Case 2: Cooked -> Stored (Team 1: to Kitchen Storage)');
           // Only add to kitchen location, don't reduce ready_trays (it's cumulative)
+          const step1Start = Date.now();
+
           const success = await updateLocationInventory({
             mealId,
             itemId: selectedItem.item_id,
@@ -483,19 +508,21 @@ function PrasadamDashboardScreen() {
             quantity,
             action: 'add',
           });
-          console.log('[MOVE] updateLocationInventory (Kitchen) result:', success);
+          console.log('[MOVE] updateLocationInventory (Kitchen) result:', success, 'elapsed:', Date.now() - step1Start, 'ms');
           if (!success) throw new Error('Failed to update inventory');
 
           // Also update the cumulative kitchen_storage_moved counter on MenuItem
+          const step2Start = Date.now();
           const menuSuccess = await updateMenuItem({
             itemId: selectedItem.item_id,
             updates: {
               kitchen_storage_moved: (selectedItem.cooked_to_stored_moved || 0) + quantity,
             },
           });
-          console.log('[MOVE] updateMenuItem (kitchen_storage_moved) result:', menuSuccess);
+          console.log('[MOVE] updateMenuItem (kitchen_storage_moved) result:', menuSuccess, 'elapsed:', Date.now() - step2Start, 'ms');
 
           // Create transfer record
+          const step3Start = Date.now();
           await recordTransfer({
             meal_id: mealId,
             item_id: selectedItem.item_id,
@@ -505,6 +532,48 @@ function PrasadamDashboardScreen() {
             to_location: 'Kitchen',
             from_user: userId,
           });
+          console.log('[MOVE] recordTransfer elapsed:', Date.now() - step3Start, 'ms');
+        }
+        // Case 2b: Cooked -> Left Over (direct spoilage/waste from cooked)
+        // Reduces ready_trays and adds to left_over location
+        else if (selectedStage === 'cooked' && toStage === 'left_over') {
+          console.log('[MOVE] Case 2b: Cooked -> Left Over (spoilage/waste)');
+          // Reduce ready_trays
+          const step1Start = Date.now();
+
+          const menuSuccess = await updateMenuItem({
+            itemId: selectedItem.item_id,
+            updates: {
+              ready_trays: Math.max(0, selectedItem.cooked_qty - quantity),
+            },
+          });
+          console.log('[MOVE] updateMenuItem (ready_trays) result:', menuSuccess, 'elapsed:', Date.now() - step1Start, 'ms');
+          if (!menuSuccess) throw new Error('Failed to update tray count');
+
+          // Add to left_over location inventory
+          const step2Start = Date.now();
+          const invSuccess = await updateLocationInventory({
+            mealId,
+            itemId: selectedItem.item_id,
+            location: 'Left Over',
+            quantity,
+            action: 'add',
+          });
+          console.log('[MOVE] updateLocationInventory (Left Over) result:', invSuccess, 'elapsed:', Date.now() - step2Start, 'ms');
+          if (!invSuccess) throw new Error('Failed to update inventory');
+
+          // Create transfer record
+          const step3Start = Date.now();
+          await recordTransfer({
+            meal_id: mealId,
+            item_id: selectedItem.item_id,
+            item_name: selectedItem.name,
+            quantity,
+            from_location: 'Cooked',
+            to_location: 'Left Over',
+            from_user: userId,
+          });
+          console.log('[MOVE] recordTransfer elapsed:', Date.now() - step3Start, 'ms');
         }
         // Case 3: Location inventory movements (stored -> staging -> refill stations -> served -> left_over)
         else {
@@ -512,6 +581,7 @@ function PrasadamDashboardScreen() {
           const toLocation = stageToLocation(toStage);
 
           console.log('[MOVE] Case 3: Location inventory movement', { fromLocation, toLocation });
+          const step1Start = Date.now();
 
           if (!fromLocation || !toLocation) {
             Alert.alert('Error', 'Invalid stage mapping');
@@ -526,9 +596,10 @@ function PrasadamDashboardScreen() {
             quantity,
             action: 'subtract',
           });
-          console.log('[MOVE] updateLocationInventory (subtract) result:', success1);
+          console.log('[MOVE] updateLocationInventory (subtract) result:', success1, 'elapsed:', Date.now() - step1Start, 'ms');
 
           // Add to destination
+          const step2Start = Date.now();
           const success2 = await updateLocationInventory({
             mealId,
             itemId: selectedItem.item_id,
@@ -536,11 +607,12 @@ function PrasadamDashboardScreen() {
             quantity,
             action: 'add',
           });
-          console.log('[MOVE] updateLocationInventory (add) result:', success2);
+          console.log('[MOVE] updateLocationInventory (add) result:', success2, 'elapsed:', Date.now() - step2Start, 'ms');
 
           if (!success1 || !success2) throw new Error('Failed to move trays');
 
           // Create transfer record
+          const step3Start = Date.now();
           await recordTransfer({
             meal_id: mealId,
             item_id: selectedItem.item_id,
@@ -550,11 +622,14 @@ function PrasadamDashboardScreen() {
             to_location: toLocation,
             from_user: userId,
           });
+          console.log('[MOVE] recordTransfer elapsed:', Date.now() - step3Start, 'ms');
         }
 
         // Optimistically update local state - add to destination, subtract from source
-        // Special case: Cooked → Stored should NOT decrease Cooked (it's cumulative)
-        // But we DO track the cumulative moved counter
+        // Special cases:
+        // - Cooked → Stored: does NOT decrease Cooked (it's cumulative), but tracks moved counter
+        // - Cooked → Left Over: DOES decrease Cooked (spoilage/waste)
+        const stateUpdateStart = Date.now();
         setItems(prevItems => {
           return prevItems.map(item => {
             if (item.item_id === selectedItem.item_id) {
@@ -570,8 +645,11 @@ function PrasadamDashboardScreen() {
                   ((updatedItem.cooked_to_stored_moved as number) || 0) + quantity;
               }
 
-              // Subtract from source (except Cooked and Planned, which are static/cumulative)
-              if (selectedStage !== 'cooked' && selectedStage !== 'planned') {
+              // Subtract from source (except Cooked→Stored and Planned, which are static/cumulative)
+              // Note: Cooked → Left Over DOES reduce cooked_qty
+              if (selectedStage === 'cooked' && toStage === 'left_over') {
+                (updatedItem.cooked_qty as number) = Math.max(0, (updatedItem.cooked_qty as number || 0) - quantity);
+              } else if (selectedStage !== 'cooked' && selectedStage !== 'planned') {
                 const sourceKey = `${selectedStage}_qty` as keyof DashboardItem;
                 (updatedItem[sourceKey] as number) = Math.max(0, (updatedItem[sourceKey] as number || 0) - quantity);
               }
@@ -581,19 +659,32 @@ function PrasadamDashboardScreen() {
             return item;
           });
         });
+        console.log('[MOVE] State update elapsed:', Date.now() - stateUpdateStart, 'ms');
 
-        setShowMovePopup(false);
+        // Close popup after state update renders (setTimeout allows React to flush)
+        setTimeout(() => {
+          setShowMovePopup(false);
+        }, 50);
 
-        // Silent background refresh to get server state - AWAIT to prevent race condition
-        await loadData(true);
+        // Clear flag so auto-refresh can work
+        movementInProgressRef.current = false;
+        // Skip next refresh cycle to avoid immediate refresh delay
+        skipNextRefreshRef.current = true;
+
+        const totalElapsed = Date.now() - moveStartTime;
+        console.log('[MOVE] ========== COMPLETE (popup closed), total elapsed:', totalElapsed, 'ms =', (totalElapsed / 1000).toFixed(1), 's ==========');
+
+        // Note: No explicit refresh here - relying on:
+        // 1. Optimistic state update (already applied)
+        // 2. Auto-refresh timer (every 5 seconds)
+        // 3. This avoids duplicate API calls
       } catch (error) {
-        console.error('Failed to move quantity:', error);
+        const totalElapsed = Date.now() - moveStartTime;
+        console.error('[MOVE] ERROR, elapsed:', totalElapsed, 'ms', error);
+        movementInProgressRef.current = false;
         Alert.alert('Error', `Failed to move trays: ${error instanceof Error ? error.message : 'Unknown error'}`);
         // Reload to revert optimistic update on error
         await loadData();
-      } finally {
-        // Clear flag to allow auto-refresh again
-        movementInProgressRef.current = false;
       }
     },
     [selectedItem, selectedStage, userId, mealId, loadData]
@@ -706,16 +797,19 @@ function PrasadamDashboardScreen() {
           });
         });
 
-        setShowReversePopup(false);
+        // Close popup after state update renders (setTimeout allows React to flush)
+        setTimeout(() => {
+          setShowReversePopup(false);
+        }, 50);
 
-        // Silent background refresh to get server state
-        await loadData(true);
+        // Clear flag so auto-refresh can work
+        movementInProgressRef.current = false;
+        // Skip next refresh cycle to avoid immediate refresh delay
+        skipNextRefreshRef.current = true;
       } catch (error) {
         console.error('Failed to reverse move:', error);
-        Alert.alert('Error', `Failed to move trays: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      } finally {
-        // Clear flag to allow auto-refresh again
         movementInProgressRef.current = false;
+        Alert.alert('Error', `Failed to move trays: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     },
     [selectedItem, selectedStage, userId, mealId, loadData]
@@ -776,18 +870,21 @@ function PrasadamDashboardScreen() {
           })
         );
 
-        setShowReversePopup(false);
-        setSelectedItem(null);
-        setSelectedStage(null);
+        // Close popup after state update renders (setTimeout allows React to flush)
+        setTimeout(() => {
+          setShowReversePopup(false);
+          setSelectedItem(null);
+          setSelectedStage(null);
+        }, 50);
 
-        // Refresh to get server state
-        await loadData(true);
+        // Clear flag so auto-refresh can work
+        movementInProgressRef.current = false;
+        // Skip next refresh cycle to avoid immediate refresh delay
+        skipNextRefreshRef.current = true;
       } catch (error) {
         console.error('Failed to edit cooked quantity:', error);
-        Alert.alert('Error', `Failed to update: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      } finally {
-        // Clear flag to allow auto-refresh again
         movementInProgressRef.current = false;
+        Alert.alert('Error', `Failed to update: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     },
     [selectedItem, userId, mealId, loadData]
@@ -1070,20 +1167,27 @@ function PrasadamDashboardScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Header */}
+      {/* Top Bar with SafeAreaView to avoid status bar overlap in portrait */}
       <SafeAreaView>
-        <View style={styles.topBar}>
-        <View style={styles.topBarLeft}>
-          <TouchableOpacity style={styles.mealSelector} onPress={handleOpenMealSwitcher}>
-            <Ionicons name="restaurant-outline" size={16} color="#2196F3" />
-            <Text style={styles.mealName}>{mealName || 'Loading...'}</Text>
-            <Ionicons name="chevron-down" size={14} color="#666" />
-          </TouchableOpacity>
-        </View>
+        <View style={styles.devoteesBar}>
+          {/* Left: Back Button, Meal Selector */}
+          <View style={styles.leftActions}>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="arrow-back" size={18} color="#2196F3" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.mealSelectorCompact} onPress={handleOpenMealSwitcher}>
+              <Ionicons name="restaurant-outline" size={14} color="#2196F3" />
+              <Text style={styles.mealNameCompact}>{mealName || 'Loading...'}</Text>
+              <Ionicons name="chevron-down" size={12} color="#666" />
+            </TouchableOpacity>
+          </View>
 
-        <View style={styles.topBarRight}>
+          {/* Center: View Selector */}
           <View style={styles.teamViewSelector}>
-            {(['all', 'stats', 'team2_staging', 'team3_serving'] as TeamView[]).map(view => (
+            {(['stats', 'team1_kitchen', 'team2_staging', 'team3_serving', 'all'] as TeamView[]).map(view => (
               <TouchableOpacity
                 key={view}
                 style={[styles.teamViewBtn, teamView === view && styles.teamViewBtnActive]}
@@ -1101,39 +1205,33 @@ function PrasadamDashboardScreen() {
             ))}
           </View>
 
+          {/* Right: Devotees, Refresh, Settings */}
+          <View style={styles.rightActions}>
+            <View style={styles.devoteesStatsBtn}>
+              <Ionicons name="people" size={14} color="#2196F3" />
+              <Text style={styles.devoteesCount}>{devoteesScanned}</Text>
+              {expectedDevotees > 0 && (
+                <>
+                  <Text style={styles.devoteesRemaining}>{Math.round(((expectedDevotees - devoteesScanned) / expectedDevotees) * 100)}%</Text>
+                  <Text style={styles.devoteesLabel}>rem</Text>
+                </>
+              )}
+            </View>
+            <TouchableOpacity
+              style={styles.iconBtn}
+            onPress={loadActivityStats}
+          >
+            <Ionicons name="refresh" size={16} color="#2196F3" />
+          </TouchableOpacity>
           <TouchableOpacity
-            style={styles.settingsBtn}
+            style={styles.iconBtn}
             onPress={() => (navigation as any).navigate(Routes.MealSettings)}
           >
-            <Ionicons name="settings-outline" size={20} color="#2196F3" />
+            <Ionicons name="settings-outline" size={16} color="#2196F3" />
           </TouchableOpacity>
         </View>
-        </View>
-      </SafeAreaView>
-
-      {/* Devotees Count Bar */}
-      <View style={styles.devoteesBar}>
-        <View style={styles.devoteesInfo}>
-          <Ionicons name="people" size={18} color="#2196F3" />
-          <Text style={styles.devoteesLabel}>Devotees Scanned:</Text>
-          <Text style={styles.devoteesCount}>{devoteesScanned}</Text>
-          {expectedDevotees > 0 && (
-            <>
-              <Text style={styles.devoteesSeparator}>/</Text>
-              <Text style={styles.devoteesExpected}>{expectedDevotees}</Text>
-              <Text style={styles.devoteesPercentage}>
-                ({expectedDevotees > 0 ? Math.round((devoteesScanned / expectedDevotees) * 100) : 0}%)
-              </Text>
-            </>
-          )}
-        </View>
-        <TouchableOpacity
-          style={styles.refreshStatsBtn}
-          onPress={loadActivityStats}
-        >
-          <Ionicons name="refresh" size={16} color="#2196F3" />
-        </TouchableOpacity>
       </View>
+      </SafeAreaView>
 
       {/* Inventory Warnings */}
       {inventoryWarnings.length > 0 && (
@@ -1151,12 +1249,16 @@ function PrasadamDashboardScreen() {
         </View>
       )}
 
-      {/* Dashboard Table */}
+      {/* Dashboard Table - Fixed header, scrollable rows */}
       <ScrollView style={styles.tableContainer} horizontal>
-        <ScrollView>
+        <View style={styles.tableWrapper}>
+          {/* Fixed Header */}
           {renderHeader()}
-          {items.map(item => renderRow(item))}
-        </ScrollView>
+          {/* Scrollable Rows */}
+          <ScrollView style={styles.rowsScrollContainer}>
+            {items.map(item => renderRow(item))}
+          </ScrollView>
+        </View>
       </ScrollView>
 
       {/* Quantity Move Popup */}
@@ -1327,35 +1429,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#2196F3',
   },
-  teamViewSelector: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  teamViewBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
-    backgroundColor: '#F5F5F5',
-  },
-  teamViewBtnActive: {
-    backgroundColor: '#2196F3',
-  },
-  teamViewText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#666',
-  },
-  teamViewTextActive: {
-    color: '#FFF',
-  },
-  settingsBtn: {
-    padding: 8,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-  },
   tableContainer: {
     flex: 1,
     backgroundColor: '#FFF',
+  },
+  tableWrapper: {
+    minWidth: '100%',
+  },
+  rowsScrollContainer: {
+    // No height needed - will take remaining space
   },
   headerRow: {
     flexDirection: 'row',
@@ -1438,44 +1520,98 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#E3F2FD',
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#BBDEFB',
     justifyContent: 'space-between',
+    gap: 12,
   },
-  devoteesInfo: {
+  leftActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
-  devoteesLabel: {
+  mealSelectorCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BBDEFB',
+  },
+  mealNameCompact: {
     fontSize: 13,
-    color: '#1976D2',
-    fontWeight: '500',
+    fontWeight: '600',
+    color: '#2196F3',
+    maxWidth: 130,
+  },
+  teamViewSelector: {
+    flexDirection: 'row',
+    gap: 6,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  teamViewBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: '#BBDEFB',
+    minWidth: 50,
+    alignItems: 'center',
+  },
+  teamViewBtnActive: {
+    backgroundColor: '#2196F3',
+  },
+  teamViewText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1565C0',
+  },
+  teamViewTextActive: {
+    color: '#FFF',
+  },
+  rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  devoteesStatsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: '#BBDEFB',
+  },
+  devoteesStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   devoteesCount: {
-    fontSize: 16,
-    color: '#1976D2',
+    fontSize: 14,
+    color: '#1565C0',
     fontWeight: '700',
   },
-  devoteesSeparator: {
-    fontSize: 14,
-    color: '#1976D2',
-  },
-  devoteesExpected: {
-    fontSize: 14,
+  devoteesRemaining: {
+    fontSize: 13,
     color: '#1565C0',
     fontWeight: '600',
   },
-  devoteesPercentage: {
+  devoteesLabel: {
     fontSize: 12,
-    color: '#0D47A1',
+    color: '#1565C0',
+    fontWeight: '600',
   },
-  refreshStatsBtn: {
-    padding: 6,
+  iconBtn: {
+    padding: 7,
     backgroundColor: '#BBDEFB',
-    borderRadius: 16,
+    borderRadius: 12,
   },
   percentageCell: {
     paddingVertical: 4,

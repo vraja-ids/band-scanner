@@ -2,6 +2,7 @@
  * Quantity Move Reverse Popup
  * Popup for moving trays backward (to left_over or previous stage)
  * Shown on long press, uses orange theme to differentiate from forward movement
+ * Compact layout without scrolling to avoid issues on some phones
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -13,7 +14,8 @@ import {
   TouchableOpacity,
   TextInput,
   Keyboard,
-  ScrollView,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { DashboardItem, DashboardStage, STAGE_DISPLAY_NAMES } from '../types/dashboard.types';
 
@@ -23,13 +25,21 @@ interface QuantityMoveReversePopupProps {
   currentStage: DashboardStage;
   currentQty: number;
   onClose: () => void;
-  onMove: (quantity: number, toStage: DashboardStage) => void;
-  onEdit?: (quantity: number) => void; // New callback for direct quantity edit (Cooked stage)
+  onMove: (quantity: number, toStage: DashboardStage) => void | Promise<void>;
+  onEdit?: (quantity: number) => void | Promise<void>; // New callback for direct quantity edit (Cooked stage)
   transactions?: Array<{ stage: string; quantity: number; timestamp: string }>;
   filterToStages?: DashboardStage[]; // Optional filter to show only specific stages
 }
 
 const QUICK_SELECT_AMOUNTS = [2, 3, 4, 5, 10, 20];
+
+// Hare Krishna Maha Mantra - cycles through during loading
+const MANTRA_WORDS = [
+  'Hare', 'Krishna', 'Hare', 'Krishna',
+  'Krishna', 'Krishna', 'Hare', 'Hare',
+  'Hare', 'Rama', 'Hare', 'Rama',
+  'Rama', 'Rama', 'Hare', 'Hare'
+];
 
 // Define reverse movement options
 function getReverseOptions(currentStage: DashboardStage): DashboardStage[] {
@@ -77,9 +87,16 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
 }) => {
   const [quantity, setQuantity] = useState('0');
   const [selectedStage, setSelectedStage] = useState<DashboardStage | null>(null);
-  const [isEditingDirect, setIsEditingDirect] = useState(false); // true when user wants to edit Cooked directly
+  const [isLoading, setIsLoading] = useState(false);
+  const [mantraIndex, setMantraIndex] = useState(0);
   const inputRef = useRef<TextInput>(null);
   const initializedRef = useRef(false);
+  const mantraIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Triple-press state for "Move to Left Over" button
+  const [pressCount, setPressCount] = useState(0);
+  const pressTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [leftOverEnabled, setLeftOverEnabled] = useState(false);
 
   const reverseOptions = getReverseOptions(currentStage);
   // Apply filter if provided
@@ -90,38 +107,72 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
   // Cooked has both edit capability and reverse options (left_over)
   const isCookedStage = currentStage === 'cooked';
   const showEditSection = isCookedStage; // Show edit controls for Cooked
-  const showDestOptions = filteredOptions.length > 0; // Show destination options if available
+  // Filter out left_over from options since it has separate button at bottom
+  const nonLeftOverOptions = filteredOptions.filter(opt => opt !== 'left_over');
+  const hasMultipleDestinations = nonLeftOverOptions.length > 1;
 
-  // Auto-select first non-left_over option as default (only on initial open)
+  // Reset triple-press when popup closes
+  useEffect(() => {
+    if (!visible) {
+      setPressCount(0);
+      setLeftOverEnabled(false);
+      setIsLoading(false); // Reset loading state
+      setMantraIndex(0); // Reset mantra
+      if (pressTimeoutRef.current) {
+        clearTimeout(pressTimeoutRef.current);
+        pressTimeoutRef.current = null;
+      }
+      if (mantraIntervalRef.current) {
+        clearInterval(mantraIntervalRef.current);
+        mantraIntervalRef.current = null;
+      }
+    }
+  }, [visible]);
+
+  // Cycle through Hare Krishna mantra words during loading
+  useEffect(() => {
+    if (isLoading) {
+      setMantraIndex(0);
+      mantraIntervalRef.current = setInterval(() => {
+        setMantraIndex(prev => (prev + 1) % MANTRA_WORDS.length);
+      }, 1000); // Change word every second
+    } else {
+      if (mantraIntervalRef.current) {
+        clearInterval(mantraIntervalRef.current);
+        mantraIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (mantraIntervalRef.current) {
+        clearInterval(mantraIntervalRef.current);
+        mantraIntervalRef.current = null;
+      }
+    };
+  }, [isLoading]);
+
+  // Auto-select destination based on available options
   useEffect(() => {
     if (visible && !initializedRef.current) {
       initializedRef.current = true;
-      if (isCookedStage) {
-        // Cooked: start with current quantity for editing, no destination pre-selected
-        setQuantity(currentQty.toString());
-        setIsEditingDirect(true);
-      } else {
-        // Other stages: reverse mode - start with 1 and select first destination
-        const defaultStage = filteredOptions.find(opt => opt !== 'left_over') || filteredOptions[0] || null;
-        setSelectedStage(defaultStage);
-        setQuantity('1');
-        setIsEditingDirect(false);
+      // Auto-select if only one non-left_over option, otherwise let user choose
+      if (nonLeftOverOptions.length === 1) {
+        setSelectedStage(nonLeftOverOptions[0]);
+      } else if (nonLeftOverOptions.length > 1) {
+        setSelectedStage(null); // Let user choose
       }
+      setQuantity('0');
     } else if (!visible) {
       // Reset when closed so next open re-initializes
       initializedRef.current = false;
-      setIsEditingDirect(false);
     }
-  }, [visible, filteredOptions, isCookedStage, currentQty]);
+  }, [visible, nonLeftOverOptions]);
 
   const handleQuickSelect = useCallback((amount: number) => {
     const current = parseInt(quantity, 10) || 0;
-    // For Cooked in edit mode, don't limit to currentQty (can add more than current)
-    const newQty = (isCookedStage && isEditingDirect)
-      ? current + amount
-      : Math.min(currentQty, current + amount);
+    const newQty = current + amount;
     setQuantity(newQty.toString());
-  }, [quantity, currentQty, isCookedStage, isEditingDirect]);
+  }, [quantity]);
 
   const dismissKeyboard = useCallback(() => {
     Keyboard.dismiss();
@@ -129,16 +180,9 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
 
   const adjustQuantity = useCallback((delta: number) => {
     const current = parseInt(quantity, 10) || 0;
-    if (isCookedStage) {
-      // Cooked: allow any positive value (no max limit for editing)
-      const newQty = Math.max(0, current + delta);
-      setQuantity(newQty.toString());
-    } else {
-      // Reverse mode: limit to current quantity
-      const newQty = Math.max(1, Math.min(currentQty, current + delta));
-      setQuantity(newQty.toString());
-    }
-  }, [quantity, currentQty, isCookedStage]);
+    const newQty = Math.max(0, current + delta);
+    setQuantity(newQty.toString());
+  }, [quantity]);
 
   const handleFocusInput = useCallback(() => {
     inputRef.current?.focus();
@@ -147,47 +191,151 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
   const handleMove = useCallback(async () => {
     const qty = parseInt(quantity, 10);
 
-    if (isCookedStage) {
-      // Cooked stage: can either edit directly OR move to Left Over
-      if (isEditingDirect) {
-        // Direct edit mode
-        if (isNaN(qty) || qty < 0) return;
-        onEdit?.(qty);
-        onClose();
-      } else {
-        // Move to Left Over
-        if (!selectedStage || isNaN(qty) || qty <= 0 || qty > currentQty) {
-          return;
-        }
-        onMove(qty, selectedStage);
-        onClose();
-      }
-    } else {
-      // Other stages: reverse move only
-      if (!selectedStage || isNaN(qty) || qty <= 0 || qty > currentQty) {
-        return;
-      }
-      onMove(qty, selectedStage);
-      onClose();
+    // Cooked stage uses Add/Subtract buttons, not handleMove
+    if (isCookedStage) return;
+
+    // Determine the destination stage (selected or auto-selected)
+    const destStage = selectedStage || (nonLeftOverOptions.length === 1 ? nonLeftOverOptions[0] : null);
+
+    // Other stages: reverse move
+    if (!destStage || isNaN(qty) || qty <= 0 || qty > currentQty) {
+      return;
     }
-  }, [quantity, selectedStage, currentQty, onMove, onEdit, onClose, isCookedStage, isEditingDirect]);
 
-  const isValid = isCookedStage
-    ? isEditingDirect
-      ? !isNaN(parseInt(quantity, 10)) && parseInt(quantity, 10) >= 0
-      : selectedStage !== null && !isNaN(parseInt(quantity, 10)) && parseInt(quantity, 10) > 0 && parseInt(quantity, 10) <= currentQty
-    : selectedStage !== null &&
-      !isNaN(parseInt(quantity, 10)) &&
-      parseInt(quantity, 10) > 0 &&
-      parseInt(quantity, 10) <= currentQty;
+    const startTime = Date.now();
+    console.log('[QuantityMoveReversePopup] handleMove START', { qty, toStage: destStage, item: item.name });
 
-  // Get display name for selected destination
+    setIsLoading(true);
+    try {
+      // Await the API calls - popup stays open until transfer completes
+      await onMove(qty, destStage);
+      const elapsed = Date.now() - startTime;
+      console.log('[QuantityMoveReversePopup] handleMove SUCCESS - closing popup, elapsed:', elapsed, 'ms');
+      onClose();
+    } catch (error) {
+      const elapsed = Date.now() - startTime;
+      console.error('[QuantityMoveReversePopup] handleMove ERROR, elapsed:', elapsed, 'ms', error);
+      setIsLoading(false);
+    }
+  }, [quantity, selectedStage, nonLeftOverOptions, currentQty, onMove, onClose, isCookedStage, item.name]);
+
+  // Handle Add action for Cooked stage
+  const handleAdd = useCallback(async () => {
+    const qty = parseInt(quantity, 10);
+    if (isNaN(qty) || qty <= 0) return;
+
+    const startTime = Date.now();
+    console.log('[QuantityMoveReversePopup] handleAdd START', { qty, item: item.name });
+
+    setIsLoading(true);
+    try {
+      // Await the API call - popup stays open until complete
+      const newTotal = currentQty + qty;
+      await onEdit?.(newTotal);
+      const elapsed = Date.now() - startTime;
+      console.log('[QuantityMoveReversePopup] handleAdd SUCCESS - closing popup, elapsed:', elapsed, 'ms');
+      onClose();
+    } catch (error) {
+      const elapsed = Date.now() - startTime;
+      console.error('[QuantityMoveReversePopup] handleAdd ERROR, elapsed:', elapsed, 'ms', error);
+      setIsLoading(false);
+    }
+  }, [quantity, currentQty, onEdit, onClose, item.name]);
+
+  // Handle Subtract action for Cooked stage
+  const handleSubtract = useCallback(async () => {
+    const qty = parseInt(quantity, 10);
+    if (isNaN(qty) || qty <= 0) return;
+
+    const startTime = Date.now();
+    console.log('[QuantityMoveReversePopup] handleSubtract START', { qty, item: item.name });
+
+    setIsLoading(true);
+    try {
+      // Await the API call - popup stays open until complete
+      const newTotal = Math.max(0, currentQty - qty);
+      await onEdit?.(newTotal);
+      const elapsed = Date.now() - startTime;
+      console.log('[QuantityMoveReversePopup] handleSubtract SUCCESS - closing popup, elapsed:', elapsed, 'ms');
+      onClose();
+    } catch (error) {
+      const elapsed = Date.now() - startTime;
+      console.error('[QuantityMoveReversePopup] handleSubtract ERROR, elapsed:', elapsed, 'ms', error);
+      setIsLoading(false);
+    }
+  }, [quantity, currentQty, onEdit, onClose, item.name]);
+
+  // Handle triple-press for "Move to Left Over" button
+  const handleLeftOverPress = useCallback(() => {
+    const newCount = pressCount + 1;
+    setPressCount(newCount);
+
+    // Clear existing timeout
+    if (pressTimeoutRef.current) {
+      clearTimeout(pressTimeoutRef.current);
+    }
+
+    if (newCount >= 3) {
+      // Enable the button after 3 presses
+      setLeftOverEnabled(true);
+      setPressCount(0);
+    } else {
+      // Reset after 5 seconds if not enough presses
+      pressTimeoutRef.current = setTimeout(() => {
+        setPressCount(0);
+        setLeftOverEnabled(false);
+      }, 5000);
+    }
+  }, [pressCount]);
+
+  // Execute "Move to Left Over" action
+  const handleLeftOverMove = useCallback(async () => {
+    const qty = parseInt(quantity, 10);
+    if (isNaN(qty) || qty <= 0) {
+      Alert.alert('Invalid Quantity', 'Please enter a valid quantity greater than 0');
+      return;
+    }
+    if (qty > currentQty) {
+      Alert.alert('Invalid Quantity', `Cannot move ${qty} trays. Only ${currentQty} trays available.`);
+      return;
+    }
+
+    const startTime = Date.now();
+    console.log('[QuantityMoveReversePopup] handleLeftOverMove START', { qty, item: item.name });
+
+    setIsLoading(true);
+    try {
+      // Await the API call - popup stays open until complete
+      await onMove(qty, 'left_over');
+      const elapsed = Date.now() - startTime;
+      console.log('[QuantityMoveReversePopup] handleLeftOverMove SUCCESS - closing popup, elapsed:', elapsed, 'ms');
+      onClose();
+    } catch (error) {
+      const elapsed = Date.now() - startTime;
+      console.error('[QuantityMoveReversePopup] handleLeftOverMove ERROR, elapsed:', elapsed, 'ms', error);
+      setIsLoading(false);
+    }
+  }, [quantity, currentQty, onMove, onClose, item.name]);
+
+  const isValid = !isLoading &&
+    !isCookedStage &&
+    (selectedStage !== null || nonLeftOverOptions.length === 1) &&
+    !isNaN(parseInt(quantity, 10)) &&
+    parseInt(quantity, 10) > 0 &&
+    parseInt(quantity, 10) <= currentQty;
+
+  // For Cooked Add/Subtract buttons
+  const isAddValid = !isLoading && !isNaN(parseInt(quantity, 10)) && parseInt(quantity, 10) > 0;
+  const isSubtractValid = !isLoading && !isNaN(parseInt(quantity, 10)) && parseInt(quantity, 10) > 0;
+
+  // Get display name for selected or auto destination
   const destDisplay = selectedStage
     ? STAGE_DISPLAY_NAMES[selectedStage]
+    : nonLeftOverOptions.length === 1
+    ? STAGE_DISPLAY_NAMES[nonLeftOverOptions[0]]
+    : nonLeftOverOptions.length > 1
+    ? nonLeftOverOptions.map(d => STAGE_DISPLAY_NAMES[d]).join(' / ')
     : 'Select...';
-
-  // Recent transactions for this stage
-  const recentTransactions = transactions.slice(0, 3);
 
   return (
     <Modal
@@ -207,19 +355,20 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
           style={styles.popup}
           onPress={dismissKeyboard}
         >
-          {/* Compact Header with orange theme */}
+          {/* Single-line Header with orange theme */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
-              <Text style={styles.headerText}>
-                {isCookedStage ? (
-                  <Text style={styles.label}>Edit: {STAGE_DISPLAY_NAMES[currentStage]}</Text>
-                ) : (
+              <Text style={styles.headerOneLine} numberOfLines={1}>
+                <Text style={styles.itemName}>{item.name}</Text>
+                <Text style={styles.separator}> • </Text>
+                {!isCookedStage ? (
                   <>
-                    {STAGE_DISPLAY_NAMES[currentStage]}
+                    <Text style={styles.label}>From:</Text> {STAGE_DISPLAY_NAMES[currentStage]}
                     <Text style={styles.arrow}> → </Text>
                     <Text style={styles.destHighlight}>{destDisplay}</Text>
                   </>
+                ) : (
+                  <Text style={styles.sectionTitleInline}>Enter Amount:</Text>
                 )}
               </Text>
             </View>
@@ -228,36 +377,37 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.content}>
-            {/* Recent Transactions - only show for non-Cooked stages */}
-            {!isCookedStage && recentTransactions.length > 0 && (
-              <View style={styles.historySection}>
-                <Text style={styles.sectionTitle}>Recent Activity:</Text>
-                {recentTransactions.map((tx, index) => (
-                  <View key={index} style={styles.historyItem}>
-                    <Text style={styles.historyText}>
-                      <Text style={styles.historyQty}>{tx.quantity}</Text> trays
-                    </Text>
-                    <Text style={styles.historyTime}>{tx.timestamp}</Text>
-                  </View>
-                ))}
+          <View style={styles.content}>
+            {/* Multiple reverse destinations - only show buttons when more than one option */}
+            {!isCookedStage && hasMultipleDestinations && (
+              <View style={styles.destSection}>
+                <View style={styles.destRow}>
+                  {nonLeftOverOptions.map(dest => (
+                    <TouchableOpacity
+                      key={dest}
+                      style={[
+                        styles.destBtn,
+                        selectedStage === dest && styles.selectedBtn
+                      ]}
+                      onPress={() => setSelectedStage(dest)}
+                    >
+                      <Text
+                        style={[
+                          styles.destText,
+                          selectedStage === dest && styles.selectedText
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {STAGE_DISPLAY_NAMES[dest]}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
             )}
 
-            {/* Edit Info for Cooked - shown at top */}
-            {isCookedStage && (
-              <View style={styles.editInfoSection}>
-                <Text style={styles.editInfoText}>
-                  Trays cooked is cumulative (total ever cooked). Use the buttons below to edit or move to Left Over.
-                </Text>
-              </View>
-            )}
-
-            {/* Quantity Section - shown at top for Cooked */}
+            {/* Quantity Section */}
             <View style={styles.qtySection}>
-              <Text style={styles.sectionTitle}>
-                {isCookedStage ? (isEditingDirect ? 'Set Trays Cooked To:' : 'Trays to Move to Left Over:') : 'Quantity to Move:'}
-              </Text>
               <View style={styles.qtyRow}>
                 <TouchableOpacity
                   style={styles.adjustBtn}
@@ -277,7 +427,7 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
                     onChangeText={setQuantity}
                     keyboardType="number-pad"
                   />
-                  {isCookedStage && isEditingDirect ? null : <Text style={styles.maxQty}>/ {currentQty}</Text>}
+                  {isCookedStage ? <Text style={styles.maxQty}>(current: {currentQty})</Text> : <Text style={styles.maxQty}>/ {currentQty}</Text>}
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.adjustBtn}
@@ -289,16 +439,14 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
 
               <View style={styles.quickSelectRow}>
                 {QUICK_SELECT_AMOUNTS.map(amount => {
-                  const currentQty = parseInt(quantity, 10) || 0;
-                  // For Cooked in edit mode, no limit - otherwise limit to currentQty
-                  const maxQty = (isCookedStage && isEditingDirect) ? 999999 : currentQty;
-                  const wouldExceed = (currentQty + amount) > maxQty;
+                  const enteredQty = parseInt(quantity, 10) || 0;
+                  // For Cooked stage, no limit on quick select - for others, limit to currentQty
+                  const wouldExceed = !isCookedStage && (enteredQty + amount) > currentQty;
                   return (
                     <TouchableOpacity
                       key={amount}
                       style={[
                         styles.quickSelectBtn,
-                        quantity === amount.toString() && styles.selectedBtn,
                         wouldExceed && styles.disabledQuickSelectBtn
                       ]}
                       onPress={() => !wouldExceed && handleQuickSelect(amount)}
@@ -307,7 +455,6 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
                       <Text
                         style={[
                           styles.quickSelectText,
-                          quantity === amount.toString() && styles.selectedText,
                           wouldExceed && styles.disabledQuickSelectText
                         ]}
                       >
@@ -318,78 +465,135 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
                 })}
               </View>
             </View>
+          </View>
 
-            {/* Cooked: Action Mode Selection (Edit vs Move) */}
-            {isCookedStage && (
-              <View style={styles.destSection}>
-                <Text style={styles.sectionTitle}>Action:</Text>
-                <View style={styles.destRow}>
-                  <TouchableOpacity
-                    style={[styles.destBtn, isEditingDirect && styles.selectedBtn]}
-                    onPress={() => setIsEditingDirect(true)}
-                  >
-                    <Text style={[styles.destText, isEditingDirect && styles.selectedText]}>Edit Trays</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.destBtn, !isEditingDirect && styles.selectedBtn]}
-                    onPress={() => setIsEditingDirect(false)}
-                  >
-                    <Text style={[styles.destText, !isEditingDirect && styles.selectedText]}>Move to Left Over</Text>
-                  </TouchableOpacity>
+          {/* Recent Activity History - shown at bottom */}
+          {!isCookedStage && transactions.length > 0 && (
+            <View style={styles.historySection}>
+              <Text style={styles.historyTitle}>Recent Activity:</Text>
+              {transactions.slice(0, 3).map((tx, index) => (
+                <View key={index} style={styles.historyItem}>
+                  <Text style={styles.historyText}>
+                    <Text style={styles.historyQty}>{tx.quantity}</Text> trays to {tx.stage}
+                  </Text>
+                  <Text style={styles.historyTime}>{tx.timestamp}</Text>
                 </View>
-              </View>
-            )}
-
-            {/* Reverse Options - shown below quantity for non-Cooked stages */}
-            {!isCookedStage && filteredOptions.length > 0 && (
-              <View style={styles.destSection}>
-                <Text style={styles.sectionTitle}>Move to:</Text>
-                <View style={styles.destRow}>
-                  {filteredOptions.map(dest => (
-                    <TouchableOpacity
-                      key={dest}
-                      style={[
-                        styles.destBtn,
-                        selectedStage === dest && styles.selectedBtn,
-                        dest === 'left_over' && styles.leftOverBtn
-                      ]}
-                      onPress={() => setSelectedStage(dest)}
-                    >
-                      <Text
-                        style={[
-                          styles.destText,
-                          selectedStage === dest && styles.selectedText,
-                          dest === 'left_over' && styles.leftOverText
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {STAGE_DISPLAY_NAMES[dest]}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            )}
-          </ScrollView>
+              ))}
+            </View>
+          )}
 
           {/* Action Buttons */}
           <View style={styles.actions}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.moveBtn, !isValid && styles.disabledBtn]}
-              onPress={handleMove}
-              disabled={!isValid}
-            >
-              <Text style={styles.moveBtnText}>
-                {isCookedStage
-                  ? (isEditingDirect ? `Set to ${quantity}` : `Move ${quantity} to Left Over`)
-                  : `Move ${quantity}`
-                }
-              </Text>
-            </TouchableOpacity>
+            {/* Cooked stage: Show Left Over, Subtract, Add buttons */}
+            {isCookedStage ? (
+              <>
+                {/* Triple-press "Move to Left Over" button */}
+                {!leftOverEnabled ? (
+                  <TouchableOpacity
+                    style={styles.leftOverPressBtn}
+                    onPress={handleLeftOverPress}
+                    activeOpacity={0.7}
+                    disabled={isLoading}
+                  >
+                    <Text style={styles.leftOverPressText}>
+                      Left Over {pressCount}/3
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.leftOverEnabledBtn, !isValid && styles.disabledBtn]}
+                    onPress={handleLeftOverMove}
+                    disabled={!isValid}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color="#FFF" />
+                    ) : (
+                      <Text style={styles.leftOverEnabledText}>
+                        Left Over ✓
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[styles.subtractBtnSmall, !isSubtractValid && styles.disabledBtn]}
+                  onPress={handleSubtract}
+                  disabled={!isSubtractValid}
+                >
+                  {isLoading && isValid ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <Text style={styles.subtractBtnTextSmall}>−{quantity}</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.addBtn, !isAddValid && styles.disabledBtn]}
+                  onPress={handleAdd}
+                  disabled={!isAddValid}
+                >
+                  {isLoading && isValid ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <Text style={styles.addBtnText}>+{quantity}</Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                {/* Triple-press "Move to Left Over" button */}
+                {!leftOverEnabled ? (
+                  <TouchableOpacity
+                    style={styles.leftOverPressBtn}
+                    onPress={handleLeftOverPress}
+                    activeOpacity={0.7}
+                    disabled={isLoading}
+                  >
+                    <Text style={styles.leftOverPressText}>
+                      Move to Left Over ({pressCount}/3)
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.leftOverEnabledBtn, !isValid && styles.disabledBtn]}
+                    onPress={handleLeftOverMove}
+                    disabled={!isValid}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color="#FFF" />
+                    ) : (
+                      <Text style={styles.leftOverEnabledText}>
+                        Move {quantity} to Left Over ✓
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+
+                {/* Main action button - hide when left over is enabled */}
+                {!leftOverEnabled && (
+                  <TouchableOpacity
+                    style={[styles.moveBtn, !isValid && styles.disabledBtn]}
+                    onPress={handleMove}
+                    disabled={!isValid}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color="#FFF" />
+                    ) : (
+                      <Text style={styles.moveBtnText}>
+                        Move {quantity}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
           </View>
+
+          {/* Loading Overlay */}
+          {isLoading && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#FF9800" />
+              <Text style={styles.loadingText}>{MANTRA_WORDS[mantraIndex]}</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </TouchableOpacity>
     </Modal>
@@ -412,7 +616,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     width: '100%',
     maxWidth: 420,
-    maxHeight: '80%',
   },
   header: {
     flexDirection: 'row',
@@ -427,14 +630,21 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
+  headerOneLine: {
+    fontSize: 13,
+    color: '#333',
+  },
   itemName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: '#333',
-    marginRight: 8,
   },
-  headerText: {
-    fontSize: 12,
+  separator: {
+    color: '#CCC',
+  },
+  sectionTitleInline: {
+    fontSize: 13,
+    fontWeight: '600',
     color: '#666',
   },
   label: {
@@ -458,49 +668,11 @@ const styles = StyleSheet.create({
   content: {
     padding: 12,
   },
-  historySection: {
-    marginBottom: 12,
-    padding: 10,
-    backgroundColor: '#FFF8E1',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FFE0B2',
-  },
   sectionTitle: {
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 6,
     color: '#333',
-  },
-  historyItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 3,
-  },
-  historyText: {
-    fontSize: 12,
-    color: '#666',
-  },
-  historyQty: {
-    fontWeight: '600',
-    color: '#FF9800',
-  },
-  historyTime: {
-    fontSize: 11,
-    color: '#999',
-  },
-  editInfoSection: {
-    marginBottom: 12,
-    padding: 10,
-    backgroundColor: '#E3F2FD',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#BBDEFB',
-  },
-  editInfoText: {
-    fontSize: 12,
-    color: '#1976D2',
-    lineHeight: 16,
   },
   destSection: {
     marginBottom: 12,
@@ -614,18 +786,6 @@ const styles = StyleSheet.create({
     borderTopColor: '#FFE0B2',
     gap: 8,
   },
-  cancelBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
-  },
-  cancelText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
-  },
   moveBtn: {
     flex: 1,
     paddingVertical: 10,
@@ -638,7 +798,142 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFF',
   },
+  addBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#4CAF50',
+    alignItems: 'center',
+  },
+  addBtnText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  subtractBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#F44336',
+    alignItems: 'center',
+  },
+  subtractBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  subtractBtnSmall: {
+    flex: 0.7,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#F44336',
+    alignItems: 'center',
+  },
+  subtractBtnTextSmall: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFF',
+  },
   disabledBtn: {
     backgroundColor: '#BDBDBD',
+  },
+  leftOverPressBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#FFCCBC',
+    borderWidth: 2,
+    borderColor: '#FF5722',
+    alignItems: 'center',
+  },
+  leftOverPressText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#BF360C',
+  },
+  leftOverEnabledBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#FF5722',
+    alignItems: 'center',
+  },
+  leftOverEnabledText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  leftOverPressBtnSmall: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#FFCCBC',
+    borderWidth: 2,
+    borderColor: '#FF5722',
+    alignItems: 'center',
+  },
+  leftOverPressTextSmall: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#BF360C',
+  },
+  leftOverEnabledBtnSmall: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#FF5722',
+    alignItems: 'center',
+  },
+  leftOverEnabledTextSmall: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  historySection: {
+    borderTopWidth: 1,
+    borderTopColor: '#FFE0B2',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#FFF8E1',
+  },
+  historyTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#F57C00',
+    marginBottom: 4,
+  },
+  historyItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  historyText: {
+    fontSize: 11,
+    color: '#666',
+  },
+  historyQty: {
+    fontWeight: '600',
+    color: '#FF9800',
+  },
+  historyTime: {
+    fontSize: 10,
+    color: '#999',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FF9800',
   },
 });

@@ -17,7 +17,7 @@ yarn ios
 yarn android
 yarn web
 
-# Type checking (no unit tests - use manual testing)
+# Type checking (primary quality gate - no unit tests)
 yarn typecheck
 
 # Fix Expo dependencies
@@ -28,6 +28,12 @@ yarn expo:doctor
 
 # Start with cache clear (if UI issues persist)
 yarn start --reset-cache
+
+# Git workflow - conventional commits
+git commit -m "feat: description"
+git commit -m "fix: description"
+git commit -m "chore: description"
+# Type checking before committing is recommended (no unit tests)
 
 # EAS Build profiles: development, preview, production
 eas build --platform ios --profile preview
@@ -194,11 +200,12 @@ The app supports portrait and both landscape orientations. All screens must hand
 The generic `Scanner` component (`journey/common/util/Scanner.tsx`) handles QR/barcode scanning and redirects to the appropriate screen based on `ScannerParams` passed via navigation.
 
 **Prasadam Distribution Architecture**
-Unified dashboard with view-based access controls:
-- **All View**: Shows Cooked → Storage → Staging → Refill Stations → Buffet (no Left Over, no Planned)
+Unified dashboard with view-based access controls (order: Stats → Team 1 → Team 2 → Team 3 → All):
 - **Stats View** (read-only): Shows Planned, Cooked (cumulative), Buffet (as "Distributed"), Left Over
-- **Staging View**: Storage → Staging → Refill Stations
-- **Serving View**: Refill Stations → Buffet → Left Over
+- **Team 1 View**: Kitchen → Storage → Staging
+- **Team 2 View**: Storage → Staging → Refill Stations (1/2/3)
+- **Team 3 View**: Refill Stations (1/2/3) → Buffet → Left Over
+- **All View**: Kitchen → Storage → Staging → Refill Stations → Buffet (no Left Over, no Planned)
 
 **Stage Display Names** (see `journey/PrasadamDistribution/types/dashboard.types.ts`):
 - `cooked` → "Kitchen" (in most views), "Cooked" (in Stats view - cumulative)
@@ -210,10 +217,14 @@ Unified dashboard with view-based access controls:
 
 **Movement & Editing**
 - Tap on quantity cell: Opens forward movement popup (default qty: 0)
-- Long press on quantity cell: Opens reverse/edit popup
-  - Cooked: Edit mode (direct quantity setting - cumulative)
-  - Other stages: Reverse movement options
+- Long press on quantity cell: Opens reverse/edit popup with compact layout (no ScrollView)
+  - **Cooked (Kitchen)**: Three buttons - Red "−x" (Subtract), Green "+x" (Add), "(x/3)" triple-press for Left Over
+    - Add adds to current cooked count, Subtract subtracts from current cooked count
+    - Triple-press "(x/3)" button unlocks "Move to Left Over" after 3 presses within 5 seconds (resets if idle)
+    - Shows "(current: X)" instead of "/ X"
+  - **Other stages**: Reverse movement options + triple-press "Move to Left Over (x/3)" button (3 presses within 5 seconds, resets if idle)
 - Movements update UI immediately (optimistic), sync silently in background
+- Table header stays fixed while scrolling through items
 
 **Dashboard Color Groups**
 Stage headers are color-coded with bold separators:
@@ -231,10 +242,21 @@ Stage headers are color-coded with bold separators:
 - Numbers properly centered with dedicated container
 - Low inventory red warning DISABLED but code preserved for future (see comments in file)
 - Quick select buttons (+2, +3, etc.) gray out when amount exceeds available trays
+- Quick select disable logic: checks `(enteredQty + amount) > maxQty` to prevent exceeding available
 
 **Display Name Context**
 - "Stats" view: Cooked displays as "Kitchen", Served displays as "Distributed"
 - Other views: Standard names (Cooked, Stored, etc.)
+
+**Top Bar Layout** (`PrasadamDashboardScreen.tsx`)
+- Three sections: Meal selector (left), View buttons (center), Devotees stats + icons (right)
+- Meal selector: Shows meal name with dropdown icon, opens meal switcher on tap
+- View buttons: Stats, Team 1, Team 2, Team 3, All (styled containers with blue theme)
+- Devotees stats: Shows scanned count, remaining percentage, and "rem" label
+  - Format: `{scanned} {percentage}% rem` (e.g., "245 75% rem")
+- Icon buttons: Refresh stats, Settings (opens MealSettings)
+- All buttons sized consistently: 12px horizontal padding, 6px vertical, 50px minWidth
+- 16px horizontal padding prevents edge cutoff on screen corners
 
 **Other Feature Modules**
 - `Daypass/` — Daypass scanning and redemption flows
@@ -297,21 +319,51 @@ GOOGLE_APPS_SCRIPT_URL=https://script.google.com/macros/s/...
 
 ## Google Apps Script Integration
 
-The `GoogleAppsScript.code.js` file contains the backend API for both Prasadam Distribution and Bhoga Tracker.
+The project uses Google Apps Script as a backend for Prasadam Distribution and Bhoga Tracker. Two versions are available:
 
-**Deployment:**
+### Optimized Version (Recommended)
+
+**File:** `GoogleAppsScript.code.optimized.js`
+
+**Deployed URL (May 11, 2026):**
+```
+https://script.google.com/macros/s/AKfycbzN_gmQ-c8AqjWtVPDD-d3GFUD1KPnmfJGg_xxDj76fjXDc52NhsqdSjpawzVC0yXcQTA/exec
+```
+
+**Optimizations Applied:**
+- Cached spreadsheet object (~200ms saved per call)
+- 5-second response caching for read operations (instant repeated reads)
+- Batch `setValues()` instead of multiple `appendRow()` calls (80% faster bulk inserts)
+- Batch `setValue()` updates in `updateLocationInventory` (~400ms saved per movement)
+- `LockService` for concurrent write operations (prevents conflicts)
+- Cache invalidation after writes (keeps data fresh)
+
+**Performance Improvements:**
+| Operation | Before | After |
+|-----------|--------|-------|
+| Movement (2 updates + transfer) | ~8s | ~3-4s |
+| Dashboard refresh (cached) | ~3s | ~100ms |
+| Bulk data population | ~10s | ~2s |
+
+### Legacy Version
+
+**File:** `GoogleAppsScript.code.js` — Original unoptimized version (kept for reference)
+
+### Deployment Steps
+
 1. Open Google Sheet → Extensions → Apps Script
-2. Replace ALL code with contents of `GoogleAppsScript.code.js`
+2. Replace ALL code with contents of `GoogleAppsScript.code.optimized.js`
 3. Deploy as Web App (Execute as: Me, Access: Anyone)
-4. Update `EXPO_PUBLIC_GOOGLE_APPS_SCRIPT_URL` in `.env.local`
+4. Update `GOOGLE_APPS_SCRIPT_URL` in `.env.local`
+5. Restart dev server: `yarn start --reset-cache`
 
-**Key Functions (Prasadam Distribution):**
+### Key Functions (Prasadam Distribution)
 - `getDashboardSummary(mealId)` — Returns menu + inventory + transfers for a meal
 - `updateLocationInventory(mealId, itemId, location, quantity, action)` — Add/subtract from locations
 - `recordTransfer(data)` — Creates transfer history records
 - `getTransfers(mealId)` — Returns all transfers for a meal
 
-**Key Functions (Bhoga Tracker):**
+### Key Functions (Bhoga Tracker)
 - `bhogaGetIngredientList()` — Returns meals and ingredients with planned quantities
 - `bhogaGetStorageLocations()` — Returns all configured storage locations
 - `bhogaGetDeliveries()` — Returns delivery records with expected/delivered qty
@@ -319,6 +371,7 @@ The `GoogleAppsScript.code.js` file contains the backend API for both Prasadam D
 - `bhogaGetDeliveredItems()` — Returns items pending storage (status='delivered')
 - `bhogaMoveToStorage(data)` — Moves item to storage, updates status to 'stored'
 
-**Important Notes:**
+### Important Notes
 - `action` parameter uses `'add'|'subtract'` (NOT `'operation'` to avoid conflict with API wrapper)
 - `populateSampleData()` creates test data with Cooked = Tracked Inventory constraint
+- Write operations automatically invalidate relevant cache entries

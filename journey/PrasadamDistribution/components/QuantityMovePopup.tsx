@@ -12,8 +12,8 @@ import {
   TouchableOpacity,
   TextInput,
   Keyboard,
+  ActivityIndicator,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DashboardItem, DashboardStage, MOVEMENT_RULES, STAGE_DISPLAY_NAMES } from '../types/dashboard.types';
 
 interface QuantityMovePopupProps {
@@ -23,11 +23,19 @@ interface QuantityMovePopupProps {
   currentQty: number;
   maxQuantity?: number; // Optional max quantity override (for Cooked → Stored validation)
   onClose: () => void;
-  onMove: (quantity: number, toStage: DashboardStage) => void;
+  onMove: (quantity: number, toStage: DashboardStage) => void | Promise<void>;
   mealId: string;
 }
 
 const QUICK_SELECT_AMOUNTS = [2, 3, 4, 5, 10, 20];
+
+// Hare Krishna Maha Mantra - cycles through during loading
+const MANTRA_WORDS = [
+  'Hare', 'Krishna', 'Hare', 'Krishna',
+  'Krishna', 'Krishna', 'Hare', 'Hare',
+  'Hare', 'Rama', 'Hare', 'Rama',
+  'Rama', 'Rama', 'Hare', 'Hare'
+];
 
 export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
   visible,
@@ -41,8 +49,10 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
 }) => {
   const [quantity, setQuantity] = useState('0');
   const [selectedStage, setSelectedStage] = useState<DashboardStage | null>(null);
-  const [lastDestination, setLastDestination] = useState<DashboardStage | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [mantraIndex, setMantraIndex] = useState(0);
   const inputRef = useRef<TextInput>(null);
+  const mantraIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get valid destinations for current stage
   const validDestinations = MOVEMENT_RULES[currentStage] || [];
@@ -50,37 +60,52 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
   // Use maxQuantity if provided, otherwise use currentQty
   const effectiveMaxQty = maxQuantity !== undefined ? maxQuantity : currentQty;
 
-  // Load last destination for staging
-  useEffect(() => {
-    if (visible && currentStage === 'staging') {
-      AsyncStorage.getItem(`last_staging_dest_${mealId}_${item.item_id}`).then(dest => {
-        if (dest) {
-          setLastDestination(dest as DashboardStage);
-        }
-      });
-    }
-  }, [visible, currentStage, mealId, item.item_id]);
-
-  // Auto-select destination if only one option or remember last
+  // Auto-select destination if only one option
   useEffect(() => {
     if (visible) {
       if (validDestinations.length === 1) {
         setSelectedStage(validDestinations[0]);
-      } else if (currentStage === 'staging' && lastDestination) {
-        setSelectedStage(lastDestination);
-      } else if (validDestinations.length > 1) {
+      } else {
         setSelectedStage(null); // Let user choose
       }
     }
-  }, [visible, validDestinations, currentStage, lastDestination]);
+  }, [visible, validDestinations]);
 
   // Reset state when popup closes
   useEffect(() => {
     if (!visible) {
       setQuantity('0');
       setSelectedStage(null);
+      setIsLoading(false);
+      setMantraIndex(0);
+      if (mantraIntervalRef.current) {
+        clearInterval(mantraIntervalRef.current);
+        mantraIntervalRef.current = null;
+      }
     }
   }, [visible]);
+
+  // Cycle through Hare Krishna mantra words during loading
+  useEffect(() => {
+    if (isLoading) {
+      setMantraIndex(0);
+      mantraIntervalRef.current = setInterval(() => {
+        setMantraIndex(prev => (prev + 1) % MANTRA_WORDS.length);
+      }, 1000); // Change word every second
+    } else {
+      if (mantraIntervalRef.current) {
+        clearInterval(mantraIntervalRef.current);
+        mantraIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (mantraIntervalRef.current) {
+        clearInterval(mantraIntervalRef.current);
+        mantraIntervalRef.current = null;
+      }
+    };
+  }, [isLoading]);
 
   const handleQuickSelect = useCallback((amount: number) => {
     const current = parseInt(quantity, 10) || 0;
@@ -108,16 +133,27 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
       return;
     }
 
-    // Remember destination for staging
-    if (currentStage === 'staging') {
-      await AsyncStorage.setItem(`last_staging_dest_${mealId}_${item.item_id}`, selectedStage);
-    }
+    const startTime = Date.now();
+    console.log('[QuantityMovePopup] handleMove START', { qty, toStage: selectedStage, item: item.name });
 
-    onMove(qty, selectedStage);
-    onClose();
-  }, [quantity, selectedStage, effectiveMaxQty, currentStage, mealId, item.item_id, onMove, onClose]);
+    setIsLoading(true);
+    try {
+      // Await the API calls - popup stays open until transfer completes
+      await onMove(qty, selectedStage);
+      const elapsed = Date.now() - startTime;
+      console.log('[QuantityMovePopup] handleMove SUCCESS - closing popup, elapsed:', elapsed, 'ms');
+      onClose();
+    } catch (error) {
+      const elapsed = Date.now() - startTime;
+      console.error('[QuantityMovePopup] handleMove ERROR, elapsed:', elapsed, 'ms', error);
+      // Keep popup open on error, user can retry
+      setIsLoading(false);
+    }
+    // Note: setIsLoading(false) removed - popup closes immediately
+  }, [quantity, selectedStage, effectiveMaxQty, onMove, onClose, item.name]);
 
   const isValid =
+    !isLoading &&
     selectedStage !== null &&
     !isNaN(parseInt(quantity, 10)) &&
     parseInt(quantity, 10) > 0 &&
@@ -128,6 +164,8 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
     ? STAGE_DISPLAY_NAMES[selectedStage]
     : validDestinations.length === 1
     ? STAGE_DISPLAY_NAMES[validDestinations[0]]
+    : validDestinations.length > 1
+    ? validDestinations.map(d => STAGE_DISPLAY_NAMES[d]).join(' / ')
     : 'Select...';
 
   return (
@@ -148,49 +186,49 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
           style={styles.popup}
           onPress={dismissKeyboard}
         >
-          {/* Compact Header with all info in one line */}
+          {/* Single-line Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
-              <Text style={styles.headerText}>
+              <Text style={styles.headerOneLine}>
+                <Text style={styles.itemName}>{item.name}</Text>
+                <Text style={styles.separator}> • </Text>
                 <Text style={styles.label}>From:</Text> {STAGE_DISPLAY_NAMES[currentStage]}
                 <Text style={styles.arrow}> → </Text>
                 <Text style={styles.destHighlight}>{destDisplay}</Text>
+                {maxQuantity !== undefined && maxQuantity < currentQty && (
+                  <>
+                    <Text style={styles.separator}> • </Text>
+                    <Text style={styles.limitHint}>Max: {maxQuantity}</Text>
+                  </>
+                )}
               </Text>
-              {/* Show max limit hint when restricted */}
-              {maxQuantity !== undefined && maxQuantity < currentQty && (
-                <Text style={styles.limitHint}>
-                  Available: {maxQuantity} tray(s) ready to move
-                </Text>
-              )}
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
               <Text style={styles.closeBtnText}>✕</Text>
             </TouchableOpacity>
           </View>
 
+          {/* Multiple destinations - inline selection buttons */}
+          {validDestinations.length > 1 ? (
+            <View style={styles.destSectionInline}>
+              {validDestinations.map(dest => (
+                <TouchableOpacity
+                  key={dest}
+                  style={[styles.destBtnSmall, selectedStage === dest && styles.selectedBtn]}
+                  onPress={() => setSelectedStage(dest)}
+                >
+                  <Text
+                    style={[styles.destTextSmall, selectedStage === dest && styles.selectedText]}
+                    numberOfLines={1}
+                  >
+                    {STAGE_DISPLAY_NAMES[dest]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
+
           <View style={styles.content}>
-            {/* Multiple destinations - show selection */}
-            {validDestinations.length > 1 ? (
-              <View style={styles.destSection}>
-                <View style={styles.destRow}>
-                  {validDestinations.map(dest => (
-                    <TouchableOpacity
-                      key={dest}
-                      style={[styles.destBtn, selectedStage === dest && styles.selectedBtn]}
-                      onPress={() => setSelectedStage(dest)}
-                    >
-                      <Text
-                        style={[styles.destText, selectedStage === dest && styles.selectedText]}
-                        numberOfLines={1}
-                      >
-                        {STAGE_DISPLAY_NAMES[dest]}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            ) : null}
 
             {/* Quantity Section */}
             <View style={styles.qtySection}>
@@ -225,14 +263,13 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
 
               <View style={styles.quickSelectRow}>
                 {QUICK_SELECT_AMOUNTS.map(amount => {
-                  const currentQty = parseInt(quantity, 10) || 0;
-                  const wouldExceed = (currentQty + amount) > effectiveMaxQty;
+                  const enteredQty = parseInt(quantity, 10) || 0;
+                  const wouldExceed = (enteredQty + amount) > effectiveMaxQty;
                   return (
                     <TouchableOpacity
                       key={amount}
                       style={[
                         styles.quickSelectBtn,
-                        quantity === amount.toString() && styles.selectedBtn,
                         wouldExceed && styles.disabledQuickSelectBtn
                       ]}
                       onPress={() => !wouldExceed && handleQuickSelect(amount)}
@@ -241,7 +278,6 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
                       <Text
                         style={[
                           styles.quickSelectText,
-                          quantity === amount.toString() && styles.selectedText,
                           wouldExceed && styles.disabledQuickSelectText
                         ]}
                       >
@@ -256,17 +292,26 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
 
           {/* Action Buttons */}
           <View style={styles.actions}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.moveBtn, !isValid && styles.disabledBtn]}
+              style={[styles.moveBtnFull, !isValid && styles.disabledBtn]}
               onPress={handleMove}
               disabled={!isValid}
             >
-              <Text style={styles.moveBtnText}>Move {quantity}</Text>
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Text style={styles.moveBtnText}>Move {quantity}</Text>
+              )}
             </TouchableOpacity>
           </View>
+
+          {/* Loading Overlay */}
+          {isLoading && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#2196F3" />
+              <Text style={styles.loadingText}>{MANTRA_WORDS[mantraIndex]}</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </TouchableOpacity>
     </Modal>
@@ -302,15 +347,17 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
+  headerOneLine: {
+    fontSize: 13,
+    color: '#333',
+  },
   itemName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: '#333',
-    marginRight: 8,
   },
-  headerText: {
-    fontSize: 12,
-    color: '#666',
+  separator: {
+    color: '#CCC',
   },
   label: {
     color: '#999',
@@ -324,10 +371,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   limitHint: {
-    fontSize: 10,
+    fontSize: 12,
     color: '#FF9800',
-    fontStyle: 'italic',
-    marginTop: 2,
+    fontWeight: '600',
   },
   closeBtn: {
     padding: 4,
@@ -336,30 +382,29 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#666',
   },
-  content: {
-    padding: 12,
-  },
-  destSection: {
-    marginBottom: 12,
-  },
-  destRow: {
+  destSectionInline: {
     flexDirection: 'row',
     gap: 6,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
-  destBtn: {
-    flex: 1,
-    paddingVertical: 8,
+  destBtnSmall: {
+    paddingVertical: 4,
     paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: '#DDD',
-    borderRadius: 6,
+    borderRadius: 4,
     backgroundColor: '#FFF',
     alignItems: 'center',
   },
-  destText: {
-    fontSize: 12,
+  destTextSmall: {
+    fontSize: 11,
     fontWeight: '600',
     color: '#333',
+  },
+  content: {
+    padding: 12,
   },
   qtySection: {
     gap: 10,
@@ -444,19 +489,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#E0E0E0',
     gap: 8,
   },
-  cancelBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
-  },
-  cancelText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
-  },
-  moveBtn: {
+  moveBtnFull: {
     flex: 1,
     paddingVertical: 10,
     borderRadius: 8,
@@ -470,5 +503,22 @@ const styles = StyleSheet.create({
   },
   disabledBtn: {
     backgroundColor: '#BDBDBD',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2196F3',
   },
 });
