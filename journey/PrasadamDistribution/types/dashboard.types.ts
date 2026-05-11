@@ -58,12 +58,12 @@ export const REVERSE_MOVEMENT_RULES: Record<DashboardStage, DashboardStage[]> = 
 export const STAGE_DISPLAY_NAMES: Record<DashboardStage, string> = {
   planned: 'Planned',
   cooked: 'Kitchen', // Changed from 'Cooked' to 'Kitchen'
-  stored: 'Stored',
+  stored: 'Storage',
   staging: 'Staging',
   refill_station_1: 'Refill Stn 1',
   refill_station_2: 'Refill Stn 2',
   refill_station_3: 'Refill Stn 3',
-  served: 'Buffet Lanes',
+  served: 'Buffet',
   left_over: 'Left Over',
 };
 
@@ -74,7 +74,7 @@ export const TEAM_VIEW_CONFIGS: Record<TeamView, { name: string; shortName: stri
   all: {
     name: 'All Stages',
     shortName: 'All',
-    stages: ['cooked', 'stored', 'staging', 'refill_station_1', 'refill_station_2', 'refill_station_3', 'served', 'left_over'], // Removed 'planned'
+    stages: ['cooked', 'stored', 'staging', 'refill_station_1', 'refill_station_2', 'refill_station_3', 'served'],
   },
   stats: {
     name: 'Stats',

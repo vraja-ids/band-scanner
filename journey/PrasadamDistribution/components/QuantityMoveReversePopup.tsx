@@ -216,8 +216,8 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
                   <Text style={styles.label}>Edit: {STAGE_DISPLAY_NAMES[currentStage]}</Text>
                 ) : (
                   <>
-                    <Text style={styles.label}>From:</Text> {STAGE_DISPLAY_NAMES[currentStage]}
-                    <Text style={styles.arrow}> ← </Text>
+                    {STAGE_DISPLAY_NAMES[currentStage]}
+                    <Text style={styles.arrow}> → </Text>
                     <Text style={styles.destHighlight}>{destDisplay}</Text>
                   </>
                 )}
@@ -288,22 +288,34 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
               </View>
 
               <View style={styles.quickSelectRow}>
-                {QUICK_SELECT_AMOUNTS.map(amount => (
-                  <TouchableOpacity
-                    key={amount}
-                    style={[styles.quickSelectBtn, quantity === amount.toString() && styles.selectedBtn]}
-                    onPress={() => handleQuickSelect(amount)}
-                  >
-                    <Text
+                {QUICK_SELECT_AMOUNTS.map(amount => {
+                  const currentQty = parseInt(quantity, 10) || 0;
+                  // For Cooked in edit mode, no limit - otherwise limit to currentQty
+                  const maxQty = (isCookedStage && isEditingDirect) ? 999999 : currentQty;
+                  const wouldExceed = (currentQty + amount) > maxQty;
+                  return (
+                    <TouchableOpacity
+                      key={amount}
                       style={[
-                        styles.quickSelectText,
-                        quantity === amount.toString() && styles.selectedText,
+                        styles.quickSelectBtn,
+                        quantity === amount.toString() && styles.selectedBtn,
+                        wouldExceed && styles.disabledQuickSelectBtn
                       ]}
+                      onPress={() => !wouldExceed && handleQuickSelect(amount)}
+                      disabled={wouldExceed}
                     >
-                      +{amount}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                      <Text
+                        style={[
+                          styles.quickSelectText,
+                          quantity === amount.toString() && styles.selectedText,
+                          wouldExceed && styles.disabledQuickSelectText
+                        ]}
+                      >
+                        +{amount}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
 
@@ -587,6 +599,13 @@ const styles = StyleSheet.create({
   },
   selectedText: {
     color: '#FFF',
+  },
+  disabledQuickSelectBtn: {
+    backgroundColor: '#FFF8E1',
+    borderColor: '#FFE0B2',
+  },
+  disabledQuickSelectText: {
+    color: '#CCC',
   },
   actions: {
     flexDirection: 'row',

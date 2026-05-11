@@ -48,9 +48,10 @@ eas submit --platform android --profile production
 - **i18next** for internationalization (en, ru, es)
 - **Axios** for API calls
 - **Expo Camera** for QR/barcode scanning
+- **Expo Linear Gradient** — For gradient effects on PowerBall components
+- **Expo Screen Orientation** — app supports portrait + landscape (all screens must handle both)
 - **AsyncStorage** for local persistence
 - **Google Sheets API** for Bhoga ingredient tracking
-- **Expo Screen Orientation** — app supports portrait + landscape (all screens must handle both)
 - **Supabase** (@supabase/supabase-js) — Primary backend for Prasadam Distribution with Google Sheets fallback
 - **React Native Paper** — Material Design component library
 
@@ -185,15 +186,27 @@ Routes defined in `routes/index.ts` as const object. All screens registered in `
 **Screen Orientation**
 The app supports portrait and both landscape orientations. All screens must handle layout changes gracefully. Use `useWindowDimensions()` hook for responsive layouts.
 
+**SafeAreaView**
+- Use `SafeAreaView` from `react-native-safe-area-context` around headers to prevent status bar overlap in landscape
+- See `PrasadamDashboardScreen.tsx` for example implementation
+
 **Scanner Flow**
 The generic `Scanner` component (`journey/common/util/Scanner.tsx`) handles QR/barcode scanning and redirects to the appropriate screen based on `ScannerParams` passed via navigation.
 
 **Prasadam Distribution Architecture**
 Unified dashboard with view-based access controls:
-- **All View**: Shows all stages except Planned (Cooked → Stored → Staging → Refill Stations → Buffet Lanes → Left Over)
-- **Stats View** (read-only): Shows Planned, Kitchen (Cooked), Distributed (Served), Left Over with percentages
-- **Staging View**: Stored → Staging → Refill Stations
-- **Serving View**: Refill Stations → Buffet Lanes → Left Over
+- **All View**: Shows Cooked → Storage → Staging → Refill Stations → Buffet (no Left Over, no Planned)
+- **Stats View** (read-only): Shows Planned, Cooked (cumulative), Buffet (as "Distributed"), Left Over
+- **Staging View**: Storage → Staging → Refill Stations
+- **Serving View**: Refill Stations → Buffet → Left Over
+
+**Stage Display Names** (see `journey/PrasadamDistribution/types/dashboard.types.ts`):
+- `cooked` → "Kitchen" (in most views), "Cooked" (in Stats view - cumulative)
+- `stored` → "Storage"
+- `served` → "Buffet" (in most views), "Distributed" (in Stats view)
+- `staging` → "Staging"
+- `refill_station_1/2/3` → "Refill Stn 1/2/3"
+- `left_over` → "Left Over"
 
 **Movement & Editing**
 - Tap on quantity cell: Opens forward movement popup (default qty: 0)
@@ -205,12 +218,19 @@ Unified dashboard with view-based access controls:
 **Dashboard Color Groups**
 Stage headers are color-coded with bold separators:
 - Planning (Planned): Gray
-- Production (Kitchen/Cooked, Stored): Orange/Brown
+- Production (Kitchen/Cooked, Storage): Orange/Brown
 - Tracking (Distributed): Blue
 - Staging: Amber
 - Refill Stations (1, 2, 3): Greens
-- Buffet Lanes: Purple
+- Buffet: Purple
 - Left Over: Red
+
+**PowerBall Component** (`journey/PrasadamDistribution/components/PowerBall.tsx`)
+- Attractive gradient spheres using `expo-linear-gradient` (light → base → dark diagonal)
+- Specular shine overlay for realistic highlight
+- Numbers properly centered with dedicated container
+- Low inventory red warning DISABLED but code preserved for future (see comments in file)
+- Quick select buttons (+2, +3, etc.) gray out when amount exceeds available trays
 
 **Display Name Context**
 - "Stats" view: Cooked displays as "Kitchen", Served displays as "Distributed"
@@ -266,7 +286,7 @@ GOOGLE_APPS_SCRIPT_URL=https://script.google.com/macros/s/...
 
 - **iOS Bundle ID**: `com.sadhusanga.ScannerApp` (Apple Team: ST8SH8S3P4, ASC App ID: 6480351919, Apple ID: loghash@gmail.com)
 - **Android Package**: `com.sadhusanga.ScannerApp`
-- **Version**: Defined in `app.json` (currently 2.2.9, iOS build 28, Android version 27)
+- **Version**: Defined in `app.json` (currently 2.2.9, iOS build 30, Android version 31)
 - **EAS Project ID**: `eedf4ca2-7f92-48aa-a4c9-2095d7f9f150`
 - **New Architecture**: Enabled for both platforms
 - **OTA Updates**: Configured via `expo-updates`

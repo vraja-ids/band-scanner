@@ -224,22 +224,32 @@ export const QuantityMovePopup: React.FC<QuantityMovePopupProps> = ({
               </View>
 
               <View style={styles.quickSelectRow}>
-                {QUICK_SELECT_AMOUNTS.map(amount => (
-                  <TouchableOpacity
-                    key={amount}
-                    style={[styles.quickSelectBtn, quantity === amount.toString() && styles.selectedBtn]}
-                    onPress={() => handleQuickSelect(amount)}
-                  >
-                    <Text
+                {QUICK_SELECT_AMOUNTS.map(amount => {
+                  const currentQty = parseInt(quantity, 10) || 0;
+                  const wouldExceed = (currentQty + amount) > effectiveMaxQty;
+                  return (
+                    <TouchableOpacity
+                      key={amount}
                       style={[
-                        styles.quickSelectText,
-                        quantity === amount.toString() && styles.selectedText,
+                        styles.quickSelectBtn,
+                        quantity === amount.toString() && styles.selectedBtn,
+                        wouldExceed && styles.disabledQuickSelectBtn
                       ]}
+                      onPress={() => !wouldExceed && handleQuickSelect(amount)}
+                      disabled={wouldExceed}
                     >
-                      +{amount}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                      <Text
+                        style={[
+                          styles.quickSelectText,
+                          quantity === amount.toString() && styles.selectedText,
+                          wouldExceed && styles.disabledQuickSelectText
+                        ]}
+                      >
+                        +{amount}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
           </View>
@@ -419,6 +429,13 @@ const styles = StyleSheet.create({
   },
   selectedText: {
     color: '#FFF',
+  },
+  disabledQuickSelectBtn: {
+    backgroundColor: '#F5F5F5',
+    borderColor: '#EEE',
+  },
+  disabledQuickSelectText: {
+    color: '#CCC',
   },
   actions: {
     flexDirection: 'row',
