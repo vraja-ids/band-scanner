@@ -11,7 +11,7 @@
         "image": "macos-sequoia-15.3-xcode-16.2"
       },
       "android": {
-        "image": "latest"      
+        "image": "latest"
 }
     },
     "preview": {
@@ -20,7 +20,7 @@
         "image": "macos-sequoia-15.3-xcode-16.2"
       },
       "android": {
-        "image": "latest"      
+        "image": "latest"
 }
     },
     "production": {
