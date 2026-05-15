@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { api } from '../../services/api';
+import { getString } from '../../storage/Session';
 
 const styles = StyleSheet.create({
   container: {
@@ -44,20 +45,44 @@ const ActivityStatsScreen = () => {
   const [activityStats, setActivityStats] = useState<any[]>([]);
   const [selectedActivity, setSelectedActivity] = useState('friDinner');
   const [total, setTotal] = useState(0);
+  const [eventId, setEventId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 10000);
+    loadEventId();
+  }, []);
+
+  const loadEventId = async () => {
+    const id = await getString('selectedEventId');
+    setEventId(id);
+  };
+
+  useEffect(() => {
+    if (eventId) {
+      fetchData();
+    }
+    const interval = setInterval(() => eventId && fetchData(), 10000);
     return () => {
       clearInterval(interval);
     };
-  }, [selectedActivity]);
+  }, [selectedActivity, eventId]);
+
+  const getTodayDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   const fetchData = async () => {
+    if (!eventId) return;
     try {
       const data: any = await api.get('getActivityStats', {
         adminId: '1234',
         activity: selectedActivity,
+        category: 'mealtracking',
+        activityDate: getTodayDate(),
+        eventId,
       });
       setActivityStats(data.activities);
 

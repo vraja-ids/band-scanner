@@ -137,12 +137,21 @@ export async function createEvent(event: EventInsert): Promise<boolean> {
 // ============================================================================
 
 export async function getMeals(eventId: string): Promise<Meal[]> {
+  const startTime = Date.now();
+  console.log('[SupabaseService] getMeals START', { eventId });
   const { data, error } = await supabase
     .from('meals')
     .select('*')
     .eq('event_id', eventId)
     .order('day_number', { ascending: true })
     .order('serving_start_time', { ascending: true });
+
+  const elapsed = Date.now() - startTime;
+  console.log('[SupabaseService] getMeals query complete', { elapsed: `${elapsed}ms`, count: data?.length || 0, error });
+
+  if (data && data.length > 0) {
+    console.log('[SupabaseService] First meal:', JSON.stringify(data[0], null, 2));
+  }
 
   if (error) {
     console.error('[SupabaseService] getMeals error:', error);
@@ -210,16 +219,18 @@ export async function updateMenuItem(
   itemId: string,
   updates: Partial<MenuItemInsert>
 ): Promise<boolean> {
-  console.log('[SupabaseService] updateMenuItem:', itemId, updates);
+  const startTime = Date.now();
+  console.log('[SupabaseService] updateMenuItem START:', { itemId, updates });
   const { error, data } = await supabase
     .from('menu_items')
     .update(updates)
     .eq('item_id', itemId)
     .select();
+  const elapsed = Date.now() - startTime;
   if (error) {
-    console.error('[SupabaseService] updateMenuItem error:', error);
+    console.error('[SupabaseService] updateMenuItem ERROR:', error, 'elapsed:', elapsed, 'ms');
   } else {
-    console.log('[SupabaseService] updateMenuItem success, updated data:', data);
+    console.log('[SupabaseService] updateMenuItem SUCCESS, elapsed:', elapsed, 'ms, data:', data);
   }
   return !error;
 }
@@ -304,7 +315,9 @@ export async function getLocationInventoryItem(
 export async function updateLocationInventory(
   data: LocationInventoryUpdate
 ): Promise<boolean> {
+  const startTime = Date.now();
   const { meal_id, item_id, location, quantity, action } = data;
+  console.log('[SupabaseService] updateLocationInventory START:', { meal_id, item_id, location, quantity, action });
 
   // Build the update expression based on action
   const operator = action === 'add' ? '+' : '-';
@@ -317,12 +330,14 @@ export async function updateLocationInventory(
     p_action: action,
   });
 
+  const elapsed = Date.now() - startTime;
   if (error) {
-    console.error('[SupabaseService] updateLocationInventory error:', error);
+    console.error('[SupabaseService] updateLocationInventory RPC ERROR:', error, 'elapsed:', elapsed, 'ms');
     // Fallback: try direct query if RPC doesn't exist
     return fallbackUpdateLocationInventory(data);
   }
 
+  console.log('[SupabaseService] updateLocationInventory SUCCESS, elapsed:', elapsed, 'ms');
   return true;
 }
 
@@ -450,8 +465,12 @@ export async function createTransfer(transfer: TransferInsert): Promise<string |
 }
 
 export async function recordTransfer(transfer: TransferInsert): Promise<string | null> {
-  // Alias for createTransfer - same operation
-  return createTransfer(transfer);
+  const startTime = Date.now();
+  console.log('[SupabaseService] recordTransfer START:', { meal_id: transfer.meal_id, item_id: transfer.item_id, from: transfer.from_location, to: transfer.to_location, qty: transfer.quantity });
+  const result = await createTransfer(transfer);
+  const elapsed = Date.now() - startTime;
+  console.log('[SupabaseService] recordTransfer END, elapsed:', elapsed, 'ms, result:', result);
+  return result;
 }
 
 export async function receiveTransfer(
@@ -592,16 +611,24 @@ export async function saveDashboardSettings(
 export async function getDashboardSummary(
   mealId: string
 ): Promise<DashboardSummaryData | null> {
+  const startTime = Date.now();
+  console.log('[SupabaseService] getDashboardSummary START:', mealId);
+
   // Query menu items and inventory in parallel
+  const parallelStart = Date.now();
   const [menuItems, inventory, transfersData, refillRequestsData] = await Promise.all([
     getMenuItems(mealId),
     getLocationInventory(mealId),
     supabase.from('transfers').select('*').eq('meal_id', mealId).eq('status', 'sent'),
     supabase.from('refill_requests').select('*').eq('meal_id', mealId).eq('status', 'pending'),
   ]);
+  console.log('[SupabaseService] getDashboardSummary parallel queries elapsed:', Date.now() - parallelStart, 'ms');
 
   const pendingTransfersCount = transfersData.data?.length || 0;
   const pendingRequestsCount = refillRequestsData.data?.length || 0;
+
+  const elapsed = Date.now() - startTime;
+  console.log('[SupabaseService] getDashboardSummary END, elapsed:', elapsed, 'ms, items:', menuItems.length, 'inventory:', inventory.length);
 
   return {
     menu: menuItems,

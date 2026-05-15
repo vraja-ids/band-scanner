@@ -12,6 +12,8 @@ export interface UpdateMealActivityRequest {
   location: string;
   activityId: number;
   scannerMemberId: string | null;
+  remove?: boolean; // true to remove, false/undefined to add
+  eventId?: string;
 }
 
 

@@ -37,25 +37,54 @@ function MealSettingsScreen() {
   }, []);
 
   const loadMeals = async () => {
+    const loadStart = Date.now();
+    console.log('[MealSettings] ========== LOAD START ==========');
     try {
       const evId = await getString('selectedEventId');
+      console.log('[MealSettings] Event ID:', evId);
       if (!evId) {
         Alert.alert('Error', 'No event selected');
+        setIsLoading(false);
         return;
       }
       setEventId(evId);
 
+      console.log('[MealSettings] Calling getMeals...');
       const mealsData = await getMeals(evId);
+      console.log('[MealSettings] getMeals returned:', mealsData?.length, 'meals, elapsed:', Date.now() - loadStart, 'ms');
+
+      if (mealsData && mealsData.length > 0) {
+        console.log('[MealSettings] First meal sample:', JSON.stringify(mealsData[0], null, 2));
+      }
+
+      // Sanitize data: convert "planned" strings to planned_servings, use 0 if both missing
+      const sanitizedMeals = (mealsData || []).map(meal => {
+        const devotees = meal.expected_devotees as any;
+        const plannedServings = meal.planned_servings || 0;
+        // If expected_devotees is "planned"/invalid, use planned_servings as the value
+        const effectiveDevotees = (devotees === 'planned' || devotees === 'Planned' || devotees === undefined || devotees === null)
+          ? plannedServings
+          : (typeof devotees === 'number' ? devotees : parseInt(devotees, 10) || plannedServings);
+        return {
+          ...meal,
+          expected_devotees: effectiveDevotees
+        };
+      });
+
+      console.log('[MealSettings] Sanitized meals, first expected_devotees:', sanitizedMeals[0]?.expected_devotees);
+
       // Sort meals by day_number and serving_start_time
-      const sortedMeals = (mealsData || []).sort((a, b) => {
+      const sortedMeals = sanitizedMeals.sort((a, b) => {
         if (a.day_number !== b.day_number) {
           return a.day_number - b.day_number;
         }
         return a.serving_start_time.localeCompare(b.serving_start_time);
       });
+      console.log('[MealSettings] Sorted meals, setting state...');
       setMeals(sortedMeals);
+      console.log('[MealSettings] ========== LOAD COMPLETE ==========');
     } catch (error) {
-      console.error('Failed to load meals:', error);
+      console.error('[MealSettings] Failed to load meals:', error);
       Alert.alert('Error', 'Failed to load meals');
     } finally {
       setIsLoading(false);
@@ -63,27 +92,51 @@ function MealSettingsScreen() {
   };
 
   const handleDevoteesChange = (mealId: string, value: string) => {
-    const numValue = value === '' ? 0 : parseInt(value, 10);
-    setMeals(prevMeals =>
-      prevMeals.map(meal =>
-        meal.meal_id === mealId ? { ...meal, expected_devotees: numValue } : meal
-      )
-    );
+    console.log('[MealSettings] handleDevoteesChange:', { mealId, value });
+    // Handle empty string as 0, otherwise parse as int
+    // Filter out non-numeric input to prevent NaN
+    if (value === '' || /^\d*$/.test(value)) {
+      const numValue = value === '' ? 0 : parseInt(value, 10) || 0;
+      console.log('[MealSettings] Parsed value:', numValue);
+      setMeals(prevMeals =>
+        prevMeals.map(meal =>
+          meal.meal_id === mealId ? { ...meal, expected_devotees: numValue } : meal
+        )
+      );
+    }
+  };
+
+  const getDisplayValue = (meal: Meal): string => {
+    // Handle NaN, null, undefined, invalid values, and the string "planned"
+    const val = meal.expected_devotees as any;
+    // If it's "planned", we've already sanitized it to planned_servings value
+    // Just need to handle display
+    const displayVal = (val === null || val === undefined || Number.isNaN(val) || val < 0)
+      ? meal.planned_servings?.toString() || ''
+      : val.toString();
+    console.log('[MealSettings] getDisplayValue for', meal.meal_id, ':', { raw: val, display: displayVal, plannedServings: meal.planned_servings });
+    return displayVal;
   };
 
   const handleSave = async () => {
     setIsSaving(true);
+    console.log('[MealSettings] Saving', meals.length, 'meals');
     try {
       // Update each meal's expected_devotees
       for (const meal of meals) {
-        // Always update (0 is a valid value)
+        // Ensure valid number (not NaN, not negative)
+        const devotees = meal.expected_devotees ?? 0;
+        const validValue = Number.isNaN(devotees) || devotees < 0 ? 0 : devotees;
+
+        console.log('[MealSettings] Updating', meal.meal_id, 'to', validValue);
         const success = await updateMealDevotees({
           meal_id: meal.meal_id,
-          expected_devotees: meal.expected_devotees ?? 0,
+          expected_devotees: validValue,
         });
         if (!success) {
-          throw new Error(`Failed to update ${meal.meal_name || meal.meal_type}`);
+          throw new Error(`Failed to update ${getMealDisplayName(meal)}`);
         }
+        console.log('[MealSettings] Updated', meal.meal_id, 'successfully');
       }
 
       Alert.alert('Success', 'Expected devotees updated successfully', [
@@ -98,7 +151,9 @@ function MealSettingsScreen() {
   };
 
   const getMealDisplayName = (meal: Meal): string => {
-    return meal.meal_name || `${meal.meal_type} (Day ${meal.day_number})`;
+    // If meal_type is generic like "planned", prefer meal_name
+    const typeIsGeneric = !meal.meal_type || meal.meal_type === 'planned' || meal.meal_type === 'Planned';
+    return meal.meal_name || (typeIsGeneric ? `Meal (Day ${meal.day_number})` : `${meal.meal_type} (Day ${meal.day_number})`);
   };
 
   const getDayName = (dayNumber: number): string => {
@@ -158,14 +213,14 @@ function MealSettingsScreen() {
               {mealsByDay[parseInt(dayNum)].map(meal => (
                 <View key={meal.meal_id} style={styles.mealRow}>
                   <View style={styles.mealInfo}>
-                    <Text style={styles.mealName}>{meal.meal_type}</Text>
+                    <Text style={styles.mealName}>{getMealDisplayName(meal)}</Text>
                     <Text style={styles.mealTime}>{meal.serving_start_time}</Text>
                   </View>
                   <View style={styles.inputContainer}>
                     <TextInput
                       style={styles.input}
                       keyboardType="number-pad"
-                      value={meal.expected_devotees == null ? '' : meal.expected_devotees.toString()}
+                      value={getDisplayValue(meal)}
                       onChangeText={(value) => handleDevoteesChange(meal.meal_id, value)}
                       placeholder="0"
                     />

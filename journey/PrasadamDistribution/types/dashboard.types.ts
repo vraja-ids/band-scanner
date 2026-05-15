@@ -74,7 +74,7 @@ export const TEAM_VIEW_CONFIGS: Record<TeamView, { name: string; shortName: stri
   stats: {
     name: 'Stats',
     shortName: 'Stats',
-    stages: ['planned', 'cooked', 'served', 'left_over'], // Stats view shows 'served' as "Distributed", 'cooked' as "Cooked"
+    stages: ['cooked', 'served', 'planned', 'left_over'], // Order: Cooked, Distributed, Planned, Left Over
     readonly: true, // No movements allowed in stats view
   },
   team1_kitchen: {
@@ -90,7 +90,7 @@ export const TEAM_VIEW_CONFIGS: Record<TeamView, { name: string; shortName: stri
   team3_serving: {
     name: 'Team 3 (Serving)',
     shortName: 'Team 3',
-    stages: ['refill_station_1', 'refill_station_2', 'refill_station_3', 'served', 'left_over'],
+    stages: ['refill_station_1', 'refill_station_2', 'refill_station_3', 'served'],
   },
   all: {
     name: 'All Stages',

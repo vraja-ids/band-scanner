@@ -130,13 +130,15 @@ function RegisterTagScreen({ route }: any) {
     registerTag(tagdata)
       .then((response: any) => {
         console.log('[RegisterTag] Full response:', JSON.stringify(response, null, 2));
-        const errorMsg = response.errorMessage || response.displayMessage;
-        if (errorMsg) {
-          alert(errorMsg);
+        const errorMsg = response.errorMessage || response.displayMessage || response.message;
+        const isError = response.status === 'error' || response.code === '500' || response.code === '400';
+        if (isError || errorMsg) {
+          const displayMsg = errorMsg || 'Error registering tag';
+          alert(displayMsg);
+          setErrorMessage(displayMsg);
           // Still show the member details if available
           if (response.memberActivityDetails) {
             setMemberActivityDetails(response.memberActivityDetails);
-            setErrorMessage(errorMsg);
             setError(false);
           }
         } else {
@@ -145,8 +147,9 @@ function RegisterTagScreen({ route }: any) {
       })
       .catch((error: any) => {
         console.error(error);
-        alert(error);
-        setErrorMessage('Error registering tag. Please try again.');
+        const errorText = error?.response?.data?.message || error?.message || error?.toString() || 'Error registering tag. Please try again.';
+        alert(errorText);
+        setErrorMessage(errorText);
       })
       .finally(() => setLoading(false));
   };

@@ -198,6 +198,29 @@ The app supports portrait and both landscape orientations. All screens must hand
 
 **Scanner Flow**
 The generic `Scanner` component (`journey/common/util/Scanner.tsx`) handles QR/barcode scanning and redirects to the appropriate screen based on `ScannerParams` passed via navigation.
+- When navigating to Scanner with extra params (like `mealId`, `mealName`), these must be forwarded to the target screen in `handleBarCodeScanned`
+- Example: `navigation.replace(screenName, { location, tag, mealId, mealName })`
+
+**Meal Scanning** (`journey/Meals/`)
+- Uses `updateMemberActivity` API endpoint for adding/removing meals
+- **API Parameters**: `tagId`, `apiVersion`, `location`, `activity` (mealId like "friDinner"), `category: "mealtracking"`, `activityId: 0`, `scannerMemberId`, `remove` (boolean), `eventId`
+- **Add**: `remove: false` | **Remove**: `remove: true`
+- Auto-add on first scan when count=0 (use explicit `isInitial` flag to prevent auto-add loops)
+- Use `isProcessing` flag to prevent multiple simultaneous API calls
+- Activity stats for Prasadam Dashboard use `getActivityStats` endpoint with `adminId: "1234"` and `category: "mealtracking"`
+
+**Register Tag** (`journey/Tags/RegisterTagScreen.tsx`)
+- Uses `registerTag` and `unregisterTag` APIs with `eventId` parameter
+- Error handling: check both `errorMessage` and `message` fields in API response
+- Always set `errorMessage` state so errors display in UI
+
+**UI Patterns - Modern Card Design**
+- Use `SafeAreaView` with `useSafeAreaInsets()` for notch support
+- Card-based layout with `shadowColor`, `shadowOffset`, `shadowOpacity`, `shadowRadius`, `elevation`
+- `LinearGradient` from `expo-linear-gradient` for modern button/section styling
+- `Ionicons` for consistent iconography (person, id-card, barcode, restaurant, heart, etc.)
+- Info rows: `flexDirection: 'row'`, `justifyContent: 'space-between'`, `alignItems: 'center'`
+- Status badges: small colored containers with `borderRadius: 10`, `paddingHorizontal: 12`, `paddingVertical: 6`
 
 **Prasadam Distribution Architecture**
 Unified dashboard with view-based access controls (order: Stats → Team 1 → Team 2 → Team 3 → All):

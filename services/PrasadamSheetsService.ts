@@ -169,12 +169,14 @@ async function apiGet<T>(
   params?: Record<string, any>,
   options?: { forceRefresh?: boolean }
 ): Promise<ApiResponse<T>> {
+  const startTime = Date.now();
   const cacheKey = getCacheKey(operation, params);
 
   // Check cache first
   if (!options?.forceRefresh) {
     const cached = getFromCache<ApiResponse<T>>(cacheKey);
     if (cached) {
+      console.log(`[PrasadamSheetsService] API GET ${operation} CACHE HIT`);
       return cached;
     }
   }
@@ -191,11 +193,13 @@ async function apiGet<T>(
       });
     }
 
-    console.log(`[PrasadamSheetsService] API GET ${operation}:`, url.toString());
+    console.log(`[PrasadamSheetsService] API GET START ${operation}`);
 
+    const fetchStart = Date.now();
     const response = await fetch(url.toString(), {
       method: 'GET',
     });
+    console.log(`[PrasadamSheetsService] API GET ${operation} fetch elapsed:`, Date.now() - fetchStart, 'ms');
 
     // Check if response is HTML (deployment error)
     const contentType = response.headers.get('content-type') || '';
@@ -203,8 +207,9 @@ async function apiGet<T>(
       throw new Error('Google Apps Script deployment may need refreshing. Redeploy the web app.');
     }
 
+    const jsonStart = Date.now();
     const result: ApiResponse<T> = await response.json();
-    console.log(`[PrasadamSheetsService] API GET ${operation} response:`, result);
+    console.log(`[PrasadamSheetsService] API GET ${operation} JSON parse elapsed:`, Date.now() - jsonStart, 'ms');
 
     // Cache successful responses
     if (result.status === 'success') {
@@ -212,9 +217,13 @@ async function apiGet<T>(
       await saveToPersistentCache(cacheKey, result);
     }
 
+    const totalElapsed = Date.now() - startTime;
+    console.log(`[PrasadamSheetsService] API GET ${operation} END, total elapsed: ${totalElapsed} ms, status: ${result.status}`);
+
     return result;
   } catch (error) {
-    console.error(`API GET failed for ${operation}:`, error);
+    const totalElapsed = Date.now() - startTime;
+    console.error(`[PrasadamSheetsService] API GET ${operation} ERROR, elapsed:`, totalElapsed, 'ms', error);
 
     // Check for JSON parse error (likely HTML response from GAS)
     if (error instanceof Error && error.message.includes('JSON')) {
@@ -251,7 +260,11 @@ async function apiPost<T>(
   operation: string,
   data?: Record<string, any>
 ): Promise<ApiResponse<T>> {
+  const startTime = Date.now();
+  console.log(`[PrasadamSheetsService] API POST START ${operation}`, data);
+
   try {
+    const fetchStart = Date.now();
     const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
       method: 'POST',
       headers: {
@@ -262,6 +275,7 @@ async function apiPost<T>(
         ...data,
       }),
     });
+    console.log(`[PrasadamSheetsService] API POST ${operation} fetch elapsed:`, Date.now() - fetchStart, 'ms');
 
     // Check if response is HTML (deployment error)
     const contentType = response.headers.get('content-type') || '';
@@ -269,16 +283,22 @@ async function apiPost<T>(
       throw new Error('Google Apps Script deployment may need refreshing. Redeploy the web app.');
     }
 
+    const jsonStart = Date.now();
     const result: ApiResponse<T> = await response.json();
+    console.log(`[PrasadamSheetsService] API POST ${operation} JSON parse elapsed:`, Date.now() - jsonStart, 'ms');
 
     // Clear relevant caches on successful write
     if (result.status === 'success') {
       await clearCacheForOperation(operation);
     }
 
+    const totalElapsed = Date.now() - startTime;
+    console.log(`[PrasadamSheetsService] API POST ${operation} END, total elapsed: ${totalElapsed} ms, status: ${result.status}`);
+
     return result;
   } catch (error) {
-    console.error(`API POST failed for ${operation}:`, error);
+    const totalElapsed = Date.now() - startTime;
+    console.error(`[PrasadamSheetsService] API POST ${operation} ERROR, elapsed:`, totalElapsed, 'ms', error);
 
     // Check for JSON parse error (likely HTML response from GAS)
     if (error instanceof Error && error.message.includes('JSON')) {
@@ -474,7 +494,11 @@ export async function updateMenuItem(data: {
   itemId: string;
   updates: Record<string, any>;
 }): Promise<boolean> {
+  const startTime = Date.now();
+  console.log('[PrasadamSheetsService] updateMenuItem START', data);
   const response = await apiPost('updateMenuItem', data);
+  const elapsed = Date.now() - startTime;
+  console.log('[PrasadamSheetsService] updateMenuItem END, elapsed:', elapsed, 'ms, status:', response.status);
   return response.status === 'success';
 }
 
@@ -516,9 +540,11 @@ export async function updateLocationInventory(data: {
   quantity: number;
   action: 'add' | 'subtract';
 }): Promise<boolean> {
-  console.log('[PrasadamSheetsService] updateLocationInventory called with:', data);
+  const startTime = Date.now();
+  console.log('[PrasadamSheetsService] updateLocationInventory START', data);
   const response = await apiPost('updateLocationInventory', data);
-  console.log('[PrasadamSheelsService] updateLocationInventory response:', response);
+  const elapsed = Date.now() - startTime;
+  console.log('[PrasadamSheetsService] updateLocationInventory END, elapsed:', elapsed, 'ms, status:', response.status);
   if (response.status !== 'success') {
     console.error('[PrasadamSheetsService] updateLocationInventory failed:', response.message);
   }
@@ -564,7 +590,11 @@ export async function recordTransfer(data: {
   from_user: string;
   to_user?: string;
 }): Promise<{ transfer_id: string } | null> {
+  const startTime = Date.now();
+  console.log('[PrasadamSheetsService] recordTransfer START', { item_id: data.item_id, from: data.from_location, to: data.to_location, qty: data.quantity });
   const response = await apiPost<{ transfer_id: string }>('recordTransfer', data);
+  const elapsed = Date.now() - startTime;
+  console.log('[PrasadamSheetsService] recordTransfer END, elapsed:', elapsed, 'ms, status:', response.status);
   if (response.status === 'success' && response.data) {
     return response.data;
   }
@@ -611,9 +641,11 @@ export async function saveDashboardSettings(data: {
 // ============================================================================
 
 export async function getDashboardSummary(mealId: string, forceRefresh = false): Promise<DashboardSummaryData | null> {
-  console.log('[PrasadamSheetsService] getDashboardSummary called with mealId:', mealId);
+  const startTime = Date.now();
+  console.log('[PrasadamSheetsService] getDashboardSummary START', { mealId, forceRefresh });
   const response = await apiGet<DashboardSummaryData>('getDashboardSummary', { mealId }, { forceRefresh });
-  console.log('[PrasadamSheetsService] getDashboardSummary response:', response);
+  const elapsed = Date.now() - startTime;
+  console.log('[PrasadamSheetsService] getDashboardSummary END, elapsed:', elapsed, 'ms, status:', response.status);
   if (response.status === 'success' && response.data) {
     return response.data;
   }

@@ -33,6 +33,12 @@ interface RoomWithIngredients {
   }>;
 }
 
+// Helper to format quantities to 2 decimal places
+const formatQty = (qty: number): string => {
+  if (Number.isInteger(qty)) return qty.toString();
+  return qty.toFixed(2);
+};
+
 const BhogaStorageScreen: FC<Props> = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [rooms, setRooms] = useState<RoomWithIngredients[]>([]);
@@ -165,7 +171,7 @@ const BhogaStorageScreen: FC<Props> = ({ navigation }) => {
                         />
                       </View>
                       <Text style={styles.stockText}>
-                        {item.currentStock} / {item.initialStock} {item.unit}
+                        {formatQty(item.currentStock)} / {formatQty(item.initialStock)} {item.unit}
                       </Text>
                     </View>
 

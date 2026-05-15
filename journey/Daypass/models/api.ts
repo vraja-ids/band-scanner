@@ -42,9 +42,10 @@ export interface UpdateDayPassStatusResponse {
 
 export interface GetDaypassActivityStatsRequest {
   eventId: string;
-  activity: string; // "bus1", "bus2", ..., "bus12", "breakfast", "lunch", "dinner", "prasadam"
+  activity: string; // "bus1", "bus2", ..., "bus12", "breakfast", "lunch", "dinner", "prasadam", or meal IDs like "friDinner"
   date: string; // YYYY-MM-DD format
   scannerMemberId: string;
+  category?: string; // Optional: "mealtracking" for meal activity stats
 }
 
 export interface ActivityStatItem {

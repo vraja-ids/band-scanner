@@ -295,10 +295,18 @@ export async function getEvents(forceRefresh = false): Promise<GoogleSheetsServi
 // ============================================================================
 
 export async function getMeals(eventId: string, forceRefresh = false): Promise<GoogleSheetsService.Meal[]> {
+  const startTime = Date.now();
+  console.log('[PrasadamSupabaseService] getMeals START', { eventId, useSupabase, isOnline, forceRefresh });
+  let result;
   if (useSupabase && isOnline) {
-    return await SupabaseService.getMeals(eventId);
+    console.log('[PrasadamSupabaseService] Using Supabase backend');
+    result = await SupabaseService.getMeals(eventId);
+  } else {
+    console.log('[PrasadamSupabaseService] Using Google Sheets backend');
+    result = await GoogleSheetsService.getMeals(eventId, forceRefresh);
   }
-  return await GoogleSheetsService.getMeals(eventId, forceRefresh);
+  console.log('[PrasadamSupabaseService] getMeals END', { count: result.length, elapsedMs: Date.now() - startTime });
+  return result;
 }
 
 export async function addMeal(data: {
@@ -359,27 +367,45 @@ export async function updateMenuItemInternal(data: {
   itemId: string;
   updates: Record<string, any>;
 }): Promise<boolean> {
+  const startTime = Date.now();
+  console.log('[PrasadamSupabaseService] updateMenuItemInternal START, backend:', useSupabase ? 'Supabase' : 'Sheets');
+
+  let result: boolean;
   if (useSupabase) {
-    return await SupabaseService.updateMenuItem(data.itemId, data.updates);
+    result = await SupabaseService.updateMenuItem(data.itemId, data.updates);
+  } else {
+    result = await GoogleSheetsService.updateMenuItem(data);
   }
-  return await GoogleSheetsService.updateMenuItem(data);
+
+  console.log('[PrasadamSupabaseService] updateMenuItemInternal END, elapsed:', Date.now() - startTime, 'ms, result:', result);
+  return result;
 }
 
 export async function updateMenuItem(data: {
   itemId: string;
   updates: Record<string, any>;
 }): Promise<boolean> {
+  const startTime = Date.now();
+  console.log('[PrasadamSupabaseService] updateMenuItem START', { itemId: data.itemId, updates: Object.keys(data.updates), useSupabase, isOnline });
+
   if (useSupabase && isOnline) {
-    return await updateMenuItemInternal(data);
+    const apiStart = Date.now();
+    const result = await updateMenuItemInternal(data);
+    console.log('[PrasadamSupabaseService] updateMenuItem END (Supabase), API elapsed:', Date.now() - apiStart, 'ms, total elapsed:', Date.now() - startTime, 'ms, result:', result);
+    return result;
   }
 
   // Queue for offline
   if (!isOnline) {
     await addToQueue('updateMenuItem', data);
+    console.log('[PrasadamSupabaseService] updateMenuItem QUEUED (offline), elapsed:', Date.now() - startTime, 'ms');
     return true; // Optimistic return
   }
 
-  return await GoogleSheetsService.updateMenuItem(data);
+  const apiStart = Date.now();
+  const result = await GoogleSheetsService.updateMenuItem(data);
+  console.log('[PrasadamSupabaseService] updateMenuItem END (Sheets), API elapsed:', Date.now() - apiStart, 'ms, total elapsed:', Date.now() - startTime, 'ms, result:', result);
+  return result;
 }
 
 export async function updateCookingStatus(data: {
@@ -429,16 +455,24 @@ export async function updateLocationInventoryInternal(data: {
   quantity: number;
   action: 'add' | 'subtract';
 }): Promise<boolean> {
+  const startTime = Date.now();
+  console.log('[PrasadamSupabaseService] updateLocationInventoryInternal START, backend:', useSupabase ? 'Supabase' : 'Sheets', data);
+
+  let result: boolean;
   if (useSupabase) {
-    return await SupabaseService.updateLocationInventory({
+    result = await SupabaseService.updateLocationInventory({
       meal_id: data.mealId,
       item_id: data.itemId,
       location: data.location as any,
       quantity: data.quantity,
       action: data.action,
     });
+  } else {
+    result = await GoogleSheetsService.updateLocationInventory(data);
   }
-  return await GoogleSheetsService.updateLocationInventory(data);
+
+  console.log('[PrasadamSupabaseService] updateLocationInventoryInternal END, elapsed:', Date.now() - startTime, 'ms, result:', result);
+  return result;
 }
 
 export async function updateLocationInventory(data: {
@@ -448,17 +482,27 @@ export async function updateLocationInventory(data: {
   quantity: number;
   action: 'add' | 'subtract';
 }): Promise<boolean> {
+  const startTime = Date.now();
+  console.log('[PrasadamSupabaseService] updateLocationInventory START', { ...data, useSupabase, isOnline });
+
   if (useSupabase && isOnline) {
-    return await updateLocationInventoryInternal(data);
+    const apiStart = Date.now();
+    const result = await updateLocationInventoryInternal(data);
+    console.log('[PrasadamSupabaseService] updateLocationInventory END (Supabase), API elapsed:', Date.now() - apiStart, 'ms, total elapsed:', Date.now() - startTime, 'ms, result:', result);
+    return result;
   }
 
   // Queue for offline
   if (!isOnline) {
     await addToQueue('updateLocationInventory', data);
+    console.log('[PrasadamSupabaseService] updateLocationInventory QUEUED (offline), elapsed:', Date.now() - startTime, 'ms');
     return true; // Optimistic return
   }
 
-  return await GoogleSheetsService.updateLocationInventory(data);
+  const apiStart = Date.now();
+  const result = await GoogleSheetsService.updateLocationInventory(data);
+  console.log('[PrasadamSupabaseService] updateLocationInventory END (Sheets), API elapsed:', Date.now() - apiStart, 'ms, total elapsed:', Date.now() - startTime, 'ms, result:', result);
+  return result;
 }
 
 // ============================================================================
@@ -498,11 +542,19 @@ export async function recordTransferInternal(data: {
   from_user: string;
   to_user?: string;
 }): Promise<{ transfer_id: string } | null> {
+  const startTime = Date.now();
+  console.log('[PrasadamSupabaseService] recordTransferInternal START, backend:', useSupabase ? 'Supabase' : 'Sheets', { item_id: data.item_id, from: data.from_location, to: data.to_location, qty: data.quantity });
+
+  let result: { transfer_id: string } | null;
   if (useSupabase) {
     const transferId = await SupabaseService.recordTransfer(data);
-    return transferId ? { transfer_id: transferId } : null;
+    result = transferId ? { transfer_id: transferId } : null;
+  } else {
+    result = await GoogleSheetsService.recordTransfer(data);
   }
-  return await GoogleSheetsService.recordTransfer(data);
+
+  console.log('[PrasadamSupabaseService] recordTransferInternal END, elapsed:', Date.now() - startTime, 'ms, result:', result);
+  return result;
 }
 
 export async function recordTransfer(data: {
@@ -515,18 +567,28 @@ export async function recordTransfer(data: {
   from_user: string;
   to_user?: string;
 }): Promise<{ transfer_id: string } | null> {
+  const startTime = Date.now();
+  console.log('[PrasadamSupabaseService] recordTransfer START', { item_id: data.item_id, from: data.from_location, to: data.to_location, qty: data.quantity, useSupabase, isOnline });
+
   if (useSupabase && isOnline) {
-    return await recordTransferInternal(data);
+    const apiStart = Date.now();
+    const result = await recordTransferInternal(data);
+    console.log('[PrasadamSupabaseService] recordTransfer END (Supabase), API elapsed:', Date.now() - apiStart, 'ms, total elapsed:', Date.now() - startTime, 'ms, result:', result);
+    return result;
   }
 
   // Queue for offline
   if (!isOnline) {
     const transferId = `tr_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     await addToQueue('recordTransfer', { ...data, transfer_id: transferId });
+    console.log('[PrasadamSupabaseService] recordTransfer QUEUED (offline), elapsed:', Date.now() - startTime, 'ms');
     return { transfer_id: transferId }; // Optimistic return
   }
 
-  return await GoogleSheetsService.recordTransfer(data);
+  const apiStart = Date.now();
+  const result = await GoogleSheetsService.recordTransfer(data);
+  console.log('[PrasadamSupabaseService] recordTransfer END (Sheets), API elapsed:', Date.now() - apiStart, 'ms, total elapsed:', Date.now() - startTime, 'ms, result:', result);
+  return result;
 }
 
 export async function createTransfer(data: {

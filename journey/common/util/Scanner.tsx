@@ -332,6 +332,8 @@ export default function Scanner({ navigation, route }: Props) {
         navigation.replace(screenName, {
           location: route.params?.location,
           tag: { id: data },
+          mealId: route.params?.mealId,
+          mealName: route.params?.mealName,
         });
       } else {
         setTimeout(() => setIsScanningEnabled(true), 1000);

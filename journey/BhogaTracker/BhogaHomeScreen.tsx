@@ -122,8 +122,9 @@ const BhogaHomeScreen: FC<Props> = ({ navigation }) => {
   };
 
   const getMealKey = (prefix: string, type: string): string => {
-    // Match Prasadam Distribution meal IDs: friDinner, satBreakfast, etc.
-    const day = prefix.charAt(0).toLowerCase() + prefix.slice(1); // Fri -> fri
+    // Match API format from ID parsing: SatBreakfast, friLunch, etc.
+    // ID format: SatBreak01 → Sat + Break + 01 → satBreakfast
+    const day = prefix.toLowerCase(); // Fri → fri
     return `${day}${type}`; // fri + Breakfast = friBreakfast
   };
 

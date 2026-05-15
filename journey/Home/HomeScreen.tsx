@@ -707,11 +707,7 @@ const HomeScreen = () => {
               <Picker.Item label="Lane 4" value="4" />
               <Picker.Item label="Lane 5" value="5" />
               <Picker.Item label="Lane 6" value="6" />
-              <Picker.Item label="Elders & Kids" value="7" />
-              <Picker.Item label="Outdoor Lane" value="8" />
-              <Picker.Item label="Vegan Lane" value="9" />
               <Picker.Item label="VIP Lane" value="10" />
-              <Picker.Item label="Fast Lane" value="11" />
             </Picker>
           </View>
         )}

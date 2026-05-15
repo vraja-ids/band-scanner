@@ -4,31 +4,22 @@
  */
 
 import { requestAsApiResponse, getPublic } from '../network/api';
-import type { ApiResponse } from '../network/types';
 
 // API Request/Response types
 export interface GetMealActivityStatsRequest {
   eventId: string;
   activity: string; // meal_id (e.g., 'friDinner', 'satBreakfast')
-  date: string; // YYYY-MM-DD format
+  activityDate: string; // YYYY-MM-DD format
   scannerMemberId: string;
+  category?: string; // 'mealtracking' for meal activity stats
 }
 
-export interface MealActivityStatsResponse {
+// Activity item from the response
+export interface ActivityItem {
+  activityName: string;
   totalCount: number;
-  activity: string;
-  date: string;
+  displayFields?: Array<{ key: string; value: string }>;
 }
-
-/**
- * Get meal activity stats (number of devotees scanned for a meal)
- * Uses the same API as Daypass activity stats but for meal tracking
- */
-export const getMealActivityStats = async (
-  payload: GetMealActivityStatsRequest
-): Promise<ApiResponse<MealActivityStatsResponse>> => {
-  return requestAsApiResponse(() => getPublic('getDaypassActivityStats', payload));
-};
 
 /**
  * Get today's date in YYYY-MM-DD format
@@ -42,6 +33,16 @@ export function getTodayDate(): string {
 }
 
 /**
+ * Get meal activity stats (number of devotees scanned for a meal)
+ * Uses getActivityStats endpoint with category: 'mealtracking'
+ */
+export const getMealActivityStats = async (
+  payload: GetMealActivityStatsRequest
+): Promise<{ activities: ActivityItem[] }> => {
+  return getPublic('getActivityStats', { ...payload, category: 'mealtracking', adminId: '1234' });
+};
+
+/**
  * Get meal activity stats for a specific meal
  * Returns the number of devotees scanned for that meal
  */
@@ -51,15 +52,17 @@ export async function getDevoteesCountForMeal(
   scannerMemberId: string
 ): Promise<number> {
   try {
-    const response = await getMealActivityStats({
+    const result = await getMealActivityStats({
       eventId,
       activity: mealActivityId,
-      date: getTodayDate(),
+      activityDate: getTodayDate(),
       scannerMemberId,
     });
 
-    if (response.status === 'success' && response.data) {
-      return response.data.totalCount || 0;
+    // getPublic returns { data: { activities: [{ activityName, totalCount }] } }
+    const response = result.data;
+    if (response?.activities && response.activities.length > 0) {
+      return response.activities[0].totalCount || 0;
     }
     return 0;
   } catch (error) {

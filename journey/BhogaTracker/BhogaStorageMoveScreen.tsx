@@ -10,10 +10,13 @@ import {
   Modal,
   TextInput,
   SafeAreaView,
+  Dimensions,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { bhogaSheetsService, DeliveredItem, StorageLocation } from '../../services/BhogaSheetsService';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type BhogaStorageMoveScreenNavigationProp = StackNavigationProp<any, any>;
 
@@ -23,14 +26,27 @@ interface Props {
 
 const ROOM_OPTIONS = ['Kitchen', 'Pantry', 'Walk-in Fridge', 'Dry Storage', 'Cold Room'];
 
+interface RoundingOption {
+  qty: number;
+  label?: string;
+}
+
+// Helper to format quantities to 2 decimal places
+const formatQty = (qty: number): string => {
+  if (Number.isInteger(qty)) return qty.toString();
+  return qty.toFixed(2);
+};
+
 const BhogaStorageMoveScreen: FC<Props> = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [deliveredItems, setDeliveredItems] = useState<DeliveredItem[]>([]);
   const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
   const [selectedItem, setSelectedItem] = useState<DeliveredItem | null>(null);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [showRoundingModal, setShowRoundingModal] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState('');
   const [sublocation, setSublocation] = useState('');
+  const [customQty, setCustomQty] = useState('0');
 
   useEffect(() => {
     loadData();
@@ -56,6 +72,49 @@ const BhogaStorageMoveScreen: FC<Props> = ({ navigation }) => {
 
   const handleMoveToStorage = (item: DeliveredItem) => {
     setSelectedItem(item);
+    setCustomQty(item.quantity.toString());
+    setShowRoundingModal(true);
+  };
+
+  const getRoundingOptions = (qty: number): RoundingOption[] => {
+    const options: RoundingOption[] = [];
+
+    // Round to nearest whole number
+    const rounded = Math.round(qty);
+    options.push({ qty: rounded });
+
+    // Round down and up
+    const floor = Math.floor(qty);
+    const ceil = Math.ceil(qty);
+    if (floor !== rounded) options.push({ qty: floor });
+    if (ceil !== rounded && ceil !== floor) options.push({ qty: ceil });
+
+    // Nearest 5
+    const nearest5Down = Math.floor(qty / 5) * 5;
+    const nearest5Up = Math.ceil(qty / 5) * 5;
+    if (nearest5Down > 0 && !options.some(o => o.qty === nearest5Down)) options.push({ qty: nearest5Down });
+    if (!options.some(o => o.qty === nearest5Up)) options.push({ qty: nearest5Up });
+    if (!options.some(o => o.qty === nearest5Up + 5)) options.push({ qty: nearest5Up + 5 });
+
+    // Nearest 10
+    const nearest10Down = Math.floor(qty / 10) * 10;
+    const nearest10Up = Math.ceil(qty / 10) * 10;
+    if (nearest10Down > 0 && !options.some(o => o.qty === nearest10Down)) options.push({ qty: nearest10Down });
+    if (!options.some(o => o.qty === nearest10Up)) options.push({ qty: nearest10Up });
+    if (!options.some(o => o.qty === nearest10Up + 10)) options.push({ qty: nearest10Up + 10 });
+
+    // Filter duplicates and limit to 8 total
+    const uniqueOptions = options.filter((opt, index, self) =>
+      index === self.findIndex(o => o.qty === opt.qty)
+    );
+
+    return uniqueOptions
+      .sort((a, b) => Math.abs(a.qty - qty) - Math.abs(b.qty - qty))
+      .slice(0, 8);
+  };
+
+  const proceedToLocationPicker = () => {
+    setShowRoundingModal(false);
     setSelectedRoom('');
     setSublocation('');
     setShowLocationPicker(true);
@@ -68,11 +127,13 @@ const BhogaStorageMoveScreen: FC<Props> = ({ navigation }) => {
     }
 
     try {
+      const finalQty = parseFloat(customQty) || selectedItem.quantity;
+
       await bhogaSheetsService.moveToStorage({
         ingredient: selectedItem.ingredient,
         room: selectedRoom,
         sublocation,
-        quantity: selectedItem.quantity,
+        quantity: finalQty,
         unit: selectedItem.unit,
       });
 
@@ -81,7 +142,7 @@ const BhogaStorageMoveScreen: FC<Props> = ({ navigation }) => {
 
       setShowLocationPicker(false);
       setSelectedItem(null);
-      Alert.alert('Success', 'Item moved to storage');
+      Alert.alert('Success', `Item moved to storage: ${finalQty} ${selectedItem.unit}`);
     } catch (error) {
       Alert.alert('Error', 'Failed to move to storage');
     }
@@ -139,7 +200,7 @@ const BhogaStorageMoveScreen: FC<Props> = ({ navigation }) => {
                     {item.category}
                   </Text>
                 </View>
-                <Text style={styles.qtyText}>{item.quantity} {item.unit}</Text>
+                <Text style={styles.qtyText}>{formatQty(item.quantity)} {item.unit}</Text>
               </View>
 
               <Text style={styles.ingredientName}>{item.ingredient}</Text>
@@ -211,6 +272,86 @@ const BhogaStorageMoveScreen: FC<Props> = ({ navigation }) => {
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Rounding Modal */}
+      <Modal
+        visible={showRoundingModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowRoundingModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.pickerModal}
+          activeOpacity={1}
+          onPress={() => setShowRoundingModal(false)}
+        >
+          <TouchableOpacity
+            style={styles.roundingModalContent}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.pickerTitle}>Confirm Quantity</Text>
+              <TouchableOpacity onPress={() => setShowRoundingModal(false)}>
+                <Ionicons name="close" size={28} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            {selectedItem && (
+              <>
+                <Text style={styles.ingredientNameModal}>{selectedItem.ingredient}</Text>
+
+                <View style={styles.qtyInfoRow}>
+                  <Text style={styles.qtyInfoLabel}>Delivered: </Text>
+                  <Text style={styles.qtyInfoValue}>{formatQty(selectedItem.quantity)} {selectedItem.unit}</Text>
+                </View>
+
+                <Text style={styles.sectionTitle}>Quick Round Off</Text>
+                <View style={styles.roundingOptions}>
+                  {getRoundingOptions(selectedItem.quantity).map((option) => (
+                    <TouchableOpacity
+                      key={option.qty}
+                      style={[
+                        styles.roundingOption,
+                        customQty === option.qty.toString() && styles.roundingOptionSelected,
+                        option.label && styles.roundingOptionLabeled,
+                      ]}
+                      onPress={() => setCustomQty(option.qty.toString())}
+                    >
+                      <Text style={[
+                        styles.roundingOptionText,
+                        customQty === option.qty.toString() && styles.roundingOptionTextSelected,
+                      ]}>
+                        {option.label || formatQty(option.qty)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.sectionTitle}>Or Enter Exact Amount</Text>
+                <View style={styles.customQtyContainer}>
+                  <TextInput
+                    style={styles.customQtyInput}
+                    value={customQty}
+                    onChangeText={setCustomQty}
+                    keyboardType="numeric"
+                    selectTextOnFocus
+                  />
+                  <Text style={styles.customQtyUnit}>{selectedItem.unit}</Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.confirmButton}
+                  onPress={proceedToLocationPicker}
+                >
+                  <Ionicons name="arrow-forward" size={20} color="#fff" />
+                  <Text style={styles.confirmButtonText}>Continue to Location</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
@@ -395,6 +536,106 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: '#666',
     fontSize: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  roundingModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    width: SCREEN_WIDTH * 0.9,
+    maxWidth: 400,
+    alignSelf: 'center',
+    marginVertical: 40,
+  },
+  ingredientNameModal: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  qtyInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  qtyInfoLabel: {
+    fontSize: 16,
+    color: '#666',
+  },
+  qtyInfoValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 20,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  roundingOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 10,
+  },
+  roundingOption: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    minWidth: 70,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  roundingOptionSelected: {
+    backgroundColor: '#5dbea3',
+    borderColor: '#5dbea3',
+  },
+  roundingOptionLabeled: {
+    backgroundColor: '#e3f2fd',
+    borderColor: '#2196F3',
+    minWidth: 90,
+  },
+  roundingOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  roundingOptionTextSelected: {
+    color: '#fff',
+  },
+  customQtyContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  customQtyInput: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#5dbea3',
+    width: 120,
+    textAlign: 'center',
+  },
+  customQtyUnit: {
+    fontSize: 16,
+    color: '#666',
+    marginLeft: 8,
   },
 });
 

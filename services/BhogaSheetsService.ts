@@ -83,6 +83,15 @@ export interface DeliveredItem {
   status: 'delivered' | 'stored';
 }
 
+export interface OrderByStore {
+  store: string;
+  ingredient: string;
+  quantity: number;
+  units: string;
+  cases: number | null;
+  displayQty: string;
+}
+
 export interface IngredientListData {
   meals: MealData;
   ingredients: Ingredient[];
@@ -252,6 +261,14 @@ class BhogaSheetsServiceClass {
     if (response.status === 'error') {
       throw new Error(response.message || 'Failed to move to storage');
     }
+  }
+
+  async getOrdersByStore(): Promise<OrderByStore[]> {
+    const response = await callScriptGet<OrderByStore[]>('bhogaGetOrdersByStore');
+    if (response.status === 'error') {
+      throw new Error(response.message || 'Failed to fetch orders by store');
+    }
+    return response.data || [];
   }
 }
 

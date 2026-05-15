@@ -328,6 +328,12 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
   const isAddValid = !isLoading && !isNaN(parseInt(quantity, 10)) && parseInt(quantity, 10) > 0;
   const isSubtractValid = !isLoading && !isNaN(parseInt(quantity, 10)) && parseInt(quantity, 10) > 0;
 
+  // For Left Over moves - applies to both Cooked and other stages
+  const isLeftOverValid = !isLoading &&
+    !isNaN(parseInt(quantity, 10)) &&
+    parseInt(quantity, 10) > 0 &&
+    parseInt(quantity, 10) <= currentQty;
+
   // Get display name for selected or auto destination
   const destDisplay = selectedStage
     ? STAGE_DISPLAY_NAMES[selectedStage]
@@ -496,14 +502,14 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
                     disabled={isLoading}
                   >
                     <Text style={styles.leftOverPressText}>
-                      Left Over {pressCount}/3
+                      Left Over
                     </Text>
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity
-                    style={[styles.leftOverEnabledBtn, !isValid && styles.disabledBtn]}
+                    style={[styles.leftOverEnabledBtn, !isLeftOverValid && styles.disabledBtn]}
                     onPress={handleLeftOverMove}
-                    disabled={!isValid}
+                    disabled={!isLeftOverValid}
                   >
                     {isLoading ? (
                       <ActivityIndicator size="small" color="#FFF" />
@@ -548,14 +554,14 @@ export const QuantityMoveReversePopup: React.FC<QuantityMoveReversePopupProps> =
                     disabled={isLoading}
                   >
                     <Text style={styles.leftOverPressText}>
-                      Move to Left Over ({pressCount}/3)
+                      Move to Left Over
                     </Text>
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity
-                    style={[styles.leftOverEnabledBtn, !isValid && styles.disabledBtn]}
+                    style={[styles.leftOverEnabledBtn, !isLeftOverValid && styles.disabledBtn]}
                     onPress={handleLeftOverMove}
-                    disabled={!isValid}
+                    disabled={!isLeftOverValid}
                   >
                     {isLoading ? (
                       <ActivityIndicator size="small" color="#FFF" />
@@ -841,15 +847,15 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#FFCCBC',
+    backgroundColor: '#E0E0E0',
     borderWidth: 2,
-    borderColor: '#FF5722',
+    borderColor: '#BDBDBD',
     alignItems: 'center',
   },
   leftOverPressText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#BF360C',
+    color: '#757575',
   },
   leftOverEnabledBtn: {
     flex: 1,

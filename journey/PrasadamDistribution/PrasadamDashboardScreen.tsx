@@ -700,12 +700,8 @@ function PrasadamDashboardScreen() {
       setSelectedItem(item);
       setSelectedStage(stage);
 
-      // Special case: Buffet Lanes (served) - long press shows only left over option
-      if (stage === 'served') {
-        setReverseFilterStages(['left_over']); // Only show left over
-      } else {
-        setReverseFilterStages(undefined); // Show all reverse options
-      }
+      // Show all reverse options (refill stations for Buffet, etc.)
+      setReverseFilterStages(undefined);
 
       setShowReversePopup(true);
     },
@@ -1067,6 +1063,10 @@ function PrasadamDashboardScreen() {
         </View>
         {visibleStages.map((stage, index) => {
           const qty = getStageQuantity(item, stage);
+          // For Cooked stage: show cumulative in Stats view, remaining in other views
+          const displayQty = stage === 'cooked' && teamView !== 'stats'
+            ? Math.max(0, item.cooked_qty - (item.cooked_to_stored_moved || 0))
+            : qty;
           const isValid = MOVEMENT_RULES[stage as DashboardStage]?.length > 0;
           const currentGroup = getStageGroup(stage);
           const nextGroup = index < visibleStages.length - 1 ? getStageGroup(visibleStages[index + 1]) : currentGroup;
@@ -1083,7 +1083,7 @@ function PrasadamDashboardScreen() {
               {qty > 0 ? (
                 <PowerBall
                   item={item}
-                  quantity={qty}
+                  quantity={displayQty}
                   size={powerBallSize}
                   compact
                 />
@@ -1176,12 +1176,12 @@ function PrasadamDashboardScreen() {
               style={styles.iconBtn}
               onPress={() => navigation.goBack()}
             >
-              <Ionicons name="arrow-back" size={18} color="#2196F3" />
+              <Ionicons name="arrow-back" size={16} color="#2196F3" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.mealSelectorCompact} onPress={handleOpenMealSwitcher}>
-              <Ionicons name="restaurant-outline" size={14} color="#2196F3" />
-              <Text style={styles.mealNameCompact}>{mealName || 'Loading...'}</Text>
-              <Ionicons name="chevron-down" size={12} color="#666" />
+              <Ionicons name="restaurant-outline" size={12} color="#2196F3" />
+              <Text style={styles.mealNameCompact} numberOfLines={1}>{mealName || 'Loading...'}</Text>
+              <Ionicons name="chevron-down" size={10} color="#666" />
             </TouchableOpacity>
           </View>
 
@@ -1198,6 +1198,7 @@ function PrasadamDashboardScreen() {
                     styles.teamViewText,
                     teamView === view && styles.teamViewTextActive,
                   ]}
+                  numberOfLines={1}
                 >
                   {TEAM_VIEW_CONFIGS[view].shortName}
                 </Text>
@@ -1205,10 +1206,10 @@ function PrasadamDashboardScreen() {
             ))}
           </View>
 
-          {/* Right: Devotees, Refresh, Settings */}
+          {/* Right: Devotees, Settings */}
           <View style={styles.rightActions}>
             <View style={styles.devoteesStatsBtn}>
-              <Ionicons name="people" size={14} color="#2196F3" />
+              <Ionicons name="people" size={12} color="#2196F3" />
               <Text style={styles.devoteesCount}>{devoteesScanned}</Text>
               {expectedDevotees > 0 && (
                 <>
@@ -1219,17 +1220,11 @@ function PrasadamDashboardScreen() {
             </View>
             <TouchableOpacity
               style={styles.iconBtn}
-            onPress={loadActivityStats}
-          >
-            <Ionicons name="refresh" size={16} color="#2196F3" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={() => (navigation as any).navigate(Routes.MealSettings)}
-          >
-            <Ionicons name="settings-outline" size={16} color="#2196F3" />
-          </TouchableOpacity>
-        </View>
+              onPress={() => (navigation as any).navigate(Routes.MealSettings)}
+            >
+              <Ionicons name="settings-outline" size={14} color="#2196F3" />
+            </TouchableOpacity>
+          </View>
       </View>
       </SafeAreaView>
 
@@ -1520,26 +1515,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#E3F2FD',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     borderBottomWidth: 1,
     borderBottomColor: '#BBDEFB',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 6,
   },
   leftActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 5,
   },
   mealSelectorCompact: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
     backgroundColor: '#FFF',
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#BBDEFB',
   },
@@ -1547,20 +1542,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#2196F3',
-    maxWidth: 130,
+    maxWidth: 90,
   },
   teamViewSelector: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 3,
     flex: 1,
     justifyContent: 'center',
   },
   teamViewBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 10,
     backgroundColor: '#BBDEFB',
-    minWidth: 50,
+    minWidth: 40,
     alignItems: 'center',
   },
   teamViewBtnActive: {
@@ -1577,21 +1572,21 @@ const styles = StyleSheet.create({
   rightActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 5,
   },
   devoteesStatsBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
     backgroundColor: '#BBDEFB',
   },
   devoteesStats: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
   },
   devoteesCount: {
     fontSize: 14,
@@ -1609,9 +1604,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   iconBtn: {
-    padding: 7,
+    padding: 5,
     backgroundColor: '#BBDEFB',
-    borderRadius: 12,
+    borderRadius: 10,
   },
   percentageCell: {
     paddingVertical: 4,
