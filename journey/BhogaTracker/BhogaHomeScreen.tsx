@@ -188,6 +188,24 @@ const BhogaHomeScreen: FC<Props> = ({ navigation }) => {
           <Ionicons name="chevron-down" size={20} color="#666" />
         </TouchableOpacity>
 
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigation.navigate(Routes.BhogaDelivery)}
+          >
+            <Ionicons name="cube-outline" size={24} color="#5dbea3" />
+            <Text style={styles.actionButtonText}>Delivery</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigation.navigate(Routes.BhogaStorageMove)}
+          >
+            <Ionicons name="move" size={24} color="#5dbea3" />
+            <Text style={styles.actionButtonText}>Move to Storage</Text>
+          </TouchableOpacity>
+        </View>
+
         {MEAL_GROUPS.map((group, dayIndex) => (
           <View key={group.prefix} style={styles.daySection}>
             <Text style={styles.dayTitle}>
@@ -222,7 +240,7 @@ const BhogaHomeScreen: FC<Props> = ({ navigation }) => {
                   >
                     <Ionicons
                       name={mealType.icon}
-                      size={32}
+                      size={24}
                       color={mealData ? '#5dbea3' : '#ccc'}
                     />
                     <Text style={styles.mealTypeLabel}>{mealType.label}</Text>
@@ -240,24 +258,6 @@ const BhogaHomeScreen: FC<Props> = ({ navigation }) => {
             </View>
           </View>
         ))}
-
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate(Routes.BhogaDelivery)}
-          >
-            <Ionicons name="cube-outline" size={24} color="#5dbea3" />
-            <Text style={styles.actionButtonText}>Delivery</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate(Routes.BhogaStorageMove)}
-          >
-            <Ionicons name="move" size={24} color="#5dbea3" />
-            <Text style={styles.actionButtonText}>Move to Storage</Text>
-          </TouchableOpacity>
-        </View>
 
         <TouchableOpacity
           style={styles.storageButton}
@@ -401,38 +401,39 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
     borderRadius: 10,
-    padding: 15,
-    marginHorizontal: 4,
+    padding: 10,
+    marginHorizontal: 3,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    minHeight: 85,
   },
   mealCardDisabled: {
     opacity: 0.5,
   },
   mealTypeLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: '#333',
-    marginTop: 8,
+    marginTop: 6,
   },
   mealItemCount: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#666',
-    marginTop: 4,
+    marginTop: 2,
   },
   pendingBadge: {
     backgroundColor: '#ffe0b2',
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 10,
-    marginTop: 8,
+    borderRadius: 8,
+    marginTop: 4,
   },
   pendingBadgeText: {
-    fontSize: 11,
+    fontSize: 9,
     color: '#e65100',
     fontWeight: '600',
   },

@@ -3,7 +3,7 @@
     "name": "SS Admin",
     "slug": "band-scanner",
     "version": "2.2.9",
-    "orientation": ["portrait", "landscapeLeft", "landscapeRight"],
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/icon.png",
@@ -21,12 +21,8 @@
       "newArchEnabled": true,
       "supportsTablet": true,
       "bundleIdentifier": "com.sadhusanga.ScannerApp",
-      "buildNumber": "32",
+      "buildNumber": "33",
       "version": "2.2.9",
-      "statusBar": {
-        "barStyle": "light-content",
-        "backgroundColor": "#000000"
-      },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
@@ -39,7 +35,7 @@
     "android": {
       "newArchEnabled": true,
       "package": "com.sadhusanga.ScannerApp",
-      "versionCode": 32,
+      "versionCode": 33,
       "version": "2.2.9",
       "permissions": [
         "CAMERA",
@@ -50,10 +46,6 @@
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png"
-      },
-      "statusBar": {
-        "barStyle": "light-content",
-        "backgroundColor": "#000000"
       }
     },
     "web": {
