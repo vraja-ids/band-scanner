@@ -1,4 +1,5 @@
-const GOOGLE_APPS_SCRIPT_URL = process.env.EXPO_PUBLIC_GOOGLE_APPS_SCRIPT_URL || '';
+const GOOGLE_APPS_SCRIPT_URL = process.env.EXPO_PUBLIC_GOOGLE_APPS_SCRIPT_URL ||
+  'https://script.google.com/macros/s/AKfycbzAxMbHA5cDj8zBEcsmz0DBs5D1vDqpQbQoBH6aAWKYSAzcRJ9R601aU67lRrN4RC_yig/exec';
 
 // Types
 export interface Ingredient {
