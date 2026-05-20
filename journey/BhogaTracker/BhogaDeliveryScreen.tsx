@@ -156,19 +156,47 @@ const BhogaDeliveryScreen: FC<Props> = ({ navigation }) => {
         ordersByIngredient.get(order.ingredient)!.push(order);
       });
 
+      // Create a map of ingredients from Ingredient List for quick lookup
+      const ingredientMap = new Map<string, Ingredient>();
+      ingredientData.ingredients.forEach(ing => ingredientMap.set(ing.name, ing));
+
+      // Get all unique ingredient names from both Ingredient List and Orders_by_Store
+      const allIngredientNames = new Set<string>([
+        ...ingredientData.ingredients.map(ing => ing.name),
+        ...orders.map(o => o.ingredient)
+      ]);
+
       // Combine ingredients with their delivery status and orders
-      const itemsWithDelivery: IngredientWithDelivery[] = ingredientData.ingredients.map(ing => {
-        const delivery = deliveries.find(d => d.ingredient === ing.name);
-        const ingOrders = ordersByIngredient.get(ing.name) || [];
+      const itemsWithDelivery: IngredientWithDelivery[] = Array.from(allIngredientNames).map(ingName => {
+        const ingredientFromList = ingredientMap.get(ingName);
+        const delivery = deliveries.find(d => d.ingredient === ingName);
+        const ingOrders = ordersByIngredient.get(ingName) || [];
         const totalOrdered = ingOrders.reduce((sum, o) => sum + o.quantity, 0);
 
-        return {
-          ...ing,
-          deliveredQty: delivery?.deliveredQty || 0,
-          expectedQty: ing.totalPlanned,
-          orderedQty: totalOrdered,
-          orders: ingOrders.sort((a, b) => a.store.localeCompare(b.store)),
-        };
+        // If ingredient exists in list, use its data; otherwise create placeholder
+        if (ingredientFromList) {
+          return {
+            ...ingredientFromList,
+            deliveredQty: delivery?.deliveredQty || 0,
+            expectedQty: ingredientFromList.totalPlanned,
+            orderedQty: totalOrdered,
+            orders: ingOrders.sort((a, b) => a.store.localeCompare(b.store)),
+          };
+        } else {
+          // Create placeholder ingredient for items not in Ingredient List
+          const firstOrder = ingOrders[0];
+          return {
+            name: ingName,
+            category: 'General',
+            unit: firstOrder?.units || '',
+            totalPlanned: 0,
+            deliveredQty: delivery?.deliveredQty || 0,
+            expectedQty: 0,
+            orderedQty: totalOrdered,
+            orders: ingOrders.sort((a, b) => a.store.localeCompare(b.store)),
+            meals: [],
+          };
+        }
       }).sort((a, b) => a.name.localeCompare(b.name));
 
       setIngredients(itemsWithDelivery);
