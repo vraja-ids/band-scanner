@@ -16,6 +16,32 @@ export interface MealUsage {
   status: 'pending' | 'delivered' | 'used';
 }
 
+// New types for ingredient usage tracking
+export interface IngredientUsageRecord {
+  timestamp: string;
+  mealId: string;
+  menuItem: string;
+  ingredient: string;
+  plannedQty: number;
+  deliveredQty: number;
+  usedQty: number;
+  returnedQty: number;
+  unit: string;
+  status: 'pending' | 'delivered' | 'usage_pending' | 'completed';
+}
+
+export interface IngredientUsageRequest {
+  mealId: string;
+  menuItem: string;
+  ingredient: string;
+  plannedQty?: number;
+  deliveredQty: number;
+  usedQty?: number;
+  returnedQty?: number;
+  unit: string;
+  userId?: string;
+}
+
 export interface MealData {
   [key: string]: {
     id: string;
@@ -110,6 +136,7 @@ async function callScript<T = any>(
   data?: Record<string, any>
 ): Promise<AppsScriptResponse<T>> {
   try {
+    console.log(`[BhogaService] Calling ${operation}`, data);
     const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
       method: 'POST',
       headers: {
@@ -122,6 +149,7 @@ async function callScript<T = any>(
     });
 
     const result: AppsScriptResponse<T> = await response.json();
+    console.log(`[BhogaService] ${operation} response:`, result.status, result.message || '');
     return result;
   } catch (error) {
     console.error(`Bhoga API call failed for ${operation}:`, error);
@@ -236,7 +264,9 @@ class BhogaSheetsServiceClass {
     unit: string;
     userId?: string;
   }): Promise<void> {
+    console.log('[BhogaService] Recording delivery:', delivery);
     const response = await callScript('bhogaRecordDelivery', delivery);
+    console.log('[BhogaService] Delivery response:', response);
     if (response.status === 'error') {
       throw new Error(response.message || 'Failed to record delivery');
     }
@@ -269,6 +299,65 @@ class BhogaSheetsServiceClass {
       throw new Error(response.message || 'Failed to fetch orders by store');
     }
     return response.data || [];
+  }
+
+  // New methods for ingredient usage tracking
+  async recordIngredientDelivery(request: IngredientUsageRequest): Promise<void> {
+    const response = await callScript('bhogaRecordIngredientDelivery', request);
+    if (response.status === 'error') {
+      throw new Error(response.message || 'Failed to record ingredient delivery');
+    }
+  }
+
+  async recordIngredientUsage(request: Omit<IngredientUsageRequest, 'plannedQty' | 'deliveredQty'> & {
+    usedQty: number;
+    returnedQty?: number;
+  }): Promise<void> {
+    const response = await callScript('bhogaRecordIngredientUsage', request);
+    if (response.status === 'error') {
+      throw new Error(response.message || 'Failed to record ingredient usage');
+    }
+  }
+
+  async returnUnusedIngredient(request: {
+    mealId: string;
+    menuItem: string;
+    ingredient: string;
+    returnedQty: number;
+  }): Promise<{ deliveredQty: number; usedQty: number; returnedQty: number }> {
+    const response = await callScript('bhogaReturnUnusedIngredient', request);
+    if (response.status === 'error') {
+      throw new Error(response.message || 'Failed to return unused ingredient');
+    }
+    return response.data || { deliveredQty: 0, usedQty: 0, returnedQty: 0 };
+  }
+
+  async getIngredientUsage(mealId: string): Promise<IngredientUsageRecord[]> {
+    const url = new URL(GOOGLE_APPS_SCRIPT_URL);
+    url.searchParams.append('operation', 'bhogaGetIngredientUsage');
+    url.searchParams.append('mealId', mealId);
+
+    const response = await fetch(url.toString(), { method: 'GET' });
+    const result: AppsScriptResponse<IngredientUsageRecord[]> = await response.json();
+
+    if (result.status === 'error') {
+      throw new Error(result.message || 'Failed to fetch ingredient usage');
+    }
+    return result.data || [];
+  }
+
+  async getIngredientUsageByIngredient(ingredientName: string): Promise<IngredientUsageRecord[]> {
+    const url = new URL(GOOGLE_APPS_SCRIPT_URL);
+    url.searchParams.append('operation', 'bhogaGetIngredientUsageByIngredient');
+    url.searchParams.append('ingredient', ingredientName);
+
+    const response = await fetch(url.toString(), { method: 'GET' });
+    const result: AppsScriptResponse<IngredientUsageRecord[]> = await response.json();
+
+    if (result.status === 'error') {
+      throw new Error(result.message || 'Failed to fetch ingredient usage by ingredient');
+    }
+    return result.data || [];
   }
 }
 

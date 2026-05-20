@@ -72,6 +72,35 @@ const formatMealName = (mealId: string): string => {
   return mealId;
 };
 
+// Helper to check if a meal is in the future
+const isFutureMeal = (mealId: string): boolean => {
+  const now = new Date();
+  const currentDay = now.getDay(); // 0-6 (Sunday=0, Monday=1, etc.)
+  const currentHour = now.getHours();
+
+  const dayMap: Record<string, number> = {
+    'sun': 0, 'mon': 1, 'tue': 2, 'wed': 3, 'thu': 4, 'fri': 5, 'sat': 6,
+  };
+
+  const mealHourMap: Record<string, number> = {
+    'breakfast': 8, 'lunch': 13, 'dinner': 19,
+  };
+
+  const parts = mealId.split(/(?=[A-Z])/);
+  if (parts.length >= 2) {
+    const day = dayMap[parts[0].toLowerCase()];
+    const mealType = parts[1]?.toLowerCase();
+    const mealHour = mealHourMap[mealType] || 12;
+
+    if (day === undefined) return false;
+
+    // Meal is future if it's on a later day, or same day but later hour
+    if (day > currentDay) return true;
+    if (day === currentDay && mealHour > currentHour) return true;
+  }
+  return false;
+};
+
 const BhogaDeliveryScreen: FC<Props> = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [ingredients, setIngredients] = useState<IngredientWithDelivery[]>([]);
@@ -85,6 +114,7 @@ const BhogaDeliveryScreen: FC<Props> = ({ navigation }) => {
   const [customQty, setCustomQty] = useState('0');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [storageLocations, setStorageLocations] = useState<any[]>([]);
 
   useEffect(() => {
     loadData();
@@ -93,14 +123,16 @@ const BhogaDeliveryScreen: FC<Props> = ({ navigation }) => {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [ingredientData, deliveries, orders] = await Promise.all([
+      const [ingredientData, deliveries, orders, locations] = await Promise.all([
         bhogaSheetsService.getIngredientList(),
         bhogaSheetsService.getDeliveries(),
         bhogaSheetsService.getOrdersByStore(),
+        bhogaSheetsService.getStorageLocations(),
       ]);
 
       setExistingDeliveries(deliveries);
       setOrdersByStore(orders);
+      setStorageLocations(locations);
 
       // Get unique stores
       const stores = ['All', ...Array.from(new Set(orders.map(o => o.store)))].sort();
@@ -149,6 +181,21 @@ const BhogaDeliveryScreen: FC<Props> = ({ navigation }) => {
       }
       return next;
     });
+  };
+
+  // Calculate total stock for an ingredient (delivered + stored)
+  const getTotalStockForIngredient = (ingredientName: string): number => {
+    // Get all delivered items for this ingredient
+    const deliveredTotal = existingDeliveries
+      .filter(d => d.ingredient === ingredientName && d.status === 'delivered')
+      .reduce((sum, d) => sum + d.deliveredQty, 0);
+
+    // Get all stored amounts
+    const storedTotal = storageLocations
+      .filter(l => l.ingredientName === ingredientName)
+      .reduce((sum, l) => sum + l.currentStock, 0);
+
+    return deliveredTotal + storedTotal;
   };
 
   const handleDeliveryChange = (ingredientName: string, newQty: number) => {
@@ -257,7 +304,9 @@ const BhogaDeliveryScreen: FC<Props> = ({ navigation }) => {
       Alert.alert('Success', `${selectedIngredient.name} delivery recorded: ${qty} ${selectedIngredient.unit}`);
       await loadData();
     } catch (error) {
-      Alert.alert('Error', 'Failed to save delivery');
+      console.error('Delivery save error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      Alert.alert('Error', `Failed to save delivery: ${errorMessage}`);
     }
   };
 
@@ -453,15 +502,34 @@ const BhogaDeliveryScreen: FC<Props> = ({ navigation }) => {
                 <Text style={styles.mealUsageTitle}>Used in these meals:</Text>
                 {item.meals.map((meal, index) => {
                   const isPending = meal.status === 'pending';
+                  const isFuture = isFutureMeal(meal.mealId);
+                  const totalStock = getTotalStockForIngredient(item.name);
+                  const hasShortage = isFuture && totalStock < meal.plannedQuantity;
+                  const shortage = meal.plannedQuantity - totalStock;
+
                   return (
-                    <View key={index} style={styles.mealUsageRow}>
-                      <Text style={styles.mealUsageName}>{formatMealName(meal.mealId)}</Text>
-                      <Text style={styles.mealUsageDish}>for {meal.menuItem}</Text>
-                      <View style={styles.mealUsageQty}>
-                        <Text style={styles.mealQtyText}>{formatQty(meal.plannedQuantity)} {item.unit}</Text>
-                        {isPending && (
+                    <View key={index} style={[
+                      styles.mealUsageRow,
+                      hasShortage && styles.mealUsageRowWarning
+                    ]}>
+                      <View style={styles.mealUsageLeft}>
+                        <Text style={styles.mealUsageName}>{formatMealName(meal.mealId)}</Text>
+                        <Text style={styles.mealUsageDish}>for {meal.menuItem}</Text>
+                      </View>
+                      <View style={styles.mealUsageRight}>
+                        <Text style={[styles.mealQtyText, hasShortage && styles.mealQtyTextWarning]}>
+                          {formatQty(meal.plannedQuantity)} {item.unit}
+                        </Text>
+                        {isPending && !isFuture && (
                           <View style={styles.pendingMiniBadge}>
                             <Text style={styles.pendingMiniText}>pending</Text>
+                          </View>
+                        )}
+                        {isFuture && (
+                          <View style={[styles.statusBadge, hasShortage ? styles.statusBadgeWarning : styles.statusBadgeOK]}>
+                            <Text style={[styles.statusText, hasShortage ? styles.statusTextWarning : styles.statusTextOK]}>
+                              {hasShortage ? `Need ${formatQty(shortage)} more` : 'Enough stock'}
+                            </Text>
                           </View>
                         )}
                       </View>
@@ -937,16 +1005,26 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 6,
   },
+  mealUsageRowWarning: {
+    backgroundColor: '#ffebee',
+    borderWidth: 1,
+    borderColor: '#ef9a9a',
+  },
+  mealUsageLeft: {
+    flex: 1,
+  },
+  mealUsageRight: {
+    alignItems: 'flex-end',
+  },
   mealUsageName: {
     fontSize: 14,
     fontWeight: '600',
     color: '#333',
-    flex: 1,
   },
   mealUsageDish: {
     fontSize: 12,
     color: '#666',
-    marginRight: 10,
+    marginTop: 2,
   },
   mealUsageQty: {
     flexDirection: 'row',
@@ -956,7 +1034,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#5dbea3',
-    marginRight: 8,
+    marginBottom: 4,
+  },
+  mealQtyTextWarning: {
+    color: '#d32f2f',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  statusBadgeWarning: {
+    backgroundColor: '#ffebee',
+  },
+  statusBadgeOK: {
+    backgroundColor: '#e8f5e9',
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  statusTextWarning: {
+    color: '#d32f2f',
+  },
+  statusTextOK: {
+    color: '#388e3c',
   },
   pendingMiniBadge: {
     backgroundColor: '#fff3e0',

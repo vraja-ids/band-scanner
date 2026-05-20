@@ -131,6 +131,33 @@ const BhogaAdminScreen: FC<Props> = ({ navigation }) => {
     });
   };
 
+  const handleInitializeSheets = async () => {
+    Alert.alert(
+      'Initialize Bhoga Sheets',
+      'This will create the required sheets (Ingredient List, Storage Locations, Deliveries, Stock Transactions) if they don\'t exist. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Initialize',
+          style: 'default',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              await bhogaSheetsService.initializeSheet();
+              Alert.alert('Success', 'Bhoga sheets initialized successfully!');
+              await loadData();
+            } catch (error) {
+              console.error('Initialize error:', error);
+              Alert.alert('Error', `Failed to initialize: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            } finally {
+              setIsLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleEdit = (location: EditableLocation) => {
     setEditingLocation({ ...location });
   };
@@ -377,9 +404,14 @@ const BhogaAdminScreen: FC<Props> = ({ navigation }) => {
             <Ionicons name="arrow-back" size={24} color="#5dbea3" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Storage Setup</Text>
-          <TouchableOpacity onPress={handleAddNew} style={styles.addButton}>
-            <Ionicons name="add" size={24} color="#5dbea3" />
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity onPress={handleInitializeSheets} style={styles.headerButton}>
+              <Ionicons name="refresh-circle-outline" size={24} color="#FF9800" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleAddNew} style={styles.addButton}>
+              <Ionicons name="add" size={24} color="#5dbea3" />
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
 
@@ -478,6 +510,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
     textAlign: 'center',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  headerButton: {
+    padding: 8,
   },
   addButton: {
     padding: 8,
