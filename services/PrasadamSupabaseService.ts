@@ -5,38 +5,44 @@
  * using Google Sheets as the backend.
  */
 
-// Re-export everything from PrasadamSheetsService
+// Import everything from PrasadamSheetsService
+import * as PrasadamSheets from './PrasadamSheetsService';
+
+// Re-export all types and functions
 export * from './PrasadamSheetsService';
 
-// Re-export specific functions for backward compatibility
-export {
-  getEvents,
-  getMeals,
-  addMeal,
-  updateMealDevotees,
-  getMenuItems,
-  addMenuItem,
-  updateMenuItem,
-  updateCookingStatus,
-  updateTrayCount,
-  getLocationInventory,
-  updateLocationInventory,
-  getTransfers,
-  getRecentTransfers,
-  recordTransfer,
-  createTransfer,
-  getPendingTransfers,
-  getDashboardSettings,
-  saveDashboardSettings,
-  getDashboardSummary,
-  clearCache,
-  loadPersistentCache,
-} from './PrasadamSheetsService';
+// Re-export all functions with proper names
+export const getEvents = PrasadamSheets.getEvents;
+export const getMeals = PrasadamSheets.getMeals;
+export const addMeal = PrasadamSheets.addMeal;
+export const updateMealDevotees = PrasadamSheets.updateMealDevotees;
+export const getMenuItems = PrasadamSheets.getMenuItems;
+export const addMenuItem = PrasadamSheets.addMenuItem;
+export const updateMenuItem = PrasadamSheets.updateMenuItem;
+export const updateCookingStatus = PrasadamSheets.updateCookingStatus;
+export const updateTrayCount = PrasadamSheets.updateTrayCount;
+export const getLocationInventory = PrasadamSheets.getLocationInventory;
+export const updateLocationInventory = PrasadamSheets.updateLocationInventory;
+export const getTransfers = PrasadamSheets.getTransfers;
+export const getRecentTransfers = PrasadamSheets.getRecentTransfers;
+export const recordTransfer = PrasadamSheets.recordTransfer;
+export const createTransfer = PrasadamSheets.createTransfer;
+export const getPendingTransfers = PrasadamSheets.getPendingTransfers;
+export const getDashboardSettings = PrasadamSheets.getDashboardSettings;
+export const saveDashboardSettings = PrasadamSheets.saveDashboardSettings;
+export const getDashboardSummary = PrasadamSheets.getDashboardSummary;
+export const clearCache = PrasadamSheets.clearCache;
+export const loadPersistentCache = PrasadamSheets.loadPersistentCache;
 
-// Additional exports for compatibility (no-ops for Sheets)
+// Initialize function
 export async function initializePrasadamService(eventId?: string): Promise<void> {
-  await loadPersistentCache();
-  console.log('[PrasadamService] Initialized with Google Sheets backend');
+  try {
+    await PrasadamSheets.loadPersistentCache();
+    console.log('[PrasadamService] Initialized with Google Sheets backend');
+  } catch (error) {
+    console.error('[PrasadamService] Failed to initialize:', error);
+    throw error;
+  }
 }
 
 export function getBackendStatus(): {
