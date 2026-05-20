@@ -14,15 +14,16 @@ import {
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { bhogaSheetsService, StorageLocation, StockTransaction } from '../../services/BhogaSheetsService';
-import { Routes, BhogaMealParams } from '../../routes';
+import { bhogaSheetsService, StorageLocation, IngredientUsageRecord } from '../../services/BhogaSheetsService';
+import Routes, { BhogaMealParams } from '../../routes';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-type BhogaMealScreenNavigationProp = StackNavigationProp<any, Routes.BhogaMeal>;
-type BhogaMealScreenRouteProp = RouteProp<any, Routes.BhogaMeal>;
+type BhogaMealScreenNavigationProp = StackNavigationProp<any, typeof Routes.BhogaMeal>;
+type BhogaMealScreenRouteProp = RouteProp<any, typeof Routes.BhogaMeal>;
 
 interface Props {
   navigation: BhogaMealScreenNavigationProp;
@@ -34,8 +35,8 @@ interface IngredientWithLocation {
   quantity: number;
   unit: string;
   category: string;
-  status: 'pending' | 'delivered' | 'used';
   location?: StorageLocation;
+  usageRecord?: IngredientUsageRecord;
 }
 
 interface MenuItemWithIngredients {
@@ -45,7 +46,7 @@ interface MenuItemWithIngredients {
 
 interface RoundingOption {
   qty: number;
-  label?: string; // 'Planned' for planned qty
+  label?: string;
 }
 
 // Helper to format quantities to 2 decimal places
@@ -54,20 +55,38 @@ const formatQty = (qty: number): string => {
   return qty.toFixed(2);
 };
 
+// Status types
+type IngredientStatus = 'pending' | 'delivered' | 'usage_pending' | 'completed';
+
 const BhogaMealScreen: FC<Props> = ({ navigation, route }) => {
   const { mealId, mealName, mealData } = route.params as BhogaMealParams;
   const [isLoading, setIsLoading] = useState(false);
   const [menuItems, setMenuItems] = useState<MenuItemWithIngredients[]>([]);
   const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
   const [userId, setUserId] = useState<string>('');
-  const [showRoundingModal, setShowRoundingModal] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [modalType, setModalType] = useState<'deliver' | 'usage' | 'return'>('deliver');
   const [selectedIngredient, setSelectedIngredient] = useState<IngredientWithLocation | null>(null);
   const [selectedMenuItem, setSelectedMenuItem] = useState<string>('');
   const [customQty, setCustomQty] = useState('0');
+  const [usageRecords, setUsageRecords] = useState<Record<string, IngredientUsageRecord>>({});
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // Refresh data when screen comes into focus (after initial load)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!isInitialLoad) {
+        loadAllData();
+      }
+      return () => {};
+    }, [isInitialLoad])
+  );
 
   useEffect(() => {
-    loadData();
+    loadAllData();
     loadUserId();
+    // Mark initial load complete after data loads
+    setTimeout(() => setIsInitialLoad(false), 1000);
   }, []);
 
   const loadUserId = async () => {
@@ -79,20 +98,46 @@ const BhogaMealScreen: FC<Props> = ({ navigation, route }) => {
     }
   };
 
-  const loadData = async () => {
+  const loadUsageRecords = async (): Promise<Record<string, IngredientUsageRecord>> => {
+    try {
+      const records = await bhogaSheetsService.getIngredientUsage(mealId);
+      const recordMap: Record<string, IngredientUsageRecord> = {};
+      records.forEach(record => {
+        const key = `${record.menuItem}-${record.ingredient}`;
+        recordMap[key] = record;
+      });
+      setUsageRecords(recordMap);
+      return recordMap;
+    } catch (error) {
+      console.error('Error loading usage records:', error);
+      return {};
+    }
+  };
+
+  const loadAllData = async () => {
     try {
       setIsLoading(true);
+
+      // Load usage records first
+      const recordMap = await loadUsageRecords();
+
+      // Then load locations and build menu items with usage records
       const locations = await bhogaSheetsService.getStorageLocations();
       setStorageLocations(locations);
 
       const locationMap = new Map(locations.map(l => [l.ingredientName, l]));
 
-      const itemsWithLocations: MenuItemWithIngredients[] = Object.values(mealData.items).map(item => ({
+      const itemsWithLocations: MenuItemWithIngredients[] = Object.values(mealData.items).map((item: any) => ({
         name: item.name,
-        ingredients: item.ingredients.map(ing => ({
-          ...ing,
-          location: locationMap.get(ing.name),
-        })),
+        ingredients: item.ingredients.map((ing: any) => {
+          const key = `${item.name}-${ing.name}`;
+          const usageRecord = recordMap[key];
+          return {
+            ...ing,
+            location: locationMap.get(ing.name),
+            usageRecord,
+          };
+        }),
       }));
 
       setMenuItems(itemsWithLocations);
@@ -104,18 +149,73 @@ const BhogaMealScreen: FC<Props> = ({ navigation, route }) => {
     }
   };
 
-  const handleMarkDelivered = (ingredient: IngredientWithLocation, menuItem: string) => {
-    setSelectedIngredient(ingredient);
-    setSelectedMenuItem(menuItem);
-    setCustomQty(ingredient.quantity.toString());
-    setShowRoundingModal(true);
+  const refreshData = async () => {
+    // Re-fetch usage records and update menu items
+    try {
+      setIsLoading(true);
+      const recordMap = await loadUsageRecords();
+
+      const locationMap = new Map(storageLocations.map(l => [l.ingredientName, l]));
+
+      const itemsWithLocations: MenuItemWithIngredients[] = Object.values(mealData.items).map((item: any) => ({
+        name: item.name,
+        ingredients: item.ingredients.map((ing: any) => {
+          const key = `${item.name}-${ing.name}`;
+          const usageRecord = recordMap[key];
+          return {
+            ...ing,
+            location: locationMap.get(ing.name),
+            usageRecord,
+          };
+        }),
+      }));
+
+      setMenuItems(itemsWithLocations);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const getRoundingOptions = (qty: number, plannedQty: number): RoundingOption[] => {
+  const handleDeliver = (ingredient: IngredientWithLocation, menuItem: string) => {
+    setSelectedIngredient(ingredient);
+    setSelectedMenuItem(menuItem);
+    // If already delivered, default to adding the remaining planned amount
+    const currentDelivered = ingredient.usageRecord?.deliveredQty || 0;
+    const planned = ingredient.usageRecord?.plannedQty || ingredient.quantity;
+    const remaining = Math.max(0, planned - currentDelivered);
+    setCustomQty((remaining > 0 ? remaining : ingredient.quantity).toString());
+    setModalType('deliver');
+    setShowModal(true);
+  };
+
+  const handleMarkUsage = (ingredient: IngredientWithLocation, menuItem: string) => {
+    setSelectedIngredient(ingredient);
+    setSelectedMenuItem(menuItem);
+    const deliveredQty = ingredient.usageRecord?.deliveredQty || 0;
+    const usedQty = ingredient.usageRecord?.usedQty || 0;
+    setCustomQty((usedQty || deliveredQty).toString());
+    setModalType('usage');
+    setShowModal(true);
+  };
+
+  const handleReturnLeftover = (ingredient: IngredientWithLocation, menuItem: string) => {
+    setSelectedIngredient(ingredient);
+    setSelectedMenuItem(menuItem);
+    const usedQty = ingredient.usageRecord?.usedQty || 0;
+    const deliveredQty = ingredient.usageRecord?.deliveredQty || ingredient.quantity;
+    const returnedQty = deliveredQty - usedQty;
+    setCustomQty(returnedQty.toString());
+    setModalType('return');
+    setShowModal(true);
+  };
+
+  const getRoundingOptions = (qty: number, plannedQty?: number): RoundingOption[] => {
     const options: RoundingOption[] = [];
 
     // Add "Planned" option first
-    if (plannedQty > 0) {
+    if (plannedQty && plannedQty > 0) {
       options.push({ qty: plannedQty, label: 'Planned' });
     }
 
@@ -136,13 +236,6 @@ const BhogaMealScreen: FC<Props> = ({ navigation, route }) => {
     if (!options.some(o => o.qty === nearest5Up)) options.push({ qty: nearest5Up });
     if (!options.some(o => o.qty === nearest5Up + 5)) options.push({ qty: nearest5Up + 5 });
 
-    // Nearest 10
-    const nearest10Down = Math.floor(qty / 10) * 10;
-    const nearest10Up = Math.ceil(qty / 10) * 10;
-    if (nearest10Down > 0 && !options.some(o => o.qty === nearest10Down)) options.push({ qty: nearest10Down });
-    if (!options.some(o => o.qty === nearest10Up)) options.push({ qty: nearest10Up });
-    if (!options.some(o => o.qty === nearest10Up + 10)) options.push({ qty: nearest10Up + 10 });
-
     // Filter duplicates and limit to 8 total
     const uniqueOptions = options.filter((opt, index, self) =>
       index === self.findIndex(o => o.qty === opt.qty)
@@ -159,44 +252,28 @@ const BhogaMealScreen: FC<Props> = ({ navigation, route }) => {
       .slice(0, 8);
   };
 
-  const confirmDelivery = async (finalQty: number) => {
+  const confirmDelivery = async (additionalQty: number) => {
     if (!selectedIngredient) return;
 
     try {
-      setIsLoading(true);
-      setShowRoundingModal(false);
+      setShowModal(false);
 
-      // Update local status
-      setMenuItems(prev =>
-        prev.map(item =>
-          item.name === selectedMenuItem
-            ? {
-                ...item,
-                ingredients: item.ingredients.map(ing =>
-                  ing.name === selectedIngredient.name ? { ...ing, status: 'delivered' as const } : ing
-                ),
-              }
-            : item
-        )
-      );
+      const currentDelivered = selectedIngredient.usageRecord?.deliveredQty || 0;
+      const newDeliveredQty = currentDelivered + additionalQty;
 
-      // Record transaction
-      const transaction: StockTransaction = {
-        timestamp: new Date().toISOString(),
+      await bhogaSheetsService.recordIngredientDelivery({
         mealId,
         menuItem: selectedMenuItem,
-        ingredientName: selectedIngredient.name,
-        usedQuantity: finalQty,
+        ingredient: selectedIngredient.name,
+        plannedQty: selectedIngredient.usageRecord?.plannedQty || selectedIngredient.quantity,
+        deliveredQty: newDeliveredQty,
         unit: selectedIngredient.unit,
-        remainingStock: selectedIngredient.location?.currentStock,
         userId,
-      };
+      });
 
-      await bhogaSheetsService.recordStockTransaction(transaction);
-
-      // Update stock location if exists
+      // Update storage location stock
       if (selectedIngredient.location) {
-        const newStock = Math.max(0, selectedIngredient.location.currentStock - finalQty);
+        const newStock = Math.max(0, selectedIngredient.location.currentStock - additionalQty);
         await bhogaSheetsService.updateStorageLocation(
           selectedIngredient.name,
           selectedIngredient.location.room,
@@ -206,34 +283,178 @@ const BhogaMealScreen: FC<Props> = ({ navigation, route }) => {
         );
       }
 
-      Alert.alert('Success', `${selectedIngredient.name} delivered to kitchen: ${finalQty} ${selectedIngredient.unit}`);
+      await refreshData();
+
+      Alert.alert('Success', `${selectedIngredient.name} sent to kitchen: +${formatQty(additionalQty)} ${selectedIngredient.unit} (Total: ${formatQty(newDeliveredQty)})`);
     } catch (error) {
       console.error('Error marking delivered:', error);
-      Alert.alert('Error', 'Failed to mark as delivered');
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to mark as delivered');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'delivered':
-        return '#4CAF50';
-      case 'used':
-        return '#2196F3';
-      default:
-        return '#FF9800';
+  const confirmUsage = async (usedQty: number) => {
+    if (!selectedIngredient) return;
+
+    try {
+      setShowModal(false);
+
+      const deliveredQty = selectedIngredient.usageRecord?.deliveredQty || 0;
+
+      // Validate: cannot use more than delivered
+      if (usedQty > deliveredQty) {
+        Alert.alert(
+          'Invalid Amount',
+          `Cannot mark more than delivered. Maximum allowed: ${formatQty(deliveredQty)} ${selectedIngredient.unit}`
+        );
+        setShowModal(true); // Reopen modal
+        return;
+      }
+
+      const returnedQty = Math.max(0, deliveredQty - usedQty);
+
+      await bhogaSheetsService.recordIngredientUsage({
+        mealId,
+        menuItem: selectedMenuItem,
+        ingredient: selectedIngredient.name,
+        usedQty,
+        returnedQty,
+        unit: selectedIngredient.unit,
+        userId,
+      });
+
+      await refreshData();
+
+      Alert.alert('Success', `${selectedIngredient.name} usage recorded: ${formatQty(usedQty)} used, ${formatQty(returnedQty)} leftover`);
+    } catch (error) {
+      console.error('Error marking usage:', error);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to mark usage');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const getStatusText = (status: string) => {
+  const confirmReturn = async (returnedQty: number) => {
+    if (!selectedIngredient) return;
+
+    try {
+      const deliveredQty = selectedIngredient.usageRecord?.deliveredQty || 0;
+      const usedQty = selectedIngredient.usageRecord?.usedQty || 0;
+      const remaining = deliveredQty - usedQty;
+
+      // Validate: cannot return more than remaining
+      if (returnedQty > remaining) {
+        Alert.alert(
+          'Invalid Amount',
+          `Cannot return more than remaining. Maximum allowed: ${formatQty(remaining)} ${selectedIngredient.unit}`
+        );
+        setShowModal(true); // Reopen modal
+        return;
+      }
+
+      setShowModal(false);
+
+      const result = await bhogaSheetsService.returnUnusedIngredient({
+        mealId,
+        menuItem: selectedMenuItem,
+        ingredient: selectedIngredient.name,
+        returnedQty,
+      });
+
+      // Add returned quantity back to storage
+      if (selectedIngredient.location) {
+        const newStock = selectedIngredient.location.currentStock + returnedQty;
+        await bhogaSheetsService.updateStorageLocation(
+          selectedIngredient.name,
+          selectedIngredient.location.room,
+          selectedIngredient.location.sublocation,
+          newStock,
+          selectedIngredient.location.unit
+        );
+      }
+
+      await refreshData();
+
+      Alert.alert(
+        'Success',
+        `${selectedIngredient.name} returned: ${formatQty(returnedQty)} ${selectedIngredient.unit}\n\nEfficiency: ${Math.round((result.usedQty / result.deliveredQty) * 100)}%`
+      );
+    } catch (error) {
+      console.error('Error returning ingredient:', error);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to return ingredient');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getIngredientStatus = (ingredient: IngredientWithLocation): IngredientStatus => {
+    if (!ingredient.usageRecord) return 'pending';
+    return ingredient.usageRecord.status;
+  };
+
+  const getStatusConfig = (status: IngredientStatus) => {
     switch (status) {
+      case 'pending':
+        return { color: '#FF9800', bg: '#FFF3E0', text: 'PENDING', icon: 'time-outline' as const };
       case 'delivered':
-        return 'DELIVERED';
-      case 'used':
-        return 'USED';
-      default:
-        return 'PENDING';
+        return { color: '#4CAF50', bg: '#E8F5E9', text: 'DELIVERED', icon: 'arrow-forward-circle' as const };
+      case 'usage_pending':
+        return { color: '#2196F3', bg: '#E3F2FD', text: 'IN PROGRESS', icon: 'restaurant-outline' as const };
+      case 'completed':
+        return { color: '#9C27B0', bg: '#F3E5F5', text: 'COMPLETED', icon: 'checkmark-circle' as const };
+    }
+  };
+
+  const renderActionButton = (ingredient: IngredientWithLocation, menuItem: string, status: IngredientStatus) => {
+    switch (status) {
+      case 'pending':
+      case 'delivered':
+      case 'usage_pending':
+        const deliveredQty = ingredient.usageRecord?.deliveredQty || ingredient.quantity;
+        const usedQty = ingredient.usageRecord?.usedQty || 0;
+        const leftover = deliveredQty - usedQty;
+        return (
+          <View style={styles.actionButtonsContainer}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => handleDeliver(ingredient, menuItem)}
+              disabled={isLoading}
+            >
+              <Ionicons name="arrow-forward-circle" size={20} color="#FF9800" />
+              <Text style={styles.actionButtonText}>Deliver</Text>
+            </TouchableOpacity>
+            {status === 'usage_pending' ? (
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => handleReturnLeftover(ingredient, menuItem)}
+                disabled={isLoading}
+              >
+                <Ionicons name="arrow-undo-circle" size={20} color="#9C27B0" />
+                <Text style={styles.actionButtonText}>Return {formatQty(leftover)}</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => handleMarkUsage(ingredient, menuItem)}
+                disabled={isLoading}
+              >
+                <Ionicons name="restaurant-outline" size={20} color="#2196F3" />
+                <Text style={styles.actionButtonText}>Mark Usage</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        );
+
+      case 'completed':
+        const efficiency = ingredient.usageRecord
+          ? Math.round((ingredient.usageRecord.usedQty / ingredient.usageRecord.deliveredQty) * 100)
+          : 100;
+        return (
+          <View style={styles.completedBadge}>
+            <Text style={styles.completedText}>{efficiency}% used</Text>
+          </View>
+        );
     }
   };
 
@@ -241,9 +462,9 @@ const BhogaMealScreen: FC<Props> = ({ navigation, route }) => {
     return menuItems.reduce((sum, item) => sum + item.ingredients.length, 0);
   };
 
-  const getPendingCount = () => {
+  const getCompletedCount = () => {
     return menuItems.reduce(
-      (sum, item) => sum + item.ingredients.filter(ing => ing.status === 'pending').length,
+      (sum, item) => sum + item.ingredients.filter(ing => getIngredientStatus(ing) === 'completed').length,
       0
     );
   };
@@ -266,7 +487,7 @@ const BhogaMealScreen: FC<Props> = ({ navigation, route }) => {
           <View style={styles.headerContent}>
             <Text style={styles.headerTitle}>{mealName}</Text>
             <Text style={styles.headerSubtitle}>
-              {getPendingCount()} / {getTotalIngredients()} pending
+              {getCompletedCount()} / {getTotalIngredients()} completed
             </Text>
           </View>
           <View style={{ width: 24 }} />
@@ -277,59 +498,93 @@ const BhogaMealScreen: FC<Props> = ({ navigation, route }) => {
         {menuItems.map((item, itemIndex) => (
           <View key={itemIndex} style={styles.menuItemCard}>
             <Text style={styles.menuItemTitle}>{item.name}</Text>
-            {item.ingredients.map((ingredient, ingIndex) => (
-              <View key={ingIndex} style={styles.ingredientRow}>
-                <View style={styles.ingredientInfo}>
-                  <View style={[styles.statusDot, { backgroundColor: getStatusColor(ingredient.status) }]} />
-                  <Text style={styles.ingredientName}>{ingredient.name}</Text>
-                  <Text style={styles.ingredientQuantity}>
-                    {formatQty(ingredient.quantity)} {ingredient.unit}
-                  </Text>
-                </View>
+            {item.ingredients.map((ingredient, ingIndex) => {
+              const status = getIngredientStatus(ingredient);
+              const statusConfig = getStatusConfig(status);
+              const usage = ingredient.usageRecord;
 
-                {ingredient.location && (
-                  <View style={styles.locationInfo}>
-                    <Ionicons name="location-outline" size={16} color="#666" />
-                    <Text style={styles.locationText}>
-                      {ingredient.location.room}
-                      {ingredient.location.sublocation && ` → ${ingredient.location.sublocation}`}
-                    </Text>
+              return (
+                <View key={ingIndex} style={[styles.ingredientRow, { borderLeftColor: statusConfig.color }]}>
+                  <View style={styles.ingredientMain}>
+                    <View style={styles.ingredientHeader}>
+                      <View style={styles.statusBadgeWrapper}>
+                        <Ionicons name={statusConfig.icon} size={16} color={statusConfig.color} />
+                        <Text style={[styles.statusText, { color: statusConfig.color }]}>
+                          {statusConfig.text}
+                        </Text>
+                      </View>
+                      {usage && (
+                        <Text style={styles.efficiencyText}>
+                          {usage.plannedQty > 0 ? Math.round((usage.usedQty / usage.plannedQty) * 100) : 0}% of plan
+                        </Text>
+                      )}
+                    </View>
+
+                    <Text style={styles.ingredientName}>{ingredient.name}</Text>
+
+                    <View style={styles.qtyRow}>
+                      {usage ? (
+                        <>
+                          <View style={styles.qtyInfo}>
+                            <Text style={styles.qtyLabel}>Planned:</Text>
+                            <Text style={styles.qtyValue}>{formatQty(usage.plannedQty)} {ingredient.unit}</Text>
+                          </View>
+                          <View style={styles.qtyInfo}>
+                            <Text style={styles.qtyLabel}>Sent:</Text>
+                            <Text style={styles.qtyValue}>{formatQty(usage.deliveredQty)} {ingredient.unit}</Text>
+                          </View>
+                          {status !== 'delivered' && (
+                            <View style={styles.qtyInfo}>
+                              <Text style={styles.qtyLabel}>Used:</Text>
+                              <Text style={styles.qtyValue}>{formatQty(usage.usedQty)} {ingredient.unit}</Text>
+                            </View>
+                          )}
+                          {status === 'completed' && usage.returnedQty > 0 && (
+                            <View style={styles.qtyInfo}>
+                              <Text style={styles.qtyLabel}>Returned:</Text>
+                              <Text style={[styles.qtyValue, { color: '#9C27B0' }]}>
+                                {formatQty(usage.returnedQty)} {ingredient.unit}
+                              </Text>
+                            </View>
+                          )}
+                        </>
+                      ) : (
+                        <View style={styles.qtyInfo}>
+                          <Text style={styles.qtyLabel}>Planned:</Text>
+                          <Text style={styles.qtyValue}>{formatQty(ingredient.quantity)} {ingredient.unit}</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {ingredient.location && status === 'pending' && (
+                      <View style={styles.locationInfo}>
+                        <Ionicons name="location-outline" size={14} color="#666" />
+                        <Text style={styles.locationText}>
+                          From: {ingredient.location.room}
+                          {ingredient.location.sublocation && ` → ${ingredient.location.sublocation}`}
+                          {' ('}
+                          {ingredient.location.currentStock} {ingredient.unit} available)
+                        </Text>
+                      </View>
+                    )}
                   </View>
-                )}
 
-                <View style={styles.actions}>
-                  <Text style={[styles.statusText, { color: getStatusColor(ingredient.status) }]}>
-                    {getStatusText(ingredient.status)}
-                  </Text>
-
-                  {ingredient.status === 'pending' && (
-                    <TouchableOpacity
-                      style={styles.deliverButton}
-                      onPress={() => handleMarkDelivered(ingredient, item.name)}
-                      disabled={isLoading}
-                    >
-                      <Ionicons name="checkmark-circle" size={24} color="#FF9800" />
-                      <Text style={styles.deliverButtonText}>Deliver to Kitchen</Text>
-                    </TouchableOpacity>
-                  )}
+                  <View style={styles.actions}>
+                    {renderActionButton(ingredient, item.name, status)}
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         ))}
       </ScrollView>
 
-      {/* Rounding Modal */}
-      <Modal
-        visible={showRoundingModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowRoundingModal(false)}
-      >
+      {/* Modal */}
+      <Modal visible={showModal} transparent animationType="slide">
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
-          onPress={() => setShowRoundingModal(false)}
+          onPress={() => setShowModal(false)}
         >
           <TouchableOpacity
             style={styles.modalContent}
@@ -337,8 +592,12 @@ const BhogaMealScreen: FC<Props> = ({ navigation, route }) => {
             onPress={(e) => e.stopPropagation()}
           >
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Deliver to Kitchen</Text>
-              <TouchableOpacity onPress={() => setShowRoundingModal(false)}>
+              <Text style={styles.modalTitle}>
+                {modalType === 'deliver' && 'Deliver to Kitchen'}
+                {modalType === 'usage' && 'Mark Actual Usage'}
+                {modalType === 'return' && 'Return Leftover'}
+              </Text>
+              <TouchableOpacity onPress={() => setShowModal(false)}>
                 <Ionicons name="close" size={28} color="#666" />
               </TouchableOpacity>
             </View>
@@ -346,45 +605,169 @@ const BhogaMealScreen: FC<Props> = ({ navigation, route }) => {
             {selectedIngredient && (
               <>
                 <Text style={styles.ingredientNameModal}>{selectedIngredient.name}</Text>
+                <Text style={styles.menuNameModal}>for {selectedMenuItem}</Text>
 
-                <View style={styles.qtyInfoRow}>
-                  <Text style={styles.qtyInfoLabel}>Planned: </Text>
-                  <Text style={styles.qtyInfoValue}>{formatQty(selectedIngredient.quantity)} {selectedIngredient.unit}</Text>
-                </View>
+                {modalType === 'deliver' && (
+                  <>
+                    {selectedIngredient.usageRecord ? (
+                      <View style={styles.qtyInfoRow}>
+                        <Text style={styles.qtyInfoLabel}>Currently Delivered: </Text>
+                        <Text style={[styles.qtyInfoValue, { color: '#4CAF50' }]}>
+                          {formatQty(selectedIngredient.usageRecord.deliveredQty)} {selectedIngredient.unit}
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={styles.qtyInfoRow}>
+                        <Text style={styles.qtyInfoLabel}>Planned: </Text>
+                        <Text style={styles.qtyInfoValue}>{formatQty(selectedIngredient.quantity)} {selectedIngredient.unit}</Text>
+                      </View>
+                    )}
 
-                {selectedIngredient.location && (
-                  <View style={styles.qtyInfoRow}>
-                    <Ionicons name="location-outline" size={16} color="#666" />
-                    <Text style={styles.qtyInfoValue}>
-                      {selectedIngredient.location.room}
-                      {selectedIngredient.location.sublocation && ` → ${selectedIngredient.location.sublocation}`}
-                    </Text>
-                  </View>
+                    {selectedIngredient.location && (
+                      <View style={styles.qtyInfoRow}>
+                        <Ionicons name="location-outline" size={16} color="#666" />
+                        <Text style={styles.qtyInfoValue}>
+                          Available: {selectedIngredient.location.currentStock} {selectedIngredient.unit}
+                        </Text>
+                      </View>
+                    )}
+
+                    <Text style={styles.sectionTitle}>Additional Amount to Send</Text>
+                    <View style={styles.roundingOptions}>
+                      {getRoundingOptions(
+                        parseFloat(customQty),
+                        selectedIngredient.usageRecord?.plannedQty || selectedIngredient.quantity
+                      ).map((option) => (
+                        <TouchableOpacity
+                          key={option.qty}
+                          style={[
+                            styles.roundingOption,
+                            customQty === option.qty.toString() && styles.roundingOptionSelected,
+                            option.label && styles.roundingOptionLabeled,
+                          ]}
+                          onPress={() => setCustomQty(option.qty.toString())}
+                        >
+                          <Text style={[
+                            styles.roundingOptionText,
+                            customQty === option.qty.toString() && styles.roundingOptionTextSelected,
+                          ]}>
+                            {option.label || formatQty(option.qty)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    <Text style={styles.sectionTitle}>Or Enter Exact Amount</Text>
+                  </>
                 )}
 
-                <Text style={styles.sectionTitle}>Quick Round Off</Text>
-                <View style={styles.roundingOptions}>
-                  {getRoundingOptions(selectedIngredient.quantity, selectedIngredient.quantity).map((option) => (
-                    <TouchableOpacity
-                      key={option.qty}
-                      style={[
-                        styles.roundingOption,
-                        customQty === option.qty.toString() && styles.roundingOptionSelected,
-                        option.label && styles.roundingOptionLabeled,
-                      ]}
-                      onPress={() => setCustomQty(option.qty.toString())}
-                    >
-                      <Text style={[
-                        styles.roundingOptionText,
-                        customQty === option.qty.toString() && styles.roundingOptionTextSelected,
-                      ]}>
-                        {option.label || formatQty(option.qty)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                {modalType === 'usage' && (
+                  <>
+                    {selectedIngredient.usageRecord ? (
+                      <>
+                        <View style={styles.qtyInfoRow}>
+                          <Text style={styles.qtyInfoLabel}>Planned: </Text>
+                          <Text style={styles.qtyInfoValue}>{formatQty(selectedIngredient.usageRecord.plannedQty)} {selectedIngredient.unit}</Text>
+                        </View>
+                        <View style={styles.qtyInfoRow}>
+                          <Text style={styles.qtyInfoLabel}>Delivered: </Text>
+                          <Text style={[styles.qtyInfoValue, { color: '#4CAF50' }]}>
+                            {formatQty(selectedIngredient.usageRecord.deliveredQty)} {selectedIngredient.unit}
+                          </Text>
+                        </View>
+                      </>
+                    ) : (
+                      <View style={[styles.qtyInfoRow, styles.warningBanner]}>
+                        <Ionicons name="warning" size={16} color="#FF9800" />
+                        <Text style={[styles.qtyInfoValue, { color: '#FF9800', marginLeft: 8 }]}>
+                          Not delivered yet (0 {selectedIngredient.unit})
+                        </Text>
+                      </View>
+                    )}
 
-                <Text style={styles.sectionTitle}>Or Enter Exact Amount</Text>
+                    <Text style={styles.sectionTitle}>Amount Actually Used</Text>
+                    <View style={styles.roundingOptions}>
+                      {getRoundingOptions(
+                        parseFloat(customQty),
+                        selectedIngredient.usageRecord?.plannedQty
+                      ).map((option) => (
+                        <TouchableOpacity
+                          key={option.qty}
+                          style={[
+                            styles.roundingOption,
+                            customQty === option.qty.toString() && styles.roundingOptionSelected,
+                            option.label && styles.roundingOptionLabeled,
+                          ]}
+                          onPress={() => setCustomQty(option.qty.toString())}
+                        >
+                          <Text style={[
+                            styles.roundingOptionText,
+                            customQty === option.qty.toString() && styles.roundingOptionTextSelected,
+                          ]}>
+                            {option.label || formatQty(option.qty)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    {selectedIngredient.usageRecord && (
+                      <View style={styles.calculationResult}>
+                        <Text style={styles.calculationText}>
+                          Leftover: {formatQty(selectedIngredient.usageRecord.deliveredQty - parseFloat(customQty) || 0)} {selectedIngredient.unit}
+                        </Text>
+                      </View>
+                    )}
+
+                    <Text style={styles.sectionTitle}>Or Enter Exact Amount</Text>
+                  </>
+                )}
+
+                {modalType === 'return' && (
+                  <>
+                    {selectedIngredient.usageRecord && (
+                      <>
+                        <View style={styles.qtyInfoRow}>
+                          <Text style={styles.qtyInfoLabel}>Sent: </Text>
+                          <Text style={styles.qtyInfoValue}>{formatQty(selectedIngredient.usageRecord.deliveredQty)} {selectedIngredient.unit}</Text>
+                        </View>
+                        <View style={styles.qtyInfoRow}>
+                          <Text style={styles.qtyInfoLabel}>Used: </Text>
+                          <Text style={styles.qtyInfoValue}>{formatQty(selectedIngredient.usageRecord.usedQty)} {selectedIngredient.unit}</Text>
+                        </View>
+                        <View style={styles.qtyInfoRow}>
+                          <Text style={styles.qtyInfoLabel}>Unaccounted: </Text>
+                          <Text style={[styles.qtyInfoValue, { color: '#FF9800' }]}>
+                            {formatQty(selectedIngredient.usageRecord.deliveredQty - selectedIngredient.usageRecord.usedQty)} {selectedIngredient.unit}
+                          </Text>
+                        </View>
+                      </>
+                    )}
+
+                    <Text style={styles.sectionTitle}>Amount Returning to Storage</Text>
+                    <View style={styles.roundingOptions}>
+                      {getRoundingOptions(parseFloat(customQty)).map((option) => (
+                        <TouchableOpacity
+                          key={option.qty}
+                          style={[
+                            styles.roundingOption,
+                            customQty === option.qty.toString() && styles.roundingOptionSelected,
+                          ]}
+                          onPress={() => setCustomQty(option.qty.toString())}
+                        >
+                          <Text style={[
+                            styles.roundingOptionText,
+                            customQty === option.qty.toString() && styles.roundingOptionTextSelected,
+                          ]}>
+                            {formatQty(option.qty)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    <Text style={styles.sectionTitle}>Or Enter Exact Amount</Text>
+                  </>
+                )}
+
                 <View style={styles.customQtyContainer}>
                   <TextInput
                     style={styles.customQtyInput}
@@ -398,10 +781,19 @@ const BhogaMealScreen: FC<Props> = ({ navigation, route }) => {
 
                 <TouchableOpacity
                   style={styles.confirmButton}
-                  onPress={() => confirmDelivery(parseFloat(customQty) || 0)}
+                  onPress={() => {
+                    const qty = parseFloat(customQty) || 0;
+                    if (modalType === 'deliver') confirmDelivery(qty);
+                    else if (modalType === 'usage') confirmUsage(qty);
+                    else if (modalType === 'return') confirmReturn(qty);
+                  }}
                 >
                   <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                  <Text style={styles.confirmButtonText}>Confirm Delivery</Text>
+                  <Text style={styles.confirmButtonText}>
+                    {modalType === 'deliver' && 'Confirm Delivery'}
+                    {modalType === 'usage' && 'Confirm Usage'}
+                    {modalType === 'return' && 'Confirm Return'}
+                  </Text>
                 </TouchableOpacity>
               </>
             )}
@@ -462,62 +854,99 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     marginBottom: 10,
+    borderLeftWidth: 4,
   },
-  ingredientInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 10,
-  },
-  ingredientName: {
+  ingredientMain: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
   },
-  ingredientQuantity: {
-    fontSize: 14,
-    color: '#666',
-  },
-  locationInfo: {
+  ingredientHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
-    marginLeft: 20,
   },
-  locationText: {
-    fontSize: 13,
-    color: '#666',
-    marginLeft: 5,
-  },
-  actions: {
+  statusBadgeWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginLeft: 20,
   },
   statusText: {
     fontSize: 12,
     fontWeight: 'bold',
+    marginLeft: 4,
   },
-  deliverButton: {
+  efficiencyText: {
+    fontSize: 12,
+    color: '#666',
+  },
+  ingredientName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  qtyRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 8,
+  },
+  qtyInfo: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  qtyLabel: {
+    fontSize: 13,
+    color: '#666',
+    marginRight: 4,
+  },
+  qtyValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  locationInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff3e0',
+    marginTop: 4,
+  },
+  locationText: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 4,
+  },
+  actions: {
+    alignItems: 'flex-end',
+    marginTop: 8,
+  },
+  actionButtonsContainer: {
+    flexDirection: 'column',
+    gap: 8,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  actionButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  completedBadge: {
+    backgroundColor: '#F3E5F5',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 15,
+    borderRadius: 12,
   },
-  deliverButtonText: {
+  completedText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#FF9800',
-    marginLeft: 5,
+    fontWeight: 'bold',
+    color: '#9C27B0',
   },
   modalOverlay: {
     flex: 1,
@@ -547,6 +976,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
+    marginBottom: 5,
+    textAlign: 'center',
+  },
+  menuNameModal: {
+    fontSize: 14,
+    color: '#666',
     marginBottom: 15,
     textAlign: 'center',
   },
@@ -554,7 +989,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
+  },
+  warningBanner: {
+    backgroundColor: '#FFF3E0',
+    padding: 10,
+    borderRadius: 8,
   },
   qtyInfoLabel: {
     fontSize: 16,
@@ -564,6 +1004,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
+    marginLeft: 8,
   },
   sectionTitle: {
     fontSize: 14,
@@ -606,6 +1047,18 @@ const styles = StyleSheet.create({
   },
   roundingOptionTextSelected: {
     color: '#fff',
+  },
+  calculationResult: {
+    backgroundColor: '#E3F2FD',
+    padding: 12,
+    borderRadius: 8,
+    marginVertical: 12,
+  },
+  calculationText: {
+    fontSize: 14,
+    color: '#1976D2',
+    fontWeight: '600',
+    textAlign: 'center',
   },
   customQtyContainer: {
     flexDirection: 'row',

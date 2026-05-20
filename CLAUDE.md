@@ -135,13 +135,17 @@ eas submit --platform android --profile production
 **Bhoga Google Sheets Service** (`services/BhogaSheetsService.ts`)
 - Backend-authenticated Google Sheets integration for Bhoga ingredient tracking
 - Uses shared Google Apps Script backend (`GOOGLE_APPS_SCRIPT_URL`)
-- Reads from "Ingredient List", "Storage Locations", "Stock Transactions" tabs
+- Reads from "Ingredient List", "Storage Locations", "Stock Transactions", "Ingredient Usage" tabs
 - Singleton instance exported as `bhogaSheetsService`
-- Operations: `getIngredientList()`, `getStorageLocations()`, `getDeliveries()`, `recordDelivery()`, `getDeliveredItems()`, `moveToStorage()`
+- Operations: `getIngredientList()`, `getStorageLocations()`, `getDeliveries()`, `recordIngredientDelivery()`, `getDeliveredItems()`, `moveToStorage()`, `recordIngredientUsage()`, `returnUnusedIngredient()`, `getIngredientUsage()`, `updateStorageLocation()`
 
 **BhogaTracker Screens**
 - `BhogaHomeScreen` — Main dashboard with meal cards (Fri-Sun, Breakfast/Lunch/Dinner), retreat date picker, alerts badge
-- `BhogaMealScreen` — Meal detail showing items and ingredient status (pending/delivered/used)
+- `BhogaMealScreen` — Meal detail showing items and ingredient status (pending/delivered/usage_pending/completed)
+  - **Always-visible buttons**: "Deliver" and "Mark Usage" show for all non-completed statuses
+  - **Delivery**: Adds to existing delivered qty (doesn't replace). Shows "Currently Delivered: X" + "Additional Amount to Send"
+  - **Usage**: Validates cannot exceed delivered amount. Shows warning banner for pending items (not yet delivered)
+  - **Auto-refresh**: Screen refreshes after both delivery and usage operations
 - `BhogaAlertsScreen` — Shows ingredients with current stock below pending need
 - `BhogaAdminScreen` — Storage location setup (room, sublocation, initial stock)
 - `BhogaStorageScreen` — View all storage locations with current stock levels
@@ -390,9 +394,12 @@ https://script.google.com/macros/s/AKfycbzN_gmQ-c8AqjWtVPDD-d3GFUD1KPnmfJGg_xxDj
 - `bhogaGetIngredientList()` — Returns meals and ingredients with planned quantities
 - `bhogaGetStorageLocations()` — Returns all configured storage locations
 - `bhogaGetDeliveries()` — Returns delivery records with expected/delivered qty
-- `bhogaRecordDelivery(data)` — Records ingredient delivery
+- `bhogaRecordDelivery(data)` — Records ingredient delivery (adds to existing delivered qty)
 - `bhogaGetDeliveredItems()` — Returns items pending storage (status='delivered')
 - `bhogaMoveToStorage(data)` — Moves item to storage, updates status to 'stored'
+- `bhogaRecordIngredientUsage(data)` — Records actual usage, calculates leftover, updates status
+- `bhogaReturnUnusedIngredient(data)` — Returns unused portion to storage, marks completed
+- `bhogaGetIngredientUsage(mealId)` — Returns usage records for all ingredients in a meal
 
 ### Important Notes
 - `action` parameter uses `'add'|'subtract'` (NOT `'operation'` to avoid conflict with API wrapper)
