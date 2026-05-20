@@ -474,7 +474,7 @@ const HomeScreen = () => {
     }
 
     // Show traditional scanners if they're in scansInThisEvent
-    if (scansInThisEvent.includes('Meals')) {
+    if (scansInThisEvent.includes('Meals') && canScanOthersQr) {
       buttons.push(
         <TouchableOpacity
           key="meal"
@@ -501,7 +501,7 @@ const HomeScreen = () => {
       );
     }
 
-    if (scansInThisEvent.includes('RegistrationTag')) {
+    if (scansInThisEvent.includes('RegistrationTag') && canScanOthersQr) {
       buttons.push(
         <TouchableOpacity
           key="register"
@@ -691,7 +691,7 @@ const HomeScreen = () => {
         </View>
 
         {/* Show lane picker only for meal scanning - moved below buttons to avoid overlap */}
-        {scansInThisEvent.includes('Meals') && (
+        {scansInThisEvent.includes('Meals') && canScanOthersQr && (
           <View style={styles.pickerContainer}>
             <Picker
               selectedValue={selectedLane || ''}

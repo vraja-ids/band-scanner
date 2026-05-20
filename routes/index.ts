@@ -83,6 +83,24 @@ export interface PrasadamDashboardParams {
   mealId: string;
 }
 
+export interface BhogaMealParams {
+  mealId: string;
+  mealName: string;
+  mealData: {
+    items: {
+      [key: string]: {
+        name: string;
+        ingredients: Array<{
+          name: string;
+          quantity: number;
+          unit: string;
+          category: string;
+        }>;
+      };
+    };
+  };
+}
+
 export default Routes;
 
 

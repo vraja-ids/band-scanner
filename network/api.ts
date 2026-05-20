@@ -9,7 +9,7 @@ import { success, error } from './ApiResponse';
 import type { ApiResponse } from './types';
 
 export const API_BASE_URL: string = 'https://network.sadhusangaretreat.com';
-export const NETWORK_TIMEOUT_MS: number = 10000;
+export const NETWORK_TIMEOUT_MS: number = 30000; // Increased from 10000 to handle slow backend
 export const USE_MOCK_API: boolean = false;
 export const DEFAULT_API_VERSION: string = '1.8';
 

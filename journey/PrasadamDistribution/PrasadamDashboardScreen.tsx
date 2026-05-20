@@ -1149,7 +1149,7 @@ function PrasadamDashboardScreen() {
     );
   }
 
-  if (loadError || items.length === 0) {
+  if ((loadError || items.length === 0) && !isLoading) {
     return (
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle-outline" size={64} color="#FF9800" />
