@@ -13,6 +13,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { bhogaSheetsService, DeliveredItem, StorageLocation, Ingredient, IngredientListData } from '../../services/BhogaSheetsService';
 
@@ -116,6 +117,14 @@ const BhogaStorageMoveScreen: FC<Props> = ({ navigation }) => {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadData();
+      return () => {};
+    }, [])
+  );
 
   const loadData = async () => {
     try {
