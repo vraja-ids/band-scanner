@@ -302,6 +302,21 @@ class BhogaSheetsServiceClass {
     return response.data || [];
   }
 
+  async getRoomOptions(): Promise<string[]> {
+    const response = await callScriptGet<string[]>('bhogaGetRoomOptions');
+    if (response.status === 'error') {
+      throw new Error(response.message || 'Failed to fetch room options');
+    }
+    return response.data || [];
+  }
+
+  async saveRoomOptions(rooms: string[]): Promise<void> {
+    const response = await callScript('bhogaSaveRoomOptions', { rooms });
+    if (response.status === 'error') {
+      throw new Error(response.message || 'Failed to save room options');
+    }
+  }
+
   // New methods for ingredient usage tracking
   async recordIngredientDelivery(request: IngredientUsageRequest): Promise<void> {
     const response = await callScript('bhogaRecordIngredientDelivery', request);

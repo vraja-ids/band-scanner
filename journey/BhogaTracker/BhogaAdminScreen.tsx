@@ -14,6 +14,7 @@ import {
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { bhogaSheetsService, StorageLocation, Ingredient } from '../../services/BhogaSheetsService';
 import { Routes } from '../../routes';
 
@@ -56,6 +57,7 @@ const ROOM_OPTIONS = [
   'Pantry',
   'Dry Storage',
   'Kitchen',
+  'Cold Room',
 ];
 
 const BhogaAdminScreen: FC<Props> = ({ navigation }) => {
@@ -66,9 +68,14 @@ const BhogaAdminScreen: FC<Props> = ({ navigation }) => {
   const [showSublocationPicker, setShowSublocationPicker] = useState(false);
   const [showRoomPicker, setShowRoomPicker] = useState(false);
   const [customSublocation, setCustomSublocation] = useState('');
+  const [roomOptions, setRoomOptions] = useState<string[]>(ROOM_OPTIONS);
+  const [showRoomManagement, setShowRoomManagement] = useState(false);
+  const [editingRoomIndex, setEditingRoomIndex] = useState<number | null>(null);
+  const [newRoomName, setNewRoomName] = useState('');
 
   useEffect(() => {
     loadData();
+    loadCustomRooms();
   }, []);
 
   // Refresh data when screen comes into focus
@@ -95,6 +102,84 @@ const BhogaAdminScreen: FC<Props> = ({ navigation }) => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const loadCustomRooms = async () => {
+    try {
+      const rooms = await bhogaSheetsService.getRoomOptions();
+      if (rooms.length > 0) {
+        setRoomOptions(rooms);
+      } else {
+        setRoomOptions(ROOM_OPTIONS);
+      }
+    } catch (error) {
+      console.error('Error loading room options:', error);
+      setRoomOptions(ROOM_OPTIONS);
+    }
+  };
+
+  const saveCustomRooms = async (rooms: string[]) => {
+    try {
+      await bhogaSheetsService.saveRoomOptions(rooms);
+      setRoomOptions(rooms);
+    } catch (error) {
+      console.error('Error saving room options:', error);
+      Alert.alert('Error', 'Failed to save rooms');
+    }
+  };
+
+  const handleAddRoom = () => {
+    if (!newRoomName.trim()) {
+      Alert.alert('Error', 'Room name is required');
+      return;
+    }
+    if (roomOptions.includes(newRoomName.trim())) {
+      Alert.alert('Error', 'Room already exists');
+      return;
+    }
+    const updatedRooms = [...roomOptions, newRoomName.trim()];
+    saveCustomRooms(updatedRooms);
+    setNewRoomName('');
+  };
+
+  const handleDeleteRoom = (index: number) => {
+    Alert.alert(
+      'Delete Room',
+      `Remove "${roomOptions[index]}" from the list?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            const updatedRooms = roomOptions.filter((_, i) => i !== index);
+            saveCustomRooms(updatedRooms);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleEditRoom = (index: number) => {
+    setEditingRoomIndex(index);
+    setNewRoomName(roomOptions[index]);
+  };
+
+  const handleSaveRoomEdit = () => {
+    if (editingRoomIndex === null || !newRoomName.trim()) {
+      Alert.alert('Error', 'Room name is required');
+      return;
+    }
+    const updatedRooms = [...roomOptions];
+    updatedRooms[editingRoomIndex] = newRoomName.trim();
+    saveCustomRooms(updatedRooms);
+    setEditingRoomIndex(null);
+    setNewRoomName('');
+  };
+
+  const handleCancelRoomEdit = () => {
+    setEditingRoomIndex(null);
+    setNewRoomName('');
   };
 
   const handleSave = async () => {
@@ -340,7 +425,7 @@ const BhogaAdminScreen: FC<Props> = ({ navigation }) => {
             >
               <Text style={styles.pickerTitle}>Select Room</Text>
               <ScrollView>
-                {ROOM_OPTIONS.map(room => (
+                {roomOptions.map(room => (
                   <TouchableOpacity
                     key={room}
                     style={styles.pickerOption}
@@ -416,6 +501,9 @@ const BhogaAdminScreen: FC<Props> = ({ navigation }) => {
           <View style={styles.headerButtons}>
             <TouchableOpacity onPress={handleInitializeSheets} style={styles.headerButton}>
               <Ionicons name="refresh-circle-outline" size={24} color="#FF9800" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowRoomManagement(true)} style={styles.headerButton}>
+              <Ionicons name="list-outline" size={24} color="#5dbea3" />
             </TouchableOpacity>
             <TouchableOpacity onPress={handleAddNew} style={styles.addButton}>
               <Ionicons name="add" size={24} color="#5dbea3" />
@@ -493,6 +581,80 @@ const BhogaAdminScreen: FC<Props> = ({ navigation }) => {
           ))
         )}
       </ScrollView>
+
+      {/* Room Management Modal */}
+      <Modal visible={showRoomManagement} transparent animationType="slide">
+        <TouchableOpacity
+          style={styles.pickerModal}
+          activeOpacity={1}
+          onPress={() => setShowRoomManagement(false)}
+        >
+          <TouchableOpacity
+            style={styles.pickerContent}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>Manage Room Options</Text>
+              <TouchableOpacity onPress={() => setShowRoomManagement(false)}>
+                <Ionicons name="close" size={28} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Add new room */}
+            <View style={styles.roomInputContainer}>
+              <TextInput
+                style={styles.roomInput}
+                value={newRoomName}
+                onChangeText={setNewRoomName}
+                placeholder="New room name..."
+                placeholderTextColor="#999"
+              />
+              <TouchableOpacity
+                style={styles.roomAddButton}
+                onPress={editingRoomIndex !== null ? handleSaveRoomEdit : handleAddRoom}
+              >
+                <Ionicons
+                  name={editingRoomIndex !== null ? 'checkmark' : 'add'}
+                  size={24}
+                  color="#fff"
+                />
+              </TouchableOpacity>
+              {editingRoomIndex !== null && (
+                <TouchableOpacity
+                  style={styles.roomCancelButton}
+                  onPress={handleCancelRoomEdit}
+                >
+                  <Ionicons name="close" size={24} color="#666" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Room list */}
+            <ScrollView style={styles.roomList}>
+              {roomOptions.map((room, index) => (
+                <View key={room} style={styles.roomListItem}>
+                  <Text style={styles.roomListItemText}>{room}</Text>
+                  <View style={styles.roomListActions}>
+                    <TouchableOpacity
+                      style={styles.roomListButton}
+                      onPress={() => handleEditRoom(index)}
+                    >
+                      <Ionicons name="create-outline" size={20} color="#5dbea3" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.roomListButton}
+                      onPress={() => handleDeleteRoom(index)}
+                    >
+                      <Ionicons name="trash-outline" size={20} color="#ff6b6b" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -706,6 +868,12 @@ const styles = StyleSheet.create({
     padding: 20,
     maxHeight: '70%',
   },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
   pickerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
@@ -734,6 +902,58 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#666',
+  },
+  roomInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 15,
+    gap: 10,
+  },
+  roomInput: {
+    flex: 1,
+    fontSize: 16,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  roomAddButton: {
+    backgroundColor: '#5dbea3',
+    borderRadius: 8,
+    padding: 10,
+  },
+  roomCancelButton: {
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    padding: 10,
+  },
+  roomList: {
+    maxHeight: 400,
+  },
+  roomListItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  roomListItemText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
+  },
+  roomListActions: {
+    flexDirection: 'row',
+    gap: 15,
+  },
+  roomListButton: {
+    padding: 8,
   },
 });
 
