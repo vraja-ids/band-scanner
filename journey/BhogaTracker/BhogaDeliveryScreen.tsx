@@ -29,6 +29,7 @@ interface IngredientWithDelivery extends Ingredient {
   expectedQty: number;
   orderedQty: number;
   orders: OrderByStore[];
+  expanded?: boolean;
 }
 
 interface RoundingOption {
@@ -42,6 +43,35 @@ const formatQty = (qty: number): string => {
   return qty.toFixed(2);
 };
 
+// Helper to format meal names from mealId
+const formatMealName = (mealId: string): string => {
+  const dayMap: Record<string, string> = {
+    'fri': 'Friday',
+    'sat': 'Saturday',
+    'sun': 'Sunday',
+    'mon': 'Monday',
+    'tue': 'Tuesday',
+    'wed': 'Wednesday',
+    'thu': 'Thursday',
+  };
+
+  const mealTypeMap: Record<string, string> = {
+    'breakfast': 'Breakfast',
+    'lunch': 'Lunch',
+    'dinner': 'Dinner',
+  };
+
+  const parts = mealId.split(/(?=[A-Z])/);
+  if (parts.length >= 2) {
+    const day = parts[0].toLowerCase();
+    const type = parts[1]?.toLowerCase() || '';
+    const dayName = dayMap[day] || parts[0];
+    const typeName = mealTypeMap[type] || parts[1];
+    return `${dayName} ${typeName}`;
+  }
+  return mealId;
+};
+
 const BhogaDeliveryScreen: FC<Props> = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [ingredients, setIngredients] = useState<IngredientWithDelivery[]>([]);
@@ -53,6 +83,8 @@ const BhogaDeliveryScreen: FC<Props> = ({ navigation }) => {
   const [showRoundingModal, setShowRoundingModal] = useState(false);
   const [selectedIngredient, setSelectedIngredient] = useState<IngredientWithDelivery | null>(null);
   const [customQty, setCustomQty] = useState('0');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadData();
@@ -94,9 +126,9 @@ const BhogaDeliveryScreen: FC<Props> = ({ navigation }) => {
           deliveredQty: delivery?.deliveredQty || 0,
           expectedQty: ing.totalPlanned,
           orderedQty: totalOrdered,
-          orders: ingOrders,
+          orders: ingOrders.sort((a, b) => a.store.localeCompare(b.store)),
         };
-      });
+      }).sort((a, b) => a.name.localeCompare(b.name));
 
       setIngredients(itemsWithDelivery);
     } catch (error) {
@@ -105,6 +137,18 @@ const BhogaDeliveryScreen: FC<Props> = ({ navigation }) => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const toggleItemExpanded = (itemName: string) => {
+    setExpandedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(itemName)) {
+        next.delete(itemName);
+      } else {
+        next.add(itemName);
+      }
+      return next;
+    });
   };
 
   const handleDeliveryChange = (ingredientName: string, newQty: number) => {
@@ -218,12 +262,24 @@ const BhogaDeliveryScreen: FC<Props> = ({ navigation }) => {
   };
 
   const getFilteredIngredients = () => {
-    if (selectedStoreFilter === 'All') {
-      return ingredients;
+    let filtered = ingredients;
+
+    // Filter by store
+    if (selectedStoreFilter !== 'All') {
+      filtered = filtered.filter(ing =>
+        ing.orders.some(o => o.store === selectedStoreFilter)
+      );
     }
-    return ingredients.filter(ing =>
-      ing.orders.some(o => o.store === selectedStoreFilter)
-    );
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(ing =>
+        ing.name.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
   };
 
   const getStoreOrdersSummary = (ingredient: IngredientWithDelivery) => {
@@ -310,16 +366,49 @@ const BhogaDeliveryScreen: FC<Props> = ({ navigation }) => {
         </ScrollView>
       </View>
 
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search ingredients..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
+            <Ionicons name="close-circle" size={20} color="#999" />
+          </TouchableOpacity>
+        )}
+      </View>
+
       <ScrollView style={styles.content}>
-        {getFilteredIngredients().map((item) => (
-          <View key={item.name} style={styles.itemCard}>
+        {getFilteredIngredients().length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="search-outline" size={64} color="#ccc" />
+            <Text style={styles.emptyStateText}>No ingredients found</Text>
+            <Text style={styles.emptyStateSubtext}>
+              {searchQuery ? 'Try a different search term' : 'No ingredients available'}
+            </Text>
+          </View>
+        ) : (
+          getFilteredIngredients().map((item) => {
+            const isExpanded = expandedItems.has(item.name);
+            return (
+            <View key={item.name} style={styles.itemCard}>
+            <TouchableOpacity onPress={() => toggleItemExpanded(item.name)} activeOpacity={0.7}>
             <View style={styles.itemHeader}>
               <View style={[styles.categoryBadge, { backgroundColor: getCategoryColor(item.category) + '20' }]}>
                 <Text style={[styles.categoryText, { color: getCategoryColor(item.category) }]}>
                   {item.category}
                 </Text>
               </View>
-              {getStatusIcon(item)}
+              <View style={styles.headerRight}>
+                {getStatusIcon(item)}
+                <Ionicons name={expandedItems.has(item.name) ? "chevron-up" : "chevron-down"} size={20} color="#666" style={{ marginLeft: 8 }} />
+              </View>
             </View>
 
             <Text style={styles.ingredientName}>{item.name}</Text>
@@ -357,6 +446,33 @@ const BhogaDeliveryScreen: FC<Props> = ({ navigation }) => {
                 <Text style={styles.qtyUnit}>{item.unit}</Text>
               </View>
             </View>
+            </TouchableOpacity>
+
+            {isExpanded && (
+              <View style={styles.mealUsageContainer}>
+                <Text style={styles.mealUsageTitle}>Used in these meals:</Text>
+                {item.meals.map((meal, index) => {
+                  const isPending = meal.status === 'pending';
+                  return (
+                    <View key={index} style={styles.mealUsageRow}>
+                      <Text style={styles.mealUsageName}>{formatMealName(meal.mealId)}</Text>
+                      <Text style={styles.mealUsageDish}>for {meal.menuItem}</Text>
+                      <View style={styles.mealUsageQty}>
+                        <Text style={styles.mealQtyText}>{formatQty(meal.plannedQuantity)} {item.unit}</Text>
+                        {isPending && (
+                          <View style={styles.pendingMiniBadge}>
+                            <Text style={styles.pendingMiniText}>pending</Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+                {item.meals.length === 0 && (
+                  <Text style={styles.noMealsText}>No meal usage data</Text>
+                )}
+              </View>
+            )}
 
             <TouchableOpacity
               style={styles.saveButton}
@@ -366,7 +482,9 @@ const BhogaDeliveryScreen: FC<Props> = ({ navigation }) => {
               <Text style={styles.saveButtonText}>Mark as Delivered</Text>
             </TouchableOpacity>
           </View>
-        ))}
+        );
+          })
+      )}
       </ScrollView>
 
       {/* Rounding Modal */}
@@ -531,6 +649,26 @@ const styles = StyleSheet.create({
   storeFilterChipTextSelected: {
     color: '#fff',
     fontWeight: '600',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  searchIcon: {
+    marginRight: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+  },
+  clearButton: {
+    padding: 4,
   },
   itemCard: {
     backgroundColor: '#fff',
@@ -756,6 +894,86 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#666',
+    marginTop: 15,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 5,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mealUsageContainer: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 12,
+  },
+  mealUsageTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  mealUsageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  mealUsageName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    flex: 1,
+  },
+  mealUsageDish: {
+    fontSize: 12,
+    color: '#666',
+    marginRight: 10,
+  },
+  mealUsageQty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mealQtyText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#5dbea3',
+    marginRight: 8,
+  },
+  pendingMiniBadge: {
+    backgroundColor: '#fff3e0',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  pendingMiniText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#e65100',
+  },
+  noMealsText: {
+    fontSize: 13,
+    color: '#999',
+    textAlign: 'center',
+    paddingVertical: 10,
   },
 });
 

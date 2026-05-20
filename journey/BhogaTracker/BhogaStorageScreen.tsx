@@ -30,6 +30,13 @@ interface RoomWithIngredients {
     initialStock: number;
     unit: string;
     mealsCount: number;
+    meals: Array<{
+      mealId: string;
+      menuItem: string;
+      plannedQuantity: number;
+      status: 'pending' | 'delivered' | 'used';
+    }>;
+    shortfall?: number;
   }>;
 }
 
@@ -44,6 +51,7 @@ const BhogaStorageScreen: FC<Props> = ({ navigation }) => {
   const [rooms, setRooms] = useState<RoomWithIngredients[]>([]);
   const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadData();
@@ -69,7 +77,14 @@ const BhogaStorageScreen: FC<Props> = ({ navigation }) => {
         }
 
         const ingredient = ingredientData.ingredients.find(i => i.name === location.ingredientName);
-        const mealsCount = ingredient?.meals.length || 0;
+        const meals = ingredient?.meals || [];
+        const mealsCount = meals.length;
+
+        // Calculate shortfall for pending meals
+        const pendingNeed = meals
+          .filter(m => m.status === 'pending')
+          .reduce((sum, m) => sum + m.plannedQuantity, 0);
+        const shortfall = pendingNeed > location.currentStock ? pendingNeed - location.currentStock : 0;
 
         roomMap.get(location.room)!.push({
           name: location.ingredientName,
@@ -78,6 +93,8 @@ const BhogaStorageScreen: FC<Props> = ({ navigation }) => {
           initialStock: location.initialStock,
           unit: location.unit,
           mealsCount,
+          meals,
+          shortfall: shortfall > 0 ? shortfall : undefined,
         });
       });
 
@@ -104,6 +121,43 @@ const BhogaStorageScreen: FC<Props> = ({ navigation }) => {
     if (percentage < 25) return '#ff6b6b';
     if (percentage < 50) return '#ffd93d';
     return '#6bcf7f';
+  };
+
+  const toggleItemExpanded = (itemName: string) => {
+    setExpandedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(itemName)) {
+        next.delete(itemName);
+      } else {
+        next.add(itemName);
+      }
+      return next;
+    });
+  };
+
+  const formatMealName = (mealId: string): string => {
+    // Convert mealId like "friBreakfast" to "Friday Breakfast"
+    const dayMap: Record<string, string> = {
+      'fri': 'Friday',
+      'sat': 'Saturday',
+      'sun': 'Sunday',
+      'mon': 'Monday',
+      'tue': 'Tuesday',
+      'wed': 'Wednesday',
+      'thu': 'Thursday',
+    };
+
+    const mealTypeMap: Record<string, string> = {
+      'breakfast': 'Breakfast',
+      'lunch': 'Lunch',
+      'dinner': 'Dinner',
+    };
+
+    const [day, type] = mealId.toLowerCase().split(/(?=[A-Z])/).map(s => s.toLowerCase());
+    const dayName = dayMap[day] || day;
+    const typeName = mealTypeMap[type] || type;
+
+    return `${dayName} ${typeName}`;
   };
 
   if (isLoading) {
@@ -149,36 +203,99 @@ const BhogaStorageScreen: FC<Props> = ({ navigation }) => {
               {room.ingredients.map(item => {
                 const percentage = getStockPercentage(item.currentStock, item.initialStock);
                 const stockColor = getStockColor(percentage);
+                const isExpanded = expandedItems.has(item.name);
 
                 return (
-                  <View key={item.name} style={styles.ingredientRow}>
-                    <View style={styles.ingredientInfo}>
-                      <Text style={styles.ingredientName}>{item.name}</Text>
-                      {item.sublocation && (
-                        <View style={styles.sublocationBadge}>
-                          <Text style={styles.sublocationText}>{item.sublocation}</Text>
+                  <View key={item.name} style={styles.ingredientCard}>
+                    <TouchableOpacity
+                      style={styles.ingredientRow}
+                      onPress={() => toggleItemExpanded(item.name)}
+                    >
+                      <View style={styles.ingredientInfo}>
+                        <View style={styles.ingredientNameRow}>
+                          <Text style={styles.ingredientName}>{item.name}</Text>
+                          <Ionicons
+                            name={isExpanded ? "chevron-up" : "chevron-down"}
+                            size={20}
+                            color="#666"
+                          />
                         </View>
-                      )}
-                    </View>
-
-                    <View style={styles.stockInfo}>
-                      <View style={styles.stockBarContainer}>
-                        <View
-                          style={[
-                            styles.stockBar,
-                            { width: `${Math.min(100, percentage)}%`, backgroundColor: stockColor },
-                          ]}
-                        />
+                        {item.sublocation && (
+                          <View style={styles.sublocationBadge}>
+                            <Text style={styles.sublocationText}>{item.sublocation}</Text>
+                          </View>
+                        )}
                       </View>
-                      <Text style={styles.stockText}>
-                        {formatQty(item.currentStock)} / {formatQty(item.initialStock)} {item.unit}
-                      </Text>
-                    </View>
 
-                    <View style={styles.mealsInfo}>
-                      <Ionicons name="calendar-outline" size={14} color="#666" />
-                      <Text style={styles.mealsText}>Used in {item.mealsCount} meals</Text>
-                    </View>
+                      <View style={styles.stockInfo}>
+                        <View style={styles.stockBarContainer}>
+                          <View
+                            style={[
+                              styles.stockBar,
+                              { width: `${Math.min(100, percentage)}%`, backgroundColor: stockColor },
+                            ]}
+                          />
+                        </View>
+                        <Text style={styles.stockText}>
+                          {formatQty(item.currentStock)} / {formatQty(item.initialStock)} {item.unit}
+                        </Text>
+                      </View>
+
+                      <View style={styles.mealsInfo}>
+                        <Ionicons name="calendar-outline" size={14} color="#666" />
+                        <Text style={styles.mealsText}>Used in {item.mealsCount} meals</Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    {isExpanded && (
+                      <View style={styles.mealDetailsContainer}>
+                        {item.shortfall !== undefined && item.shortfall > 0 && (
+                          <View style={styles.alertBanner}>
+                            <Ionicons name="warning" size={18} color="#ff6b6b" />
+                            <Text style={styles.alertText}>
+                              Need {formatQty(item.shortfall)} more {item.unit} for pending meals
+                            </Text>
+                          </View>
+                        )}
+
+                        <Text style={styles.mealDetailsTitle}>Meal Usage:</Text>
+                        {item.meals.map((meal, index) => {
+                          const isPending = meal.status === 'pending';
+                          const isDelivered = meal.status === 'delivered';
+                          const isUsed = meal.status === 'used';
+
+                          return (
+                            <View key={index} style={styles.mealDetailRow}>
+                              <View style={styles.mealDetailLeft}>
+                                <Text style={styles.mealName}>{formatMealName(meal.mealId)}</Text>
+                                <Text style={styles.dishName}>for {meal.menuItem}</Text>
+                              </View>
+                              <View style={styles.mealDetailRight}>
+                                <Text style={styles.qtyText}>{formatQty(meal.plannedQuantity)} {item.unit}</Text>
+                                <View style={[
+                                  styles.statusBadge,
+                                  isPending && styles.statusPending,
+                                  isDelivered && styles.statusDelivered,
+                                  isUsed && styles.statusUsed,
+                                ]}>
+                                  <Text style={[
+                                    styles.statusText,
+                                    isPending && styles.statusTextPending,
+                                    isDelivered && styles.statusTextDelivered,
+                                    isUsed && styles.statusTextUsed,
+                                  ]}>
+                                    {meal.status}
+                                  </Text>
+                                </View>
+                              </View>
+                            </View>
+                          );
+                        })}
+                        {item.meals.length === 0 && (
+                          <Text style={styles.noMealsText}>No meal usage data</Text>
+                        )}
+                      </View>
+                    )}
                   </View>
                 );
               })}
@@ -251,6 +368,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 15,
     marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   roomHeader: {
     flexDirection: 'row',
@@ -271,11 +393,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
+  ingredientCard: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    marginBottom: 10,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
   ingredientRow: {
     backgroundColor: '#f9f9f9',
-    borderRadius: 8,
     padding: 12,
-    marginBottom: 10,
+  },
+  ingredientNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   ingredientInfo: {
     flexDirection: 'row',
@@ -327,6 +463,99 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     marginLeft: 5,
+  },
+  mealDetailsContainer: {
+    backgroundColor: '#f5f5f5',
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  alertBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffebee',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  alertText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#c62828',
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  mealDetailsTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  mealDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  mealDetailLeft: {
+    flex: 1,
+  },
+  mealName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  dishName: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  mealDetailRight: {
+    alignItems: 'flex-end',
+  },
+  qtyText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#5dbea3',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  statusPending: {
+    backgroundColor: '#fff3e0',
+  },
+  statusDelivered: {
+    backgroundColor: '#e8f5e9',
+  },
+  statusUsed: {
+    backgroundColor: '#f5f5f5',
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  statusTextPending: {
+    color: '#e65100',
+  },
+  statusTextDelivered: {
+    color: '#2e7d32',
+  },
+  statusTextUsed: {
+    color: '#666',
+  },
+  noMealsText: {
+    fontSize: 13,
+    color: '#999',
+    textAlign: 'center',
+    paddingVertical: 10,
   },
   addButton: {
     flexDirection: 'row',
