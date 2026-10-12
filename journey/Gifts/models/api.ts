@@ -1,7 +1,6 @@
 export interface GetMemberGiftActivityRequest {
   tagId: string;
   category: 'gifttracking';
-  scannerMemberId: string | null;
 }
 
 export interface UpdateGiftActivityRequest {

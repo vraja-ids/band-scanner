@@ -16,6 +16,7 @@ import {
   ActivityIndicator,
   SafeAreaView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRoute, useNavigation } from '@react-navigation/native';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -175,6 +176,7 @@ function getStageQuantity(item: DashboardItem, stage: DashboardStage): number {
 function PrasadamDashboardScreen() {
   const route = useRoute();
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   // Get mealId from route params reactively
   const mealId = (route.params as any)?.mealId as string || '';
   const initialMealName = (route.params as any)?.mealName as string || '';
@@ -1168,7 +1170,7 @@ function PrasadamDashboardScreen() {
       <StatusBar barStyle="dark-content" />
 
       {/* Top Bar with SafeAreaView to avoid status bar overlap in portrait */}
-      <SafeAreaView>
+      <SafeAreaView style={{ paddingTop: insets.top }}>
         <View style={styles.devoteesBar}>
           {/* Left: Back Button, Meal Selector */}
           <View style={styles.leftActions}>

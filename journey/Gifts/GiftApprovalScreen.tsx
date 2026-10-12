@@ -110,16 +110,19 @@ const GiftApprovalScreen = ({ route }: any) => {
   }, []);
 
   const fetchMemberDetailsVm = async (tid: string, withRefresh = false) => {
+    console.log('[GiftApproval] fetchMemberDetailsVm called with tagId:', tid, 'withRefresh:', withRefresh);
     if (!withRefresh) {
       setIsLoading(true);
     }
     try {
-      const scannerMemberId = await getString(Keys.INTERNAL_MEMBER_ID);
-      const req: GetMemberGiftActivityRequest = { tagId: tid, category: 'gifttracking', scannerMemberId };
+      const req: GetMemberGiftActivityRequest = { tagId: tid, category: 'gifttracking' };
+      console.log('[GiftApproval] Request payload:', JSON.stringify(req));
       const memberDetailsResp: any = await fetchMemberDetails(req);
-      setMemberDetails(new MemberDetails(memberDetailsResp.memberActivityDetails));
+      console.log('[GiftApproval] Response received:', JSON.stringify(memberDetailsResp, null, 2));
+      setMemberDetails(new MemberDetails(memberDetailsResp.data.memberActivityDetails));
     } catch (error) {
-      console.error('Error fetching member details:', error);
+      console.error('[GiftApproval] Error fetching member details:', error);
+      console.error('[GiftApproval] Error details:', JSON.stringify(error, null, 2));
       navigation.navigate('Home');
       Alert.alert('Error', 'Failed to fetch member details');
     } finally {
@@ -130,7 +133,7 @@ const GiftApprovalScreen = ({ route }: any) => {
 
   const loadScannerMemberId = async () => {
     try {
-      const memberId = await AsyncStorage.getItem('memberId');
+      const memberId = await getString(Keys.INTERNAL_MEMBER_ID);
       setScannerMemberId(memberId);
     } catch (error) {
       console.error('Error loading scanner member ID:', error);
@@ -221,12 +224,17 @@ const GiftApprovalScreen = ({ route }: any) => {
         scannerMemberId: scannerMemberId,
         quantity: selectedQuantity,
       };
+      console.log('[GiftApproval] Update request payload:', JSON.stringify(activityData, null, 2));
+      console.log('[GiftApproval] scannerMemberId state value:', scannerMemberId);
 
       const response: any = await updateGiftActivity(activityData);
-      if (response?.success) {
+      console.log('[GiftApproval] Update response:', JSON.stringify(response, null, 2));
+      if (response?.status === 'success' || response?.data?.success === 'true' || response?.data?.success === true) {
+        console.log('[GiftApproval] Update successful, refreshing...');
         fetchMemberDetailsVm(tagId, true);
       } else {
         setIsButtonLoading(false);
+        console.error('[GiftApproval] Update failed:', response);
         Alert.alert('Error', 'Failed to update gift status');
       }
     } catch (error) {
