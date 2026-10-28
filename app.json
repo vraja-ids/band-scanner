@@ -2,7 +2,7 @@
   "expo": {
     "name": "SS Admin",
     "slug": "band-scanner",
-    "version": "2.2.9",
+    "version": "2.2.10",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "splash": {
@@ -21,8 +21,8 @@
       "newArchEnabled": true,
       "supportsTablet": true,
       "bundleIdentifier": "com.sadhusanga.ScannerApp",
-      "buildNumber": "39",
-      "version": "2.2.9",
+      "buildNumber": "44",
+      "version": "2.2.10",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
@@ -35,8 +35,8 @@
     "android": {
       "newArchEnabled": true,
       "package": "com.sadhusanga.ScannerApp",
-      "versionCode": 39,
-      "version": "2.2.9",
+      "versionCode": 44,
+      "version": "2.2.10",
       "permissions": [
         "CAMERA",
         "INTERNET",
