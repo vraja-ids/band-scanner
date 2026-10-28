@@ -115,7 +115,7 @@ export default function RedeemBusScreen() {
               </TouchableOpacity>
             </View>
             <FlatList
-              data={Array.from({ length: 25 }, (_, i) => i + 1)}
+              data={Array.from({ length: 10 }, (_, i) => i + 1)}
               keyExtractor={(item) => item.toString()}
               renderItem={({ item }) => (
                 <TouchableOpacity

@@ -11,6 +11,26 @@ import { getDaypassActivityStats } from './DaypassViewModel';
 import type { GetDaypassActivityStatsRequest } from './models/api';
 import { useBaseScreen } from '../common/util/useBaseScreen';
 
+// The event runs on India time (IST, UTC+5:30) — stats dates must follow the
+// event's calendar day, not the device's, or US users land a day behind.
+const IST_OFFSET_MINUTES = 330;
+
+// Date string (YYYY-MM-DD) for "now" in IST
+const getEventDateString = (): string => {
+  const ist = new Date(Date.now() + IST_OFFSET_MINUTES * 60000);
+  const month = String(ist.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(ist.getUTCDate()).padStart(2, '0');
+  return `${ist.getUTCFullYear()}-${month}-${day}`;
+};
+
+// Date string (YYYY-MM-DD) for a picked Date, in IST terms
+const toEventDateString = (d: Date): string => {
+  const ist = new Date(d.getTime() + IST_OFFSET_MINUTES * 60000);
+  const month = String(ist.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(ist.getUTCDate()).padStart(2, '0');
+  return `${ist.getUTCFullYear()}-${month}-${day}`;
+};
+
 const DaypassActivityStatsScreen: React.FC = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -18,16 +38,17 @@ const DaypassActivityStatsScreen: React.FC = () => {
   const { logAction, logError } = useBaseScreen({ screenName: 'DaypassActivityStatsScreen' });
 
   const [selectedActivity, setSelectedActivity] = useState<string>('bus1');
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<string>(getEventDateString());
   const [totalCount, setTotalCount] = useState<number>(0);
+  const [activityTotal, setActivityTotal] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tempDate, setTempDate] = useState<Date>(new Date());
   const [showActivityModal, setShowActivityModal] = useState(false);
 
-  const busOptions = Array.from({ length: 25 }, (_, i) => `bus${i + 1}`);
+  const busOptions = Array.from({ length: 10 }, (_, i) => `bus${i + 1}`);
   const prasadamOptions = ['breakfast', 'lunch', 'dinner'];
-  const allOptions = [...busOptions, ...prasadamOptions];
+  const allOptions = [...busOptions, ...prasadamOptions, 'entrance-gate'];
 
   useEffect(() => {
     loadStats();
@@ -45,9 +66,11 @@ const DaypassActivityStatsScreen: React.FC = () => {
         return;
       }
 
-      const activity = selectedActivity.startsWith('bus') 
-        ? `Bus ${selectedActivity.replace('bus', '')}` 
-        : selectedActivity.charAt(0).toUpperCase() + selectedActivity.slice(1);
+      // Backend keys on the base activity ('bus', 'breakfast', ...); the specific
+      // bus/location comes back in the per-location breakdown
+      const activity = selectedActivity.startsWith('bus')
+        ? 'bus'
+        : selectedActivity;
 
       const request: GetDaypassActivityStatsRequest = {
         eventId: selectedEventId,
@@ -59,12 +82,45 @@ const DaypassActivityStatsScreen: React.FC = () => {
       const response = await getDaypassActivityStats(request);
 
       if (response.status === 'success' && response.data) {
-        logAction('Daypass activity stats loaded', { 
-          activity: selectedActivity, 
-          date: selectedDate, 
-          totalCount: response.data.totalCount 
+        // Response shape: { activityStats: [{ totalCount, activity: [{ "Bus 1": 3, ... }], daypassName }] }
+        const data = response.data as any;
+        const stats = Array.isArray(data?.activityStats) ? data.activityStats : [];
+
+        // Merge breakdowns across entries (backend may return duplicates)
+        const merged: Record<string, number> = {};
+        let totalAll = 0;
+        for (const entry of stats) {
+          totalAll += Number(entry?.totalCount) || 0;
+          const breakdowns = Array.isArray(entry?.activity)
+            ? entry.activity
+            : entry?.activity
+              ? [entry.activity]
+              : [];
+          for (const obj of breakdowns) {
+            if (obj && typeof obj === 'object') {
+              for (const [key, value] of Object.entries(obj)) {
+                merged[key] = (merged[key] || 0) + Number(value) || 0;
+              }
+            }
+          }
+        }
+
+        const displayKey = getStatsKey(selectedActivity);
+        // Bus/entrance: pick the matching location's count.
+        // Prasadam: breakdown is keyed by lane, and the query is already
+        // meal-scoped — so the count is the sum of all lanes.
+        const count =
+          selectedActivity.startsWith('bus') || selectedActivity === 'entrance-gate'
+            ? merged[displayKey] ?? 0
+            : Object.values(merged).reduce((sum, n) => sum + n, 0);
+        logAction('Daypass activity stats loaded', {
+          activity: selectedActivity,
+          date: selectedDate,
+          totalCount: count,
+          activityTotal: totalAll,
         });
-        setTotalCount(response.data.totalCount);
+        setTotalCount(count);
+        setActivityTotal(totalAll);
       } else {
         logError('Failed to load daypass activity stats', 'loadStats');
         Alert.alert('Error', 'Failed to load activity stats');
@@ -88,7 +144,7 @@ const DaypassActivityStatsScreen: React.FC = () => {
     setTempDate(currentDate);
     
     if (selectedDate) {
-      const dateString = currentDate.toISOString().split('T')[0];
+      const dateString = toEventDateString(currentDate);
       setSelectedDate(dateString);
       logAction('Date selected', { date: dateString });
     }
@@ -101,9 +157,23 @@ const DaypassActivityStatsScreen: React.FC = () => {
   };
 
   const getActivityDisplayName = (activity: string) => {
+    if (activity === 'entrance-gate') {
+      return 'Entrance Gate';
+    }
     if (activity.startsWith('bus')) {
       const busNumber = activity.replace('bus', '');
       return `Bus ${busNumber}`;
+    }
+    return activity.charAt(0).toUpperCase() + activity.slice(1);
+  };
+
+  // Key used in the backend's per-location breakdown for the selected activity
+  const getStatsKey = (activity: string) => {
+    if (activity.startsWith('bus')) {
+      return `Bus ${activity.replace('bus', '')}`;
+    }
+    if (activity === 'entrance-gate') {
+      return 'entrance-gate';
     }
     return activity.charAt(0).toUpperCase() + activity.slice(1);
   };
@@ -140,7 +210,7 @@ const DaypassActivityStatsScreen: React.FC = () => {
             onPress={openDatePicker}
           >
             <Text style={styles.dropdownText}>
-              {new Date(selectedDate).toLocaleDateString('en-US', {
+              {new Date(`${selectedDate}T00:00:00`).toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
                 year: 'numeric'
@@ -160,7 +230,7 @@ const DaypassActivityStatsScreen: React.FC = () => {
                 mode="date"
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                 onChange={handleDateChange}
-                maximumDate={new Date()}
+                maximumDate={new Date(Date.now() + IST_OFFSET_MINUTES * 60000)}
                 minimumDate={new Date(2020, 0, 1)}
               />
               {Platform.OS === 'ios' && (
@@ -174,7 +244,7 @@ const DaypassActivityStatsScreen: React.FC = () => {
                   <TouchableOpacity
                     style={[styles.datePickerButton, styles.datePickerButtonPrimary]}
                     onPress={() => {
-                      const dateString = tempDate.toISOString().split('T')[0];
+                      const dateString = toEventDateString(tempDate);
                       setSelectedDate(dateString);
                       setShowDatePicker(false);
                       logAction('Date confirmed', { date: dateString });
@@ -194,7 +264,12 @@ const DaypassActivityStatsScreen: React.FC = () => {
           {isLoading ? (
             <ActivityIndicator size="large" color="#4CAF50" style={styles.loader} />
           ) : (
-            <Text style={styles.totalCount}>{totalCount}</Text>
+            <>
+              <Text style={styles.totalCount}>{totalCount}</Text>
+              {activityTotal > 0 && (
+                <Text style={styles.activityTotalText}>Activity total: {activityTotal}</Text>
+              )}
+            </>
           )}
         </View>
 
@@ -371,6 +446,11 @@ const styles = StyleSheet.create({
     fontSize: 48,
     fontWeight: 'bold',
     color: '#4CAF50',
+  },
+  activityTotalText: {
+    fontSize: 14,
+    color: '#888',
+    marginTop: 8,
   },
   loader: {
     marginVertical: 20,

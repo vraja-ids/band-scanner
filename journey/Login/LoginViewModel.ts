@@ -35,7 +35,8 @@ export const getProfile = async (
 
 export const getEvents = async (): Promise<ApiResponse<GetEventsResponse>> => {
   return requestAsApiResponse(async () => {
-    const resp = await fetch('https://storage.googleapis.com/sadhu-sanga/app-json/events.json');
+    // Cache-bust: events.json is edited between events, don't let HTTP caches serve stale copies
+    const resp = await fetch(`https://storage.googleapis.com/sadhu-sanga/app-json/events.json?t=${Date.now()}`);
     const data = (await resp.json()) as GetEventsResponse;
     return { data, status: 200, statusText: 'OK', headers: {}, config: {} } as any;
   });
