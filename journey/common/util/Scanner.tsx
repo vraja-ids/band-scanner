@@ -124,12 +124,12 @@ export default function Scanner({ navigation, route }: Props) {
         return;
       }
       
-      const response = await getDaypassStatus({ 
+      const response = await getDaypassStatus({
         dayPassNumber,
         eventId,
         scannerMemberId
       });
-      
+
       if (response.status === 'success' && response.data) {
         const daypassData = response.data.daypassDetails;
         const hasBusStatus = daypassData.statusDetails.bus && daypassData.statusDetails.bus.length > 0;

@@ -79,6 +79,16 @@ export default function RishikeshKirtanScanScreen() {
   const { t } = useTranslation();
 
   const [daypassData, setDaypassData] = useState<GetDaypassStatusResponse['daypassDetails'] | null>(null);
+
+  // Pop up the scanner alert so the user can't miss it (message comes in the status field)
+  useEffect(() => {
+    if (daypassData?.scannerAlert === true) {
+      Alert.alert(
+        'Scanner Alert',
+        daypassData.status || 'This pass has special attention'
+      );
+    }
+  }, [daypassData]);
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [tagId, setTagId] = useState<string | null>(null);
@@ -466,11 +476,13 @@ export default function RishikeshKirtanScanScreen() {
               </Text>
             </View>
 
-            {/* Scanner Alert */}
+            {/* Scanner Alert - message comes in the status field */}
             {daypassData.scannerAlert === true && (
               <View style={[styles.alertContainer, { backgroundColor: '#FFF3CD' }]}>
                 <Ionicons name="warning" size={20} color="#FF9800" />
-                <Text style={styles.alertText}>Scanner Alert: This pass has special attention</Text>
+                <Text style={styles.alertText} numberOfLines={4}>
+                  Scanner Alert: {daypassData.status || 'This pass has special attention'}
+                </Text>
               </View>
             )}
           </View>

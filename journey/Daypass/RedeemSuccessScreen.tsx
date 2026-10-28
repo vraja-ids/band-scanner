@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -35,6 +35,17 @@ export default function RedeemSuccessScreen() {
   const [currentDaypassDetails, setCurrentDaypassDetails] = useState(daypassDetails);
   const [currentIsUnredeem, setCurrentIsUnredeem] = useState(isUnredeem);
   const [currentIsError, setCurrentIsError] = useState(isError);
+
+  // Pop up the scanner alert so the user can't miss it (message comes in the status field)
+  useEffect(() => {
+    if (currentDaypassDetails?.scannerAlert) {
+      Alert.alert(
+        t('daypass.scannerAlert'),
+        currentDaypassDetails.status || 'This pass has special attention'
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
 
   const handleScanNext = () => {
@@ -193,11 +204,13 @@ export default function RedeemSuccessScreen() {
                 </View>
               )}
 
-              {/* Scanner Alert */}
+              {/* Scanner Alert - message comes in the status field */}
               {currentDaypassDetails.scannerAlert && (
                 <View style={styles.alertContainer}>
                   <Ionicons name="warning" size={20} color="#ff9800" />
-                  <Text style={styles.alertText}>{t('daypass.scannerAlert')}</Text>
+                  <Text style={styles.alertText} numberOfLines={4}>
+                    {currentDaypassDetails.status || t('daypass.scannerAlert')}
+                  </Text>
                 </View>
               )}
             </View>
