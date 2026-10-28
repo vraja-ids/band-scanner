@@ -29,10 +29,10 @@ export interface EventMealSchedule {
   meals: MealTimeSlot[];
 }
 
-// USASA 2026 Schedule (May 22-25, 2026)
-// Friday May 22 - Monday May 25, 2026
+// USASA 2027 Schedule (May 28-31, 2027)
+// Friday May 28 - Monday May 31, 2027 (Memorial Day weekend)
 // Standard meal windows: Breakfast 7:30-10:30, Lunch 13:00-16:00, Dinner 18:30-21:30
-const USASA2026Meals: MealTimeSlot[] = [
+const USASA2027Meals: MealTimeSlot[] = [
   {
     mealId: 'friDinner',
     name: 'Friday Dinner',
@@ -237,8 +237,8 @@ const RishikeshKirtanFest2026Meals: MealTimeSlot[] = [
   },
 ];
 
-// Kartik Parikrama 2025 Schedule (November 2025)
-const KartikParikrama2025Meals: MealTimeSlot[] = [
+// Kartik Parikrama 2026 Schedule (November 2026)
+const KartikParikrama2026Meals: MealTimeSlot[] = [
   {
     mealId: 'morningPrasadam',
     name: 'Morning Prasadam',
@@ -277,9 +277,9 @@ const KartikParikrama2025Meals: MealTimeSlot[] = [
 // All event meal schedules
 export const MEAL_SCHEDULES: EventMealSchedule[] = [
   {
-    eventId: 'USASadhuSanga2026',
-    eventName: 'USA Sadhu Sanga Retreat 2026',
-    meals: USASA2026Meals,
+    eventId: 'USASadhuSanga2027',
+    eventName: 'USA Sadhu Sanga Retreat 2027',
+    meals: USASA2027Meals,
   },
   {
     eventId: 'RishikeshKirtanFest2026',
@@ -287,9 +287,9 @@ export const MEAL_SCHEDULES: EventMealSchedule[] = [
     meals: RishikeshKirtanFest2026Meals,
   },
   {
-    eventId: 'KartikParikrama2025',
-    eventName: 'Kartik Parikrama 2025',
-    meals: KartikParikrama2025Meals,
+    eventId: 'KartikParikrama2026',
+    eventName: 'Kartik Parikrama 2026',
+    meals: KartikParikrama2026Meals,
   },
 ];
 

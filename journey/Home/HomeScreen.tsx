@@ -557,7 +557,9 @@ const HomeScreen = () => {
     }
 
     // Show separate redeem buttons if daypass is available
-    if (!scansInThisEvent.includes('Meals') && !scansInThisEvent.includes('Gifts') && !scansInThisEvent.includes('RegistrationTag')) {
+    // Kartik Parikrama shows them alongside Meals/Gifts/RegistrationTag
+    const isKartikParikrama = selectedEventId === 'KartikParikrama2026';
+    if (isKartikParikrama || (!scansInThisEvent.includes('Meals') && !scansInThisEvent.includes('Gifts') && !scansInThisEvent.includes('RegistrationTag'))) {
       if (scansInThisEvent.includes('Daypass')) {
         if (SessionManager.hasPermission('canScanDaypassBus')) {
           buttons.push(
